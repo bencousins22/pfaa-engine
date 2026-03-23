@@ -1,0 +1,582 @@
+╔══════════════════════════════════════════════════════════════════╗
+║  PFAA COMPREHENSIVE BENCHMARK — Industry-Standard Agent Tests   ║
+║  Created by Jamie (@bencousins22) · Python 3.15 · macOS        ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ═══ A. FUNCTION CALLING (BFCL-inspired) ═══
+  ✓ A1: Simple dispatch (compute)                      4.4ms  result=12.0
+  ✓ A2: String params (hash)                           0.6ms  
+  ✓ A3: File read (/dev/null)                          0.5ms  
+  ✓ A4: Glob search (*.py)                             0.6ms  found=1
+  ✓ A5: Shell execution                              204.5ms  
+  ✓ A6: JSON parse + query                             0.7ms  
+  ✓ A7: Regex extract (version)                      183.7ms  
+  ✓ A8: DNS lookup (localhost)                        11.9ms  
+  ✓ A9: Env var read (HOME)                            0.2ms  
+  ✓ A10: Git status (SOLID phase)                    218.1ms  
+
+  ═══ B. MULTI-STEP REASONING (AgentBench-inspired) ═══
+  ✓ B1: 3-stage pipeline                               1.8ms  3/3
+  ✓ B2: 4-way parallel fan-out                        28.4ms  
+
+🎯 GOAL: compute sqrt(42) and hash test data and check system info
+   ID:   goal-1ce55532
+
+📋 DECOMPOSED into 5 subtasks:
+   [st-260e12] compute              phase=LIQUID
+   [st-d4d1fb] hash_data            phase=LIQUID
+   [st-1405d0] sandbox_exec         phase=SOLID
+   [st-53ad36] system_info          phase=LIQUID
+   [st-a412d9] file_stats           phase=LIQUID
+   ✓ st-260e12 [compute        ] LIQUID 484μs
+   ✓ st-d4d1fb [hash_data      ] LIQUID 234μs
+   ✓ st-53ad36 [system_info    ] VAPOR  1166μs
+   ✓ st-a412d9 [file_stats     ] VAPOR  32431μs
+   ✓ st-1405d0 [sandbox_exec   ] SOLID  220815μs
+
+✅ GOAL COMPLETED: 5/5 subtasks, 255.1ms total
+   Memory: 1123 episodes, 26 patterns
+  ✓ B3: NL goal → DAG execution                      243.1ms  5 subtasks
+  ✓ B4: 20-way parallel compute                        7.4ms  
+
+🎯 GOAL: check disk usage and git status and count lines and compute pi
+   ID:   goal-ee17d2cb
+
+📋 DECOMPOSED into 5 subtasks:
+   [st-1998bb] disk_usage           phase=LIQUID
+   [st-771b69] git_status           phase=SOLID
+   [st-3bab18] system_info          phase=LIQUID
+   [st-6556b7] line_count           phase=LIQUID
+   [st-def251] compute              phase=LIQUID
+   ✓ st-def251 [compute        ] LIQUID 521μs
+   ✓ st-1998bb [disk_usage     ] VAPOR  5420μs
+   ✓ st-3bab18 [system_info    ] VAPOR  1644μs
+   ✓ st-6556b7 [line_count     ] LIQUID 15437μs
+   ✓ st-771b69 [git_status     ] SOLID  210694μs
+
+✅ GOAL COMPLETED: 5/5 subtasks, 233.7ms total
+   Memory: 1128 episodes, 26 patterns
+  ✓ B5: Mixed-phase goal (V+L+S)                     226.9ms  phases={'VAPOR', 'LIQUID', 'SOLID'}
+
+  ═══ C. FAULT RECOVERY (TAU2-Bench-inspired) ═══
+  ✓ C1: Retry on transient failure                    33.7ms  restarts=2
+  ✓ C2: Graceful degradation (1/3 fail)                2.0ms  
+  ✓ C3: Max restarts cap (2)                          34.3ms  
+  ✓ C4: Nested supervisor isolation                    1.9ms  
+
+  ═══ D. TASK DECOMPOSITION (GAIA-inspired) ═══
+
+🎯 GOAL: count lines and compute sqrt(42)
+   ID:   goal-f6cf882a
+
+📋 DECOMPOSED into 2 subtasks:
+   [st-7fce82] line_count           phase=LIQUID
+   [st-5151a3] compute              phase=LIQUID
+   ✓ st-5151a3 [compute        ] LIQUID 475μs
+   ✓ st-7fce82 [line_count     ] LIQUID 15494μs
+
+✅ GOAL COMPLETED: 2/2 subtasks, 16.0ms total
+   Memory: 1130 episodes, 26 patterns
+  ✓ D1: Simple 2-task                                 28.4ms  2 subtasks, need≥2
+
+🎯 GOAL: search for TODO and check git and count lines
+   ID:   goal-2911e3c7
+
+📋 DECOMPOSED into 3 subtasks:
+   [st-1c67f4] codebase_search      phase=LIQUID
+   [st-af9725] git_status           phase=SOLID
+   [st-52538b] line_count           phase=LIQUID
+   ✓ st-1c67f4 [codebase_search] LIQUID 24922μs
+   ✓ st-52538b [line_count     ] LIQUID 26514μs
+   ✓ st-af9725 [git_status     ] SOLID  209198μs
+
+✅ GOAL COMPLETED: 3/3 subtasks, 260.6ms total
+   Memory: 1133 episodes, 26 patterns
+  ✓ D2: 3-tool analysis                              223.6ms  3 subtasks, need≥3
+
+🎯 GOAL: check system info and disk usage and port check 8000 and dns lookup localhost
+   ID:   goal-0bd10237
+
+📋 DECOMPOSED into 5 subtasks:
+   [st-d404a4] system_info          phase=LIQUID
+   [st-285df2] file_stats           phase=LIQUID
+   [st-29eb35] disk_usage           phase=LIQUID
+   [st-3869c8] port_check           phase=VAPOR
+   [st-dac4c6] dns_lookup           phase=VAPOR
+   ✓ st-29eb35 [disk_usage     ] VAPOR  514μs
+   ✓ st-d404a4 [system_info    ] VAPOR  1551μs
+   ✓ st-dac4c6 [dns_lookup     ] VAPOR  1030μs
+   ✓ st-3869c8 [port_check     ] VAPOR  1302μs
+   ✓ st-285df2 [file_stats     ] VAPOR  26437μs
+
+✅ GOAL COMPLETED: 5/5 subtasks, 30.8ms total
+   Memory: 1138 episodes, 26 patterns
+  ✓ D3: System survey                                 40.9ms  5 subtasks, need≥4
+
+🎯 GOAL: analyze code and search for class definitions and count lines and check git status and git log and system info
+   ID:   goal-67b31d5b
+
+📋 DECOMPOSED into 6 subtasks:
+   [st-656e6f] line_count           phase=LIQUID
+   [st-9556ae] file_stats           phase=LIQUID
+   [st-9c4521] codebase_search      phase=LIQUID
+   [st-9e2f60] git_status           phase=SOLID
+   [st-6fe742] system_info          phase=LIQUID
+   [st-bd92dc] git_log              phase=SOLID
+   ✓ st-6fe742 [system_info    ] VAPOR  5724μs
+   ✓ st-9c4521 [codebase_search] LIQUID 42828μs
+   ✓ st-656e6f [line_count     ] LIQUID 54051μs
+   ✓ st-9556ae [file_stats     ] VAPOR  68963μs
+   ✓ st-9e2f60 [git_status     ] SOLID  217002μs
+   ✓ st-bd92dc [git_log        ] SOLID  244370μs
+
+✅ GOAL COMPLETED: 6/6 subtasks, 632.9ms total
+   Memory: 1144 episodes, 26 patterns
+  ✓ D4: Full codebase review                         267.6ms  6 subtasks, need≥5
+
+🎯 GOAL: review codebase and find TODO and count lines and compute pi and hash test and check git and system info and disk usage
+   ID:   goal-0ce87e2a
+
+📋 DECOMPOSED into 10 subtasks:
+   [st-2cca8f] codebase_search      phase=LIQUID
+   [st-a5a25a] line_count           phase=LIQUID
+   [st-649b06] glob_search          phase=LIQUID
+   [st-c6dd34] compute              phase=LIQUID
+   [st-5b9b10] hash_data            phase=LIQUID
+   [st-f7651e] sandbox_exec         phase=SOLID
+   [st-38fa55] git_status           phase=SOLID
+   [st-655f7d] system_info          phase=LIQUID
+   [st-1c456d] file_stats           phase=LIQUID
+   [st-3c1dc9] disk_usage           phase=LIQUID
+   ✓ st-c6dd34 [compute        ] LIQUID 1087μs
+   ✓ st-5b9b10 [hash_data      ] LIQUID 807μs
+   ✓ st-649b06 [glob_search    ] VAPOR  14373μs
+   ✓ st-3c1dc9 [disk_usage     ] VAPOR  1440μs
+   ✓ st-655f7d [system_info    ] VAPOR  49692μs
+   ✓ st-2cca8f [codebase_search] LIQUID 63845μs
+   ✓ st-a5a25a [line_count     ] LIQUID 74932μs
+   ✓ st-1c456d [file_stats     ] VAPOR  79021μs
+   ✓ st-38fa55 [git_status     ] SOLID  227871μs
+   ✓ st-f7651e [sandbox_exec   ] SOLID  262320μs
+
+✅ GOAL COMPLETED: 10/10 subtasks, 775.4ms total
+   Memory: 1154 episodes, 26 patterns
+  ✓ D5: Maximum decomposition                        279.9ms  10 subtasks, need≥6
+
+  ═══ E. MEMORY & PERSISTENCE (HAL-inspired) ═══
+  ✓ E1: Record 50 episodes                           217.5ms  
+  ✓ E2: L2 pattern extraction                          1.2ms  patterns=1
+  ✓ E3: Phase recommendation                           0.0ms  recommended=VAPOR
+  ✓ E4: Cross-session persistence                      2.4ms  loaded=50
+  ✓ E5: Recommendation persists                        0.0ms  
+
+  ═══ F. CONCURRENCY & SCALE (AutoAgents-inspired) ═══
+  ✓ F1: Spawn 1,000 agents                             5.7ms  5.7μs/agent
+  ✓ F2: Spawn 10,000 agents                           79.3ms  7.9μs/agent
+  ✓ F3: Scatter/gather 100 tasks                       7.3ms  
+  ✓ F4: Scatter/gather 500 tasks                      24.5ms  20406/sec
+  ✓ F5: Swarm pool 300 tasks / 8 workers              12.6ms  23799/sec
+
+  ═══ G. SELF-IMPROVEMENT (PFAA-unique) ═══
+
+🔍 INTROSPECTING — Analyzing own codebase...
+  Lines of code: 5971
+  Total files: 36
+    __init__.py                        0 lines  
+    agent.py                         279 lines  
+    autonomous.py                    319 lines  
+    benchmark.py                     323 lines  
+    claude_bridge.py                 371 lines  
+    delegation.py                    209 lines  
+    framework.py                     296 lines  
+    memory.py                        620 lines  
+    nucleus.py                       269 lines  
+    orchestrator.py                  233 lines  
+    persistence.py                   402 lines  
+    phase.py                          55 lines  
+    self_build.py                    542 lines  
+    server.py                        267 lines  
+    streaming.py                     167 lines  
+    test_full_system.py              298 lines  
+    test_integration.py              255 lines  
+    tools.py                         515 lines  
+    tools_extended.py                501 lines  
+    tools_generated.py                50 lines  
+
+  Summary: 36 files, 5971 lines, 27 tools, 1156 memories
+  ✓ G1: Self-introspection                           220.3ms  5971 lines
+  Static analysis found 29 improvements:
+    • Module __init__.py missing module docstring
+    • Module agent.py missing module docstring
+    • Module autonomous.py has 319 lines — consider splitting
+    • Module autonomous.py missing module docstring
+    • Module benchmark.py has 323 lines — consider splitting
+    • Module benchmark.py missing module docstring
+    • Module claude_bridge.py has 371 lines — consider splitting
+    • Module claude_bridge.py missing module docstring
+    • Module delegation.py missing module docstring
+    • Module framework.py missing module docstring
+  ✓ G2: Self-diagnosis                                 5.0ms  29 findings
+
+🧪 TESTING generated code in sandbox...
+  Compile: ✓
+  Execute: ✓
+  ✓ G3: Sandbox code execution                       351.0ms  
+
+  ═══ H. PHASE-FLUID EXECUTION (PFAA-unique) ═══
+  ✓ H1: V→L→V transition cycle                         1.6ms  2 transitions
+  ✓ H2: 3-phase tool distribution                      0.0ms  V=10 L=7 S=10
+  ✓ H3: Event streaming works                          0.6ms  1 events
+
+════════════════════════════════════════════════════════════════════
+
+  CATEGORY                                          RESULT
+  ────────────────────────────────────────────────────────
+  A. Function Calling (BFCL)                    10/10 ██████████
+  B. Multi-Step Reasoning (AgentBench)           5/5  ██████████
+  C. Fault Recovery (TAU2-Bench)                 4/4  ██████████
+  D. Task Decomposition (GAIA)                   5/5  ██████████
+  E. Memory & Persistence (HAL)                  5/5  ██████████
+  F. Concurrency & Scale (AutoAgents)            5/5  ██████████
+  G. Self-Improvement (PFAA-unique)              3/3  ██████████
+  H. Phase-Fluid Execution (PFAA-unique)         3/3  ██████████
+  ────────────────────────────────────────────────────────
+  TOTAL                                         40/40  100%
+
+  Completed in 3077ms
+
+════════════════════════════════════════════════════════════════════
+{
+  "benchmark": "PFAA Comprehensive Benchmark v1.0",
+  "date": "2026-03-23",
+  "author": "Jamie (@bencousins22)",
+  "python": "3.15.0a7",
+  "total_passed": 40,
+  "total_tests": 40,
+  "percentage": 100,
+  "elapsed_ms": 3077,
+  "categories": {
+    "A": {
+      "name": "Function Calling (BFCL)",
+      "passed": 10,
+      "total": 10
+    },
+    "B": {
+      "name": "Multi-Step Reasoning (AgentBench)",
+      "passed": 5,
+      "total": 5
+    },
+    "C": {
+      "name": "Fault Recovery (TAU2-Bench)",
+      "passed": 4,
+      "total": 4
+    },
+    "D": {
+      "name": "Task Decomposition (GAIA)",
+      "passed": 5,
+      "total": 5
+    },
+    "E": {
+      "name": "Memory & Persistence (HAL)",
+      "passed": 5,
+      "total": 5
+    },
+    "F": {
+      "name": "Concurrency & Scale (AutoAgents)",
+      "passed": 5,
+      "total": 5
+    },
+    "G": {
+      "name": "Self-Improvement (PFAA-unique)",
+      "passed": 3,
+      "total": 3
+    },
+    "H": {
+      "name": "Phase-Fluid Execution (PFAA-unique)",
+      "passed": 3,
+      "total": 3
+    }
+  },
+  "tests": [
+    {
+      "name": "A1: Simple dispatch (compute)",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 4.4,
+      "details": "result=12.0"
+    },
+    {
+      "name": "A2: String params (hash)",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 0.6,
+      "details": ""
+    },
+    {
+      "name": "A3: File read (/dev/null)",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 0.5,
+      "details": ""
+    },
+    {
+      "name": "A4: Glob search (*.py)",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 0.6,
+      "details": "found=1"
+    },
+    {
+      "name": "A5: Shell execution",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 204.5,
+      "details": ""
+    },
+    {
+      "name": "A6: JSON parse + query",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 0.7,
+      "details": ""
+    },
+    {
+      "name": "A7: Regex extract (version)",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 183.7,
+      "details": ""
+    },
+    {
+      "name": "A8: DNS lookup (localhost)",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 11.9,
+      "details": ""
+    },
+    {
+      "name": "A9: Env var read (HOME)",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 0.2,
+      "details": ""
+    },
+    {
+      "name": "A10: Git status (SOLID phase)",
+      "category": "A",
+      "passed": true,
+      "elapsed_ms": 218.1,
+      "details": ""
+    },
+    {
+      "name": "B1: 3-stage pipeline",
+      "category": "B",
+      "passed": true,
+      "elapsed_ms": 1.8,
+      "details": "3/3"
+    },
+    {
+      "name": "B2: 4-way parallel fan-out",
+      "category": "B",
+      "passed": true,
+      "elapsed_ms": 28.4,
+      "details": ""
+    },
+    {
+      "name": "B3: NL goal \u2192 DAG execution",
+      "category": "B",
+      "passed": true,
+      "elapsed_ms": 243.1,
+      "details": "5 subtasks"
+    },
+    {
+      "name": "B4: 20-way parallel compute",
+      "category": "B",
+      "passed": true,
+      "elapsed_ms": 7.4,
+      "details": ""
+    },
+    {
+      "name": "B5: Mixed-phase goal (V+L+S)",
+      "category": "B",
+      "passed": true,
+      "elapsed_ms": 226.9,
+      "details": "phases={'VAPOR', 'LIQUID', 'SOLID'}"
+    },
+    {
+      "name": "C1: Retry on transient failure",
+      "category": "C",
+      "passed": true,
+      "elapsed_ms": 33.7,
+      "details": "restarts=2"
+    },
+    {
+      "name": "C2: Graceful degradation (1/3 fail)",
+      "category": "C",
+      "passed": true,
+      "elapsed_ms": 2.0,
+      "details": ""
+    },
+    {
+      "name": "C3: Max restarts cap (2)",
+      "category": "C",
+      "passed": true,
+      "elapsed_ms": 34.3,
+      "details": ""
+    },
+    {
+      "name": "C4: Nested supervisor isolation",
+      "category": "C",
+      "passed": true,
+      "elapsed_ms": 1.9,
+      "details": ""
+    },
+    {
+      "name": "D1: Simple 2-task",
+      "category": "D",
+      "passed": true,
+      "elapsed_ms": 28.4,
+      "details": "2 subtasks, need\u22652"
+    },
+    {
+      "name": "D2: 3-tool analysis",
+      "category": "D",
+      "passed": true,
+      "elapsed_ms": 223.6,
+      "details": "3 subtasks, need\u22653"
+    },
+    {
+      "name": "D3: System survey",
+      "category": "D",
+      "passed": true,
+      "elapsed_ms": 40.9,
+      "details": "5 subtasks, need\u22654"
+    },
+    {
+      "name": "D4: Full codebase review",
+      "category": "D",
+      "passed": true,
+      "elapsed_ms": 267.6,
+      "details": "6 subtasks, need\u22655"
+    },
+    {
+      "name": "D5: Maximum decomposition",
+      "category": "D",
+      "passed": true,
+      "elapsed_ms": 279.9,
+      "details": "10 subtasks, need\u22656"
+    },
+    {
+      "name": "E1: Record 50 episodes",
+      "category": "E",
+      "passed": true,
+      "elapsed_ms": 217.5,
+      "details": ""
+    },
+    {
+      "name": "E2: L2 pattern extraction",
+      "category": "E",
+      "passed": true,
+      "elapsed_ms": 1.2,
+      "details": "patterns=1"
+    },
+    {
+      "name": "E3: Phase recommendation",
+      "category": "E",
+      "passed": true,
+      "elapsed_ms": 0.0,
+      "details": "recommended=VAPOR"
+    },
+    {
+      "name": "E4: Cross-session persistence",
+      "category": "E",
+      "passed": true,
+      "elapsed_ms": 2.4,
+      "details": "loaded=50"
+    },
+    {
+      "name": "E5: Recommendation persists",
+      "category": "E",
+      "passed": true,
+      "elapsed_ms": 0.0,
+      "details": ""
+    },
+    {
+      "name": "F1: Spawn 1,000 agents",
+      "category": "F",
+      "passed": true,
+      "elapsed_ms": 5.7,
+      "details": "5.7\u03bcs/agent"
+    },
+    {
+      "name": "F2: Spawn 10,000 agents",
+      "category": "F",
+      "passed": true,
+      "elapsed_ms": 79.3,
+      "details": "7.9\u03bcs/agent"
+    },
+    {
+      "name": "F3: Scatter/gather 100 tasks",
+      "category": "F",
+      "passed": true,
+      "elapsed_ms": 7.3,
+      "details": ""
+    },
+    {
+      "name": "F4: Scatter/gather 500 tasks",
+      "category": "F",
+      "passed": true,
+      "elapsed_ms": 24.5,
+      "details": "20406/sec"
+    },
+    {
+      "name": "F5: Swarm pool 300 tasks / 8 workers",
+      "category": "F",
+      "passed": true,
+      "elapsed_ms": 12.6,
+      "details": "23799/sec"
+    },
+    {
+      "name": "G1: Self-introspection",
+      "category": "G",
+      "passed": true,
+      "elapsed_ms": 220.3,
+      "details": "5971 lines"
+    },
+    {
+      "name": "G2: Self-diagnosis",
+      "category": "G",
+      "passed": true,
+      "elapsed_ms": 5.0,
+      "details": "29 findings"
+    },
+    {
+      "name": "G3: Sandbox code execution",
+      "category": "G",
+      "passed": true,
+      "elapsed_ms": 351.0,
+      "details": ""
+    },
+    {
+      "name": "H1: V\u2192L\u2192V transition cycle",
+      "category": "H",
+      "passed": true,
+      "elapsed_ms": 1.6,
+      "details": "2 transitions"
+    },
+    {
+      "name": "H2: 3-phase tool distribution",
+      "category": "H",
+      "passed": true,
+      "elapsed_ms": 0.0,
+      "details": "V=10 L=7 S=10"
+    },
+    {
+      "name": "H3: Event streaming works",
+      "category": "H",
+      "passed": true,
+      "elapsed_ms": 0.6,
+      "details": "1 events"
+    }
+  ]
+}

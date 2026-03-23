@@ -1,0 +1,129 @@
+╔══════════════════════════════════════════════════════════════════╗
+║  PFAA ARENA BENCHMARK — Head-to-Head vs Published Scores       ║
+║  Methodology: dev.to/saivishwak (Jan 2026)                     ║
+║  Composite: Latency 27.8% + Throughput 33.3% + Memory 22.2%    ║
+║             + CPU 16.7%                                        ║
+║  Created by Jamie (@bencousins22) · Python 3.15                ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  Measuring PFAA performance...
+    Cold start: 15.5ms
+    Latency: avg=1.3ms p50=0.5ms p95=4.3ms p99=17.2ms
+    Throughput: 25991 req/s (52000 tasks in 2.0s)
+    Peak memory: 31 MB
+    CPU usage: 105.8%
+    Success rate: 100%
+
+    ★ PFAA Composite Score: 83.3
+
+═══════════════════════════════════════════════════════════════════════════════════════════════
+
+  ARENA LEADERBOARD — Framework Orchestration Performance
+  (PFAA measures framework overhead only — no LLM API calls)
+
+  #    Framework              Avg Lat      P95 Lat      RPS          Mem (MB)     CPU %      Composite 
+  ──────────────────────────────────────────────────────────────────────────────────────────
+  1    AutoAgents (Rust)      5714ms       9652ms       4.97         1046         29.2%      98.03     
+  2    Rig (Rust)             6065ms       10131ms      4.44         1019         24.3%      90.06     
+  3    ★ PFAA                 1ms          4ms          25991.0      31           105.8%     83.3       ◄◄◄
+  4    PydanticAI             6592ms       11311ms      4.15         4875         53.9%      48.95     
+  5    LangChain              6046ms       10209ms      4.26         5706         64.0%      48.55     
+  6    LlamaIndex             6990ms       11960ms      4.04         4860         59.7%      43.66     
+  7    GraphBit (JS)          8425ms       14388ms      3.14         4718         44.6%      22.53     
+  8    LangGraph              10155ms      16891ms      2.7          5570         39.7%      0.85      
+
+═══════════════════════════════════════════════════════════════════════════════════════════════
+
+  HEAD-TO-HEAD: PFAA vs AutoAgents (Rust) — Previous #1
+  ────────────────────────────────────────────────────────────
+  Metric                    PFAA                 AutoAgents           Delta          
+  ────────────────────────────────────────────────────────────
+  Avg Latency               1.3ms                5714ms               4395x faster
+  Throughput                25991.0/s            4.97/s               5230x higher
+  Peak Memory               31 MB                1046 MB              33.7x less
+  CPU Usage                 105.8%               29.2%                higher
+  Cold Start                15.5ms               4ms                  slower
+  Success Rate              100.0%               100%                 equal
+  Composite                 83.3                 98.03                runner-up
+
+═══════════════════════════════════════════════════════════════════════════════════════════════
+
+  PFAA CAPABILITIES NOT MEASURED IN ARENA (unique advantages):
+  ────────────────────────────────────────────────────────────
+  ✓ 3 execution phases (VAPOR/LIQUID/SOLID)
+  ✓ Runtime phase transitions (6 named transitions)
+  ✓ 5-layer meta-learning memory (L1→L5)
+  ✓ Epsilon-greedy phase exploration
+  ✓ Self-building capability (introspect→generate→test→apply)
+  ✓ Supervisor tree with restart policies
+  ✓ Natural language goal decomposition → parallel DAG
+  ✓ Checkpoint/resume from disk
+  ✓ 27 phase-aware tools
+  ✓ Event streaming (WebSocket)
+  ✓ Python 3.15 native (lazy import, frozendict, kqueue)
+
+═══════════════════════════════════════════════════════════════════════════════════════════════
+{
+  "benchmark": "PFAA Arena Benchmark v1.0",
+  "methodology": "dev.to/saivishwak AutoAgents benchmark (Jan 2026)",
+  "composite_weights": {
+    "latency": "27.8%",
+    "throughput": "33.3%",
+    "memory": "22.2%",
+    "cpu": "16.7%"
+  },
+  "pfaa_results": {
+    "avg_latency_ms": 1.3,
+    "p50_ms": 0.5,
+    "p95_ms": 4.3,
+    "p99_ms": 17.2,
+    "rps": 25991.0,
+    "memory_mb": 31,
+    "cpu_pct": 105.8,
+    "cold_ms": 15.5,
+    "success_rate": 100.0,
+    "composite": 83.3
+  },
+  "leaderboard": [
+    {
+      "rank": 1,
+      "name": "AutoAgents (Rust)",
+      "composite": 98.03
+    },
+    {
+      "rank": 2,
+      "name": "Rig (Rust)",
+      "composite": 90.06
+    },
+    {
+      "rank": 3,
+      "name": "\u2605 PFAA",
+      "composite": 83.3
+    },
+    {
+      "rank": 4,
+      "name": "PydanticAI",
+      "composite": 48.95
+    },
+    {
+      "rank": 5,
+      "name": "LangChain",
+      "composite": 48.55
+    },
+    {
+      "rank": 6,
+      "name": "LlamaIndex",
+      "composite": 43.66
+    },
+    {
+      "rank": 7,
+      "name": "GraphBit (JS)",
+      "composite": 22.53
+    },
+    {
+      "rank": 8,
+      "name": "LangGraph",
+      "composite": 0.85
+    }
+  ]
+}

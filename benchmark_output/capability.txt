@@ -1,0 +1,337 @@
+╔════════════════════════════════════════════════════════════╗
+║  PFAA AGENT BENCHMARK — Standardized Assessment          ║
+║  Created by Jamie (@bencousins22)                        ║
+║  Python 3.15.0a7 · macOS · Phase-Fluid Architecture      ║
+╚════════════════════════════════════════════════════════════╝
+
+────────────────────────────────────────────────────────────
+  How fast can we create agents?
+  1. SPAWN LATENCY: 125/125 ████████████████████
+  6.3μs per agent  (8ms)
+
+────────────────────────────────────────────────────────────
+  How many tasks per second can we sustain?
+  2. PARALLEL THROUGHPUT: 125/125 ████████████████████
+  17519 tasks/sec  (29ms)
+
+────────────────────────────────────────────────────────────
+  How many distinct tool types are available?
+  3. TOOL DIVERSITY: 125/125 ████████████████████
+  27 tools across 3 phases  (0ms)
+
+────────────────────────────────────────────────────────────
+  Can goals be decomposed into parallel subtask DAGs?
+
+🎯 GOAL: count lines and check git status
+   ID:   goal-90879141
+
+📋 DECOMPOSED into 3 subtasks:
+   [st-c8058d] line_count           phase=LIQUID
+   [st-6b252a] git_status           phase=SOLID
+   [st-3db33e] system_info          phase=LIQUID
+   ✓ st-3db33e [system_info    ] VAPOR  25680μs
+   ✓ st-c8058d [line_count     ] LIQUID 43918μs
+   ✓ st-6b252a [git_status     ] SOLID  217947μs
+
+✅ GOAL COMPLETED: 3/3 subtasks, 287.5ms total
+   Memory: 1161 episodes, 26 patterns
+
+🎯 GOAL: search for TODO and analyze code and check disk
+   ID:   goal-d1fac8d2
+
+📋 DECOMPOSED into 4 subtasks:
+   [st-eeb3d3] codebase_search      phase=LIQUID
+   [st-c0cb25] line_count           phase=LIQUID
+   [st-85d6a1] file_stats           phase=LIQUID
+   [st-797b93] disk_usage           phase=LIQUID
+   ✓ st-797b93 [disk_usage     ] VAPOR  254μs
+   ✓ st-eeb3d3 [codebase_search] LIQUID 24588μs
+   ✓ st-c0cb25 [line_count     ] LIQUID 33276μs
+   ✓ st-85d6a1 [file_stats     ] VAPOR  45918μs
+
+✅ GOAL COMPLETED: 4/4 subtasks, 104.0ms total
+   Memory: 1165 episodes, 26 patterns
+
+🎯 GOAL: compute sqrt(42) and hash test and system info and git log
+   ID:   goal-4d9033ce
+
+📋 DECOMPOSED into 7 subtasks:
+   [st-a91db1] compute              phase=LIQUID
+   [st-8d08b9] hash_data            phase=LIQUID
+   [st-c44a23] sandbox_exec         phase=SOLID
+   [st-1ba452] system_info          phase=LIQUID
+   [st-d03646] file_stats           phase=LIQUID
+   [st-9da059] git_status           phase=SOLID
+   [st-f0717a] git_log              phase=SOLID
+   ✓ st-a91db1 [compute        ] LIQUID 376μs
+   ✓ st-8d08b9 [hash_data      ] LIQUID 229μs
+   ✓ st-1ba452 [system_info    ] VAPOR  10267μs
+   ✓ st-d03646 [file_stats     ] VAPOR  40589μs
+   ✓ st-9da059 [git_status     ] SOLID  248393μs
+   ✓ st-f0717a [git_log        ] SOLID  277127μs
+   ✓ st-c44a23 [sandbox_exec   ] SOLID  320450μs
+
+✅ GOAL COMPLETED: 7/7 subtasks, 897.4ms total
+   Memory: 1172 episodes, 26 patterns
+
+🎯 GOAL: review codebase and find patterns and count lines and check status and disk usage and dns lookup
+   ID:   goal-a85e5918
+
+📋 DECOMPOSED into 7 subtasks:
+   [st-1487d8] codebase_search      phase=LIQUID
+   [st-703742] line_count           phase=LIQUID
+   [st-13294d] glob_search          phase=LIQUID
+   [st-14cf21] git_status           phase=SOLID
+   [st-ee3d61] system_info          phase=LIQUID
+   [st-3bb8ea] disk_usage           phase=LIQUID
+   [st-992b0e] dns_lookup           phase=VAPOR
+   ✓ st-13294d [glob_search    ] VAPOR  7101μs
+   ✓ st-ee3d61 [system_info    ] VAPOR  1782μs
+   ✓ st-3bb8ea [disk_usage     ] VAPOR  1471μs
+   ✓ st-992b0e [dns_lookup     ] VAPOR  7355μs
+   ✓ st-1487d8 [codebase_search] LIQUID 35463μs
+   ✓ st-703742 [line_count     ] LIQUID 41007μs
+   ✓ st-14cf21 [git_status     ] SOLID  221053μs
+
+✅ GOAL COMPLETED: 7/7 subtasks, 315.2ms total
+   Memory: 1179 episodes, 26 patterns
+  4. TASK DECOMPOSITION: 124/125 ███████████████████░
+  4/4 decomposition tests passed  (897ms)
+
+────────────────────────────────────────────────────────────
+  Does the agent learn from execution?
+  5. MEMORY & LEARNING: 125/125 ████████████████████
+  5/5 learning checks passed  (1435ms)
+
+────────────────────────────────────────────────────────────
+  Does it recover from failures?
+  6. FAULT TOLERANCE: 124/125 ███████████████████░
+  2/2 fault tolerance checks passed  (34ms)
+
+────────────────────────────────────────────────────────────
+  Can the agent analyze and extend itself?
+
+🔍 INTROSPECTING — Analyzing own codebase...
+  Lines of code: 5971
+  Total files: 36
+    __init__.py                        0 lines  
+    agent.py                         279 lines  
+    autonomous.py                    319 lines  
+    benchmark.py                     323 lines  
+    claude_bridge.py                 371 lines  
+    delegation.py                    209 lines  
+    framework.py                     296 lines  
+    memory.py                        620 lines  
+    nucleus.py                       269 lines  
+    orchestrator.py                  233 lines  
+    persistence.py                   402 lines  
+    phase.py                          55 lines  
+    self_build.py                    542 lines  
+    server.py                        267 lines  
+    streaming.py                     167 lines  
+    test_full_system.py              298 lines  
+    test_integration.py              255 lines  
+    tools.py                         515 lines  
+    tools_extended.py                501 lines  
+    tools_generated.py                50 lines  
+
+  Summary: 36 files, 5971 lines, 27 tools, 1181 memories
+  Static analysis found 29 improvements:
+    • Module __init__.py missing module docstring
+    • Module agent.py missing module docstring
+    • Module autonomous.py has 319 lines — consider splitting
+    • Module autonomous.py missing module docstring
+    • Module benchmark.py has 323 lines — consider splitting
+    • Module benchmark.py missing module docstring
+    • Module claude_bridge.py has 371 lines — consider splitting
+    • Module claude_bridge.py missing module docstring
+    • Module delegation.py missing module docstring
+    • Module framework.py missing module docstring
+
+🧪 TESTING generated code in sandbox...
+  Compile: ✓
+  Execute: ✓
+  7. SELF-IMPROVEMENT: 125/125 ████████████████████
+  3/3 self-improvement checks passed  (887ms)
+
+────────────────────────────────────────────────────────────
+  Does state survive across sessions?
+  8. PERSISTENCE: 125/125 ████████████████████
+  3/3 persistence checks passed  (668ms)
+
+════════════════════════════════════════════════════════════
+
+  FINAL SCORECARD
+  ──────────────────────────────────────────────────
+  1. SPAWN LATENCY                125/ 125 ████████████████████ 100%
+  2. PARALLEL THROUGHPUT          125/ 125 ████████████████████ 100%
+  3. TOOL DIVERSITY               125/ 125 ████████████████████ 100%
+  4. TASK DECOMPOSITION           124/ 125 ███████████████████░ 99%
+  5. MEMORY & LEARNING            125/ 125 ████████████████████ 100%
+  6. FAULT TOLERANCE              124/ 125 ███████████████████░ 99%
+  7. SELF-IMPROVEMENT             125/ 125 ████████████████████ 100%
+  8. PERSISTENCE                  125/ 125 ████████████████████ 100%
+  ──────────────────────────────────────────────────
+  TOTAL                           998/1000              99%
+
+  Completed in 3958ms
+
+════════════════════════════════════════════════════════════
+{
+  "benchmark": "PFAA Agent Benchmark v1.0",
+  "framework": "PFAA \u2014 Phase-Fluid Agent Architecture",
+  "python": "3.15.0a7",
+  "total_score": 998,
+  "max_score": 1000,
+  "percentage": 99,
+  "elapsed_ms": 3958,
+  "categories": [
+    {
+      "name": "1. SPAWN LATENCY",
+      "score": 125,
+      "max": 125,
+      "pct": 100,
+      "notes": "6.3\u03bcs per agent",
+      "metrics": {
+        "agents_spawned": 1000,
+        "total_us": 6346,
+        "per_agent_us": 6.3
+      }
+    },
+    {
+      "name": "2. PARALLEL THROUGHPUT",
+      "score": 125,
+      "max": 125,
+      "pct": 100,
+      "notes": "17519 tasks/sec",
+      "metrics": {
+        "tasks": 500,
+        "elapsed_ms": 28.5,
+        "throughput_per_sec": 17519
+      }
+    },
+    {
+      "name": "3. TOOL DIVERSITY",
+      "score": 125,
+      "max": 125,
+      "pct": 100,
+      "notes": "27 tools across 3 phases",
+      "metrics": {
+        "total_tools": 27,
+        "by_phase": {
+          "SOLID": 10,
+          "VAPOR": 10,
+          "LIQUID": 7
+        },
+        "unique_capabilities": 9,
+        "capability_list": [
+          "compute",
+          "docker",
+          "execute",
+          "git",
+          "network",
+          "read",
+          "search",
+          "system",
+          "write"
+        ]
+      }
+    },
+    {
+      "name": "4. TASK DECOMPOSITION",
+      "score": 124,
+      "max": 125,
+      "pct": 99,
+      "notes": "4/4 decomposition tests passed",
+      "metrics": {
+        "passed": 4,
+        "total": 4,
+        "details": [
+          {
+            "goal": "count lines and check git status",
+            "subtasks": 3,
+            "completed": 3,
+            "expected_min": 2,
+            "passed": true
+          },
+          {
+            "goal": "search for TODO and analyze code and check disk",
+            "subtasks": 4,
+            "completed": 4,
+            "expected_min": 3,
+            "passed": true
+          },
+          {
+            "goal": "compute sqrt(42) and hash test and system info and",
+            "subtasks": 7,
+            "completed": 7,
+            "expected_min": 4,
+            "passed": true
+          },
+          {
+            "goal": "review codebase and find patterns and count lines ",
+            "subtasks": 7,
+            "completed": 7,
+            "expected_min": 5,
+            "passed": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "5. MEMORY & LEARNING",
+      "score": 125,
+      "max": 125,
+      "pct": 100,
+      "notes": "5/5 learning checks passed",
+      "metrics": {
+        "episodes": 100,
+        "patterns": 2,
+        "strategies": 2,
+        "has_recommendations": true,
+        "db_size_kb": 4.0,
+        "checks_passed": 5
+      }
+    },
+    {
+      "name": "6. FAULT TOLERANCE",
+      "score": 124,
+      "max": 125,
+      "pct": 99,
+      "notes": "2/2 fault tolerance checks passed",
+      "metrics": {
+        "restart_recovery": true,
+        "graceful_degradation": true,
+        "restarts_used": 2
+      }
+    },
+    {
+      "name": "7. SELF-IMPROVEMENT",
+      "score": 125,
+      "max": 125,
+      "pct": 100,
+      "notes": "3/3 self-improvement checks passed",
+      "metrics": {
+        "can_introspect": true,
+        "can_diagnose": true,
+        "can_sandbox_test": true,
+        "lines_analyzed": 5971,
+        "improvements_found": 29
+      }
+    },
+    {
+      "name": "8. PERSISTENCE",
+      "score": 125,
+      "max": 125,
+      "pct": 100,
+      "notes": "3/3 persistence checks passed",
+      "metrics": {
+        "session1_episodes": 50,
+        "session2_episodes": 50,
+        "episodes_survived": true,
+        "patterns_survived": true,
+        "recommendations_survived": true
+      }
+    }
+  ]
+}
