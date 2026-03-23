@@ -55,13 +55,26 @@ def _json_out(data: dict) -> None:
     _original_print(json.dumps(data, indent=2, default=str))
 
 
+def _coerce_arg(val: str):
+    """Auto-coerce CLI string args to int/float where appropriate."""
+    try:
+        return int(val)
+    except ValueError:
+        pass
+    try:
+        return float(val)
+    except ValueError:
+        pass
+    return val
+
+
 async def cmd_tool(fw: Framework, args: list[str]) -> None:
     """Execute a single PFAA tool."""
     if len(args) < 1:
         _json_out({"error": "Usage: tool <name> [args...]"})
         return
     name = args[0]
-    tool_args = tuple(args[1:])
+    tool_args = tuple(_coerce_arg(a) for a in args[1:])
     start = time.perf_counter_ns()
     try:
         result = await fw.tool(name, *tool_args)
@@ -141,15 +154,15 @@ async def cmd_pipeline(fw: Framework, args: list[str]) -> None:
 
 
 async def cmd_parallel(fw: Framework, args: list[str]) -> None:
-    """Run multiple tools in parallel. Format: tool:arg [tool:arg ...]"""
+    """Run multiple tools in parallel. Format: tool:arg1:arg2 [tool:arg ...]"""
     if not args:
-        _json_out({"error": "Usage: parallel tool:arg [tool:arg ...]"})
+        _json_out({"error": "Usage: parallel tool:arg1:arg2 [tool:arg ...]"})
         return
     calls = []
     for spec in args:
-        parts = spec.split(":", 1)
+        parts = spec.split(":")
         tool = parts[0]
-        tool_args = (parts[1],) if len(parts) > 1 else ()
+        tool_args = tuple(_coerce_arg(p) for p in parts[1:]) if len(parts) > 1 else ()
         calls.append((tool, tool_args))
 
     results = await fw.tools(calls)
