@@ -48,3 +48,94 @@ def tool_codebase_search(
         except (UnicodeDecodeError, PermissionError): continue
     return {"success":True,"pattern":pattern,"files_searched":files_searched,"total_matches":len(results),"results":results[:50]}
 
+
+@registry.register(ToolSpec(
+    name="uptime",
+    description="Get system uptime and load average",
+    phase=Phase.SOLID,
+    capabilities=("macos", "read"),
+    isolated=True,
+))
+def tool_uptime() -> dict:
+    import subprocess as sp
+    r = sp.run(["uptime"], capture_output=True, text=True, timeout=5)
+    return {"success": True, "uptime": r.stdout.strip()}
+
+
+@registry.register(ToolSpec(
+    name="zip_create",
+    description="Compress files into a zip archive",
+    phase=Phase.SOLID,
+    capabilities=("macos", "write"),
+    isolated=True,
+))
+def tool_zip_create(source: str, output: str = "") -> dict:
+    import subprocess as sp, os
+    if not output:
+        output = source + ".zip"
+    r = sp.run(["zip", "-r", output, source], capture_output=True, text=True, timeout=60)
+    size = os.path.getsize(output) if os.path.exists(output) else 0
+    return {"success": r.returncode == 0, "output": output, "size_bytes": size}
+
+
+@registry.register(ToolSpec(
+    name="pdf_text",
+    description="Extract text from a PDF file using macOS",
+    phase=Phase.SOLID,
+    capabilities=("macos", "read"),
+    isolated=True,
+))
+def tool_pdf_text(path: str) -> dict:
+    import subprocess as sp
+    # mdimport extracts text, or we can use python
+    r = sp.run(["mdimport", "-d2", path], capture_output=True, text=True, timeout=15)
+    # Fallback: use textutil
+    r2 = sp.run(["textutil", "-convert", "txt", "-stdout", path], capture_output=True, text=True, timeout=15)
+    text = r2.stdout if r2.returncode == 0 else r.stderr
+    return {"success": len(text) > 0, "text": text[:5000], "length": len(text)}
+
+
+@registry.register(ToolSpec(
+    name="image_resize",
+    description="Resize an image using macOS sips",
+    phase=Phase.SOLID,
+    capabilities=("macos", "write"),
+    isolated=True,
+))
+def tool_image_resize(path: str, width: int = 800) -> dict:
+    import subprocess as sp, os
+    if not os.path.exists(path):
+        return {"success": False, "error": "File not found"}
+    r = sp.run(["sips", "--resampleWidth", str(width), path], capture_output=True, text=True, timeout=15)
+    return {"success": r.returncode == 0, "path": path, "width": width}
+
+
+@registry.register(ToolSpec(
+    name="terminal_history",
+    description="Read recent terminal command history",
+    phase=Phase.VAPOR,
+    capabilities=("macos", "read"),
+))
+async def tool_terminal_history(count: int = 20) -> dict:
+    import asyncio, os
+    loop = asyncio.get_running_loop()
+    def _read():
+        hist_file = os.path.expanduser("~/.zsh_history")
+        if not os.path.exists(hist_file):
+            hist_file = os.path.expanduser("~/.bash_history")
+        if not os.path.exists(hist_file):
+            return {"success": False, "error": "No history file found"}
+        with open(hist_file, "rb") as f:
+            lines = f.readlines()
+        recent = []
+        for line in lines[-count:]:
+            try:
+                cmd = line.decode("utf-8", errors="replace").strip()
+                if cmd and not cmd.startswith(":"):
+                    recent.append(cmd)
+                elif ";" in cmd:
+                    recent.append(cmd.split(";", 1)[-1])
+            except: pass
+        return {"success": True, "commands": recent[-count:], "count": len(recent)}
+    return await loop.run_in_executor(None, _read)
+
