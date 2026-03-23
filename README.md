@@ -1,10 +1,26 @@
-# PFAA — Phase-Fluid Agent Architecture
+<p align="center">
+  <img src="assets/logo.jpeg" alt="PFAA — Phase-Fluid Agent Architecture" width="280" />
+</p>
 
-**A Python 3.15 agent framework where agents phase-transition at runtime between coroutine, thread, and subprocess execution modes based on task demands.**
+<h1 align="center">PFAA — Phase-Fluid Agent Architecture</h1>
 
-Created by **Jamie** ([@bencousins22](https://github.com/bencousins22))
+<p align="center">
+  <strong>A Python 3.15 agent framework where agents phase-transition at runtime between coroutine, thread, and subprocess execution modes based on task demands.</strong>
+</p>
 
-Built with Claude Opus 4.6 · March 2026
+<p align="center">
+  Created by <strong>Jamie</strong> (<a href="https://github.com/bencousins22">@bencousins22</a>)<br/>
+  Built with Claude Opus 4.6 · March 2026
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.15-green?style=flat-square" alt="Python 3.15" />
+  <img src="https://img.shields.io/badge/agents-6μs_spawn-gold?style=flat-square" alt="6μs spawn" />
+  <img src="https://img.shields.io/badge/throughput-6K_tasks%2Fsec-green?style=flat-square" alt="6K tasks/sec" />
+  <img src="https://img.shields.io/badge/tools-27-blue?style=flat-square" alt="27 tools" />
+  <img src="https://img.shields.io/badge/memory-5_layers-purple?style=flat-square" alt="5-layer memory" />
+  <img src="https://img.shields.io/badge/self--building-✓-brightgreen?style=flat-square" alt="Self-building" />
+</p>
 
 ---
 

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.jpeg" alt="PFAA" width="180" />
+</p>
+
 # PFAA Architecture — Technical Deep-Dive
 
 Created by **Jamie** ([@bencousins22](https://github.com/bencousins22))
