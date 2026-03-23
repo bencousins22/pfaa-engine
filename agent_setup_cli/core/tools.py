@@ -144,8 +144,16 @@ class ToolRegistry:
         return spec.phase
 
     def set_memory(self, memory) -> None:
-        """Attach a MemorySystem for exploration-guided phase selection."""
+        """Attach a MemorySystem for exploration-guided phase selection.
+        Also registers which tools are async so memory can prune stale strategies."""
         self._memory_ref = memory
+        # Tell memory which tools are async (so it can prune bogus strategies)
+        async_names = set()
+        for name, (spec, fn) in self._tools.items():
+            if asyncio.iscoroutinefunction(fn):
+                async_names.add(name)
+        if hasattr(memory, 'register_async_tools'):
+            memory.register_async_tools(async_names)
 
     async def execute(
         self, name: str, *args: Any, **kwargs: Any

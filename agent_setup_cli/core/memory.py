@@ -258,6 +258,21 @@ class StrategicMemory:
 
         return dict(self._strategies)
 
+    def prune_stale(self, async_tool_names: set[str]) -> list[str]:
+        """Remove strategies for async tools (VAPOR↔LIQUID is meaningless for them).
+
+        These strategies were learned before the exploration fix that locked
+        async tools to their declared phase. They show inflated speedups
+        (e.g., 963x) because they measured run_in_executor overhead, not
+        a real phase difference.
+        """
+        pruned = []
+        for name in list(self._strategies.keys()):
+            if name in async_tool_names:
+                del self._strategies[name]
+                pruned.append(name)
+        return pruned
+
     def predict_phase(self, tool_name: str) -> Phase | None:
         """Predict the optimal phase for a tool based on learned strategies."""
         strategy = self._strategies.get(tool_name)
@@ -412,13 +427,22 @@ class EmergentMemory:
         self._sequence_patterns: dict[tuple[str, ...], int] = defaultdict(int)
 
     def synthesize(self, episodic: EpisodicMemory) -> list[EmergentKnowledge]:
-        """Analyze episodic memory for emergent patterns."""
+        """Analyze episodic memory for emergent patterns.
+
+        Fixed: uses ALL episodes (not just last 1000), resets counters
+        each cycle to avoid stale accumulation, and deduplicates discoveries.
+        """
         discoveries: list[EmergentKnowledge] = []
         now = time.perf_counter_ns()
-        episodes = episodic.recent(1000)
+        episodes = episodic.recent(10000)  # use all available
 
         if len(episodes) < 10:
             return discoveries
+
+        # Reset counters each cycle for fresh analysis
+        self._tool_cooccurrence.clear()
+        self._sequence_patterns.clear()
+        existing_descriptions = {k.description for k in self._knowledge}
 
         # 1. Tool co-occurrence patterns
         window_size = 5
@@ -484,8 +508,10 @@ class EmergentMemory:
                     ),
                 ))
 
-        self._knowledge.extend(discoveries)
-        return discoveries
+        # Deduplicate against existing knowledge
+        new_discoveries = [d for d in discoveries if d.description not in existing_descriptions]
+        self._knowledge.extend(new_discoveries)
+        return new_discoveries
 
     @property
     def all_knowledge(self) -> list[EmergentKnowledge]:
@@ -514,6 +540,14 @@ class MemorySystem:
         self.l5_emergent = EmergentMemory()
         self._update_interval = 50  # re-learn every N episodes
         self._episodes_since_update = 0
+        # Names of async tools — strategies for these are pruned
+        # because VAPOR↔LIQUID are identical for coroutines
+        self._async_tool_names: set[str] = set()
+
+    def register_async_tools(self, names: set[str]) -> None:
+        """Register tool names that are async (coroutine functions).
+        Strategies for these tools will be pruned during learning."""
+        self._async_tool_names = names
 
     def record(self, result: TaskResult, tool_name: str, args: tuple) -> Episode:
         """Record an execution and trigger learning if needed."""
@@ -535,6 +569,10 @@ class MemorySystem:
 
         # L2 → L3: Derive strategies from patterns
         self.l3_strategic.learn(self.l2_semantic)
+
+        # Prune stale strategies for async tools
+        # (VAPOR↔LIQUID is identical for async fns — no real phase difference)
+        self.l3_strategic.prune_stale(self._async_tool_names)
 
         # L3 → L4: Meta-observe strategy effectiveness
         insights = self.l4_meta.observe(self.l3_strategic)

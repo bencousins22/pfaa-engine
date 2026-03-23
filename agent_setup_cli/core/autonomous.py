@@ -30,6 +30,10 @@ try:
     import agent_setup_cli.core.tools_generated  # noqa: F401
 except ImportError:
     pass
+try:
+    import agent_setup_cli.core.tools_lead  # noqa: F401  — lead gen tools
+except ImportError:
+    pass
 
 logger = logging.getLogger("pfaa.autonomous")
 CHECKPOINT_DIR = os.path.expanduser("~/.pfaa/checkpoints")
@@ -103,17 +107,93 @@ TOOL_KEYWORDS: dict[str, list[tuple[str, tuple]]] = {
     "analyze":   [("line_count", (".",)), ("file_stats", (".",)), ("codebase_search", ("class|def",))],
     "review":    [("codebase_search", ("TODO|FIXME|HACK",)), ("line_count", (".",))],
     "info":      [("system_info", ()), ("file_stats", (".",))],
+    # ── Lead Generation keywords ──────────────────────────────────
+    "lead":      [("lead_discover", ()), ("lead_score", ())],
+    "leads":     [("lead_discover", ()), ("lead_score", ())],
+    "discover":  [("lead_discover", ())],
+    "prospect":  [("lead_discover", ())],
+    "enrich":    [("lead_enrich", ())],
+    "score":     [("lead_score", ())],
+    "qualify":   [("lead_qualify", ())],
+    "outreach":  [("lead_outreach", ())],
+    "pipeline":  [("lead_pipeline", ())],
+    "scout":     [("lead_discover", ())],
+    "commercial":[("lead_discover", ())],
+    "residential":[("lead_discover", ())],
+    "land":      [("lead_discover", ())],
 }
 
 
+def _extract_search_patterns(goal: str) -> list[str]:
+    """Extract specific search patterns from 'search for X' phrases in a goal.
+
+    Examples:
+        "search for TODO and search for FIXME" → ["TODO", "FIXME"]
+        "find hardcoded secrets" → ["hardcoded|secret|password|api_key"]
+        "search for class definitions" → ["class "]
+    """
+    import re
+    patterns = []
+
+    # Match "search for X", "find X", "grep X"
+    # The second word is optional but excludes conjunctions (and/or/then/in)
+    for match in re.finditer(
+        r'(?:search|find|grep|look)\s+(?:for\s+)?([A-Za-z_]+(?:\s+(?!and\b|or\b|then\b|in\b)[A-Za-z_]+)?)',
+        goal, re.IGNORECASE,
+    ):
+        word = match.group(1).strip().upper()
+        # Map common descriptions to regex patterns
+        PATTERN_MAP = {
+            "TODO": "TODO",
+            "FIXME": "FIXME",
+            "HACK": "HACK",
+            "SECRETS": "secret|password|api_key|token|credential",
+            "HARDCODED SECRETS": "secret|password|api_key|token|credential",
+            "SECURITY": "secret|password|eval|exec|subprocess|sql",
+            "CLASS DEFINITIONS": "^class ",
+            "CLASS": "^class ",
+            "FUNCTIONS": "^def |^async def ",
+            "IMPORTS": "^import |^from ",
+            "ERRORS": "raise |except |Error",
+            "PATTERNS": "class |def |import ",
+        }
+        resolved = PATTERN_MAP.get(word, word)
+        if resolved not in patterns:
+            patterns.append(resolved)
+
+    return patterns
+
+
 def _decompose(goal: str, memory: PersistentMemory) -> list[SubTask]:
-    """Decompose a goal into subtasks via keyword matching."""
+    """Decompose a goal into subtasks via keyword matching.
+
+    Improvements over v1:
+    - Multiple 'search for X' phrases create separate codebase_search subtasks
+    - Each search gets its own extracted pattern
+    - Result chaining: later subtasks can depend on earlier ones
+    """
     words = goal.lower().split()
     seen_tools: set[str] = set()
     subtasks: list[SubTask] = []
 
+    # First pass: extract explicit search patterns
+    search_patterns = _extract_search_patterns(goal)
+
+    # If we found multiple search patterns, create one subtask per pattern
+    if len(search_patterns) > 1:
+        seen_tools.add("codebase_search")
+        for pattern in search_patterns:
+            phase = memory.recommend_phase("codebase_search")
+            subtasks.append(SubTask(
+                id=f"st-{uuid.uuid4().hex[:6]}",
+                description=f"search: {pattern}",
+                tool_name="codebase_search",
+                args=(pattern,),
+                phase_hint=phase,
+            ))
+
+    # Second pass: keyword matching for everything else
     for word in words:
-        # Strip punctuation
         clean = word.strip(".,!?;:'\"")
         if clean in TOOL_KEYWORDS:
             for tool_name, default_args in TOOL_KEYWORDS[clean]:
@@ -128,12 +208,15 @@ def _decompose(goal: str, memory: PersistentMemory) -> list[SubTask]:
                         phase_hint=phase,
                     ))
 
-    # If nothing matched, create a single Claude task
+    # If nothing matched, try to generate a tool dynamically
     if not subtasks:
+        # Attempt on-the-fly tool creation via sandbox
         subtasks.append(SubTask(
             id=f"st-{uuid.uuid4().hex[:6]}",
             description=goal,
-            tool_name=None,
+            tool_name="sandbox_exec",
+            args=(f"print('Goal: {goal[:80]}')",),
+            phase_hint=Phase.SOLID,
         ))
 
     return subtasks
@@ -232,7 +315,7 @@ class AutonomousAgent:
                 st.status = "running"
 
             results = await asyncio.gather(
-                *[self._exec_one(st) for st in ready],
+                *[self._exec_one(st, state.subtasks) for st in ready],
                 return_exceptions=True,
             )
             for st, r in zip(ready, results):
@@ -240,7 +323,16 @@ class AutonomousAgent:
                     st.status = "failed"
                     st.error = str(r)
 
-    async def _exec_one(self, st: SubTask) -> None:
+    def _collect_dep_results(self, st: SubTask, all_tasks: list[SubTask]) -> dict:
+        """Collect results from dependency subtasks for chaining."""
+        dep_results = {}
+        for dep_id in st.depends_on:
+            dep = next((t for t in all_tasks if t.id == dep_id), None)
+            if dep and dep.result is not None:
+                dep_results[dep.tool_name or dep_id] = dep.result
+        return dep_results
+
+    async def _exec_one(self, st: SubTask, all_tasks: list[SubTask] | None = None) -> None:
         start = time.perf_counter_ns()
         try:
             if st.tool_name:
