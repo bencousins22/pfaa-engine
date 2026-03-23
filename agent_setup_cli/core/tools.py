@@ -101,12 +101,27 @@ class ToolRegistry:
     def _pick_phase(self, spec: ToolSpec) -> Phase:
         """Pick execution phase with epsilon-greedy exploration.
 
+        Rules:
         - isolated tools always stay SOLID (safety constraint)
-        - if memory already has high confidence, skip exploration
-        - otherwise, 15% of the time try a random alternative phase
+        - async tools skip VAPOR↔LIQUID exploration (both just await the
+          coroutine — no real difference). They also can't go SOLID (can't
+          pickle coroutines). So async tools are locked to their declared phase.
+        - sync tools explore freely between VAPOR/LIQUID/SOLID. This is where
+          real phase differences exist:
+            VAPOR:  run_in_executor(None, fn) — shared default thread pool
+            LIQUID: run_in_executor(dedicated_pool, fn) — own ThreadPoolExecutor
+            SOLID:  ProcessPoolExecutor — full subprocess isolation
+        - once confidence > 0.5, lock in the learned best phase
         """
         # Safety: isolated tools never explore
         if spec.isolated:
+            return spec.phase
+
+        # Async tools: VAPOR and LIQUID both just `await fn()`, so exploring
+        # between them produces misleading data. SOLID is impossible (can't
+        # pickle coroutines). Lock async tools to their declared phase.
+        _, fn = self._tools[spec.name]
+        if asyncio.iscoroutinefunction(fn):
             return spec.phase
 
         # Check if memory already has enough data for this tool
@@ -116,21 +131,9 @@ class ToolRegistry:
                 # Confident — use the learned best phase, no exploration
                 return pattern.best_phase
 
-        # Epsilon-greedy: explore with probability EXPLORE_EPSILON
+        # Epsilon-greedy: explore sync tools across all three phases
         if random.random() < self.EXPLORE_EPSILON:
-            _, fn = self._tools[spec.name]
-            is_async = asyncio.iscoroutinefunction(fn)
-
-            # Async functions can't run in SOLID (subprocess can't pickle coroutines)
-            # Sync functions can run in any phase
-            if is_async:
-                alternatives = [p for p in Phase if p != spec.phase and p != Phase.SOLID]
-            else:
-                alternatives = [p for p in Phase if p != spec.phase]
-
-            if not alternatives:
-                return spec.phase
-
+            alternatives = [p for p in Phase if p != spec.phase]
             explored = random.choice(alternatives)
             logger.debug(
                 "Exploring %s in %s (default: %s)",
