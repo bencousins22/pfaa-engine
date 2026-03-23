@@ -307,3 +307,135 @@ def self_build(
         {k: v for k, v in result.items() if k != "proposals"},
         indent=2, default=str,
     ))
+
+
+@app.command(name="warmup")
+def warmup():
+    """Profile every tool once to populate memory with baseline data."""
+    from agent_setup_cli.core.tools import ToolRegistry
+    from agent_setup_cli.core.persistence import PersistentMemory
+    import agent_setup_cli.core.tools_extended  # noqa: F401
+    try:
+        import agent_setup_cli.core.tools_generated  # noqa: F401
+    except ImportError:
+        pass
+
+    registry = ToolRegistry.get()
+    mem = PersistentMemory()
+
+    # Default args for each tool (safe to run)
+    WARMUP_ARGS: dict[str, tuple] = {
+        "compute": ("sqrt(42)",),
+        "hash_data": ("warmup",),
+        "grep": (r"def ", ".", "*.py"),
+        "codebase_search": ("def ",),
+        "line_count": (".",),
+        "json_parse": ('{"a":1}',),
+        "regex_extract": ("test123", r"\d+"),
+        "read_file": ("/dev/null",),
+        "write_file": ("/dev/null", ""),
+        "glob_search": ("*.py", "."),
+        "http_fetch": ("https://httpbin.org/ip",),
+        "system_info": (),
+        "disk_usage": (".",),
+        "port_check": ("localhost", 8000),
+        "dns_lookup": ("localhost",),
+        "env_get": ("HOME",),
+        "file_stats": (".",),
+        "shell": ("echo warmup",),
+        "sandbox_exec": ("print('ok')",),
+        "parallel_shell": (["echo a", "echo b"],),
+        "git_status": (),
+        "git_log": (".", 3),
+        "git_diff": (),
+        "git_branch": (),
+        "docker_ps": (),
+        "docker_images": (),
+        "process_list": ("python",),
+    }
+
+    async def _warmup():
+        tools = registry.list_tools()
+        console.print(f"[cyan]Warming up {len(tools)} tools...[/cyan]\n")
+
+        for spec in sorted(tools, key=lambda t: t.name):
+            args = WARMUP_ARGS.get(spec.name, ())
+            try:
+                result = await registry.execute(spec.name, *args)
+                mem.record(result, spec.name, args)
+                ok = "✓" if not isinstance(result.result, dict) or result.result.get("success", True) else "⚠"
+                console.print(
+                    f"  {ok} {spec.name:20s} {spec.phase.name:6s} "
+                    f"{result.phase_used.name:6s} {result.elapsed_us:>8d}μs"
+                )
+            except Exception as e:
+                console.print(f"  ✗ {spec.name:20s} {spec.phase.name:6s} ERROR: {e}")
+
+        mem.force_learn()
+        console.print(f"\n[green]✓ Warmup complete. Memory: {mem.status()['l1_episodes']} episodes, "
+                      f"{mem.status()['l2_patterns']} patterns[/green]")
+        mem.close()
+
+    _run(_warmup())
+
+
+@app.command(name="explore")
+def explore_cmd(
+    rounds: int = typer.Option(200, help="Number of exploration rounds"),
+    epsilon: float = typer.Option(0.30, help="Exploration rate (0-1)"),
+):
+    """Run exploration rounds to discover optimal phase strategies."""
+    from agent_setup_cli.core.tools import ToolRegistry
+    from agent_setup_cli.core.persistence import PersistentMemory
+    import agent_setup_cli.core.tools_extended  # noqa: F401
+    try:
+        import agent_setup_cli.core.tools_generated  # noqa: F401
+    except ImportError:
+        pass
+
+    import random
+
+    registry = ToolRegistry.get()
+    mem = PersistentMemory()
+
+    # Temporarily increase epsilon
+    old_epsilon = registry.EXPLORE_EPSILON
+    registry.EXPLORE_EPSILON = epsilon
+
+    sync_tools = [
+        ("compute", ("sqrt(42)",)),
+        ("hash_data", ("test",)),
+        ("line_count", (".",)),
+    ]
+
+    async def _explore():
+        console.print(f"[cyan]Running {rounds} exploration rounds (epsilon={epsilon})...[/cyan]\n")
+        random.seed()
+
+        phase_counts: dict[str, int] = {}
+        for i in range(rounds):
+            name, args = sync_tools[i % len(sync_tools)]
+            result = await registry.execute(name, *args)
+            mem.record(result, name, args)
+            key = f"{name}/{result.phase_used.name}"
+            phase_counts[key] = phase_counts.get(key, 0) + 1
+
+        mem.force_learn()
+
+        console.print("[bold]Phase Distribution:[/bold]")
+        for key in sorted(phase_counts):
+            bar = "█" * min(phase_counts[key], 30)
+            console.print(f"  {key:30s} {phase_counts[key]:3d} {bar}")
+
+        strategies = mem.memory.l3_strategic._strategies
+        console.print(f"\n[bold]L3 Strategies: {len(strategies)}[/bold]")
+        for name, s in strategies.items():
+            override = s.override_phase.name if s.override_phase else "-"
+            console.print(f"  {name:15s} {s.default_phase.name} → {override} ({s.speedup_factor:.1f}x)")
+
+        console.print(f"\n[green]✓ Exploration complete. {mem.status()['l1_episodes']} episodes, "
+                      f"{mem.status()['l2_patterns']} patterns, {len(strategies)} strategies[/green]")
+        mem.close()
+
+    _run(_explore())
+    registry.EXPLORE_EPSILON = old_epsilon
