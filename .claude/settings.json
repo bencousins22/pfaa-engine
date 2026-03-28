@@ -174,7 +174,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"if(process.env.ECC_HOOK_PROFILE==='off'){process.exit(0)}let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const inp=JSON.parse(d);const cmd=inp.tool_input?.command||'';const patterns=['sk-ant-','ghp_','AKIA','password=','secret='];const found=patterns.find(p=>cmd.includes(p));if(found){process.stdout.write(JSON.stringify({decision:'block',reason:'Secret detected in command: '+found}))}})\"",
+            "command": "node -e \"if(process.env.ECC_HOOK_PROFILE==='off'){process.exit(0)}let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const inp=JSON.parse(d);const cmd=inp.tool_input?.command||'';const patterns=['sk-ant-','sk-proj-','ghp_','ghs_','gho_','AKIA','AIza','xoxb-','xoxp-','pat_','password=','secret=','api_key=','apikey=','token=','mongodb://','postgres://','mysql://'];const found=patterns.find(p=>cmd.toLowerCase().includes(p.toLowerCase()));if(found){process.stdout.write(JSON.stringify({decision:'block',reason:'Secret detected in command: '+found}))}})\"",
             "timeout": 5,
             "statusMessage": "Checking for secrets..."
           }

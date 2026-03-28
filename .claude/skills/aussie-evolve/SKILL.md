@@ -1,33 +1,60 @@
 # Aussie Evolve — Continuous Learning & Memory Management
 
-Automated learning, memory cleanup, and skill evolution.
+Automated learning, memory cleanup, and skill evolution using Claude Code native tools.
 
-## Usage
+## When the user invokes /aussie-evolve
 
-Full evolution cycle:
-```bash
-cd pfaa-cli && npx tsx src/cli.ts evolve
+Run the full evolution cycle directly — no CLI required.
+
+### Step 1: Recall & Analyze Memory State
+
+```
+Use mcp__jmem__jmem_status to get current memory stats.
+Use mcp__jmem__jmem_recall with broad queries to sample memory health:
+  - jmem_recall(query="tool performance patterns")
+  - jmem_recall(query="recurring errors or failures")
+  - jmem_recall(query="successful strategies")
 ```
 
-Memory cleanup only:
-```bash
-cd pfaa-cli && npx tsx src/cli.ts clean
-```
+### Step 2: Extract Instincts (Recurring Patterns)
 
-View extracted instincts:
-```bash
-cd pfaa-cli && npx tsx src/cli.ts instincts
-```
+Analyze recalled memories for:
+- **Tool co-occurrence** — which tools are always used together?
+- **Phase preferences** — which phases consistently perform best?
+- **Success patterns** — what approaches have Q > 0.8?
+- **Failure patterns** — what approaches have Q < 0.2?
 
-## What Each Cycle Does
+Use `mcp__jmem__jmem_reflect` to synthesize observations into higher-level insights.
 
-1. **Extract Instincts** — find recurring patterns in memory (tools used together, phase preferences, success rates)
-2. **Clean Memory** — prune dead memories (Q < 0.2), merge duplicates (cosine > 0.95), VACUUM SQLite
-3. **Evolve Skills** — cluster high-confidence instincts (Q > 0.8) → auto-generate new SKILL.md files
-4. **Learn** — force L2/L3/L4 pattern extraction
+### Step 3: Clean Memory
 
-## Memory Growth
+Use `mcp__jmem__jmem_consolidate` to:
+- Promote validated L1 episodes to L2 concepts (Q > 0.8, retrieval_count > 3)
+- Merge near-duplicate memories (cosine similarity > 0.95)
+- Flag low-value memories (Q < 0.2) for pruning
+
+### Step 4: Evolve Skills
+
+Scan `.claude/skills/` for all SKILL.md files. For each:
+1. Read the skill file
+2. Check if referenced commands/tools still exist
+3. If broken references found, rewrite to use working alternatives
+4. If high-confidence instincts suggest a new skill, draft a new SKILL.md
+
+Use `mcp__jmem__jmem_evolve` to trigger L2/L3/L4 pattern extraction.
+
+### Step 5: Reinforce & Learn
+
+Use `mcp__jmem__jmem_reward` to reinforce memories that led to successful outcomes.
+Store the evolution cycle results: `mcp__jmem__jmem_remember(content="Evolution cycle completed: [summary]", level=3)`
+
+## Memory Growth Expectations
 - L1 Episodes accumulate per tool execution
-- L2 Patterns extracted every 50 episodes
-- L3 Strategies discovered after ~3 warmup cycles
-- L5 Knowledge emerges after ~10 cycles with consolidation
+- L2 Patterns extracted when episodes cluster (every ~50 episodes)
+- L3 Strategies crystallize after ~3 evolution cycles
+- L4 Skills emerge from validated L3 strategies
+
+## What Makes This Different from /aussie-loop
+- `/aussie-loop` runs warmup + learn (data collection)
+- `/aussie-evolve` runs analysis + cleanup + skill synthesis (intelligence extraction)
+- Run loop first to collect data, then evolve to extract knowledge
