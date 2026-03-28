@@ -1,17 +1,16 @@
-# PFAA FreqTrade — Production Dockerfile (Hyperliquid)
+# PFAA FreqTrade — Production Dockerfile
 FROM freqtradeorg/freqtrade:develop
 
-# Copy strategy and config
+# Copy strategy, config, and start script
 COPY freqtrade_strategy/ /freqtrade/user_data/strategies/
 COPY freqtrade_strategy/config_btc_optimized.json /freqtrade/config.json
+COPY start.sh /freqtrade/start.sh
 
-# Create data directories
-RUN mkdir -p /freqtrade/user_data/data /freqtrade/user_data/logs
+RUN mkdir -p /freqtrade/user_data/data /freqtrade/user_data/logs && \
+    chmod +x /freqtrade/start.sh
 
 EXPOSE 8080
 
-# Start FreqTrade — pfaa_crypto_team on Hyperliquid
-CMD ["trade", \
-     "--config", "/freqtrade/config.json", \
-     "--strategy", "PFAABitcoinStrategy", \
-     "--strategy-path", "/freqtrade/user_data/strategies"]
+# Smart start: trade mode if exchange loads, webserver fallback
+ENTRYPOINT ["/bin/bash"]
+CMD ["/freqtrade/start.sh"]
