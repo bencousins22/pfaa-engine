@@ -1,0 +1,23 @@
+{
+  "auditDir": ".pfaa/audit",
+  "qdrantUrl": "http://localhost:6333",
+  "pythonBin": "python3",
+  "maxIterations": 50,
+  "maxParallelTeams": 9,
+  "permissions": {
+    "deny": [],
+    "requireConfirm": ["shell"],
+    "allowPaths": ["./src", "./tests", "./docs"]
+  },
+  "tierModels": {
+    "intelligence": "claude-opus-4-6",
+    "acquisition": "claude-sonnet-4-6",
+    "enrichment": "claude-sonnet-4-6",
+    "scoring": "claude-haiku-4-5-20251001",
+    "outreach": "claude-sonnet-4-6",
+    "conversion": "claude-opus-4-6",
+    "nurture": "claude-haiku-4-5-20251001",
+    "content": "claude-sonnet-4-6",
+    "operations": "claude-haiku-4-5-20251001"
+  }
+}

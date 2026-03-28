@@ -291,6 +291,9 @@ class AutonomousAgent:
         return state
 
     async def _execute_dag(self, state: GoalState) -> None:
+        """Execute DAG using asyncio.TaskGroup for structured concurrency (Python 3.11+).
+        Each batch of ready tasks runs in a TaskGroup — if any infrastructure error
+        occurs, ExceptionGroup collects it without killing independent tasks."""
         while True:
             ready = [
                 st for st in state.subtasks
@@ -314,14 +317,25 @@ class AutonomousAgent:
             for st in ready:
                 st.status = "running"
 
-            results = await asyncio.gather(
-                *[self._exec_one(st, state.subtasks) for st in ready],
-                return_exceptions=True,
-            )
-            for st, r in zip(ready, results):
-                if isinstance(r, Exception):
-                    st.status = "failed"
-                    st.error = str(r)
+            # Use TaskGroup for structured concurrency — each task is fault-isolated
+            # inside _exec_one, so TaskGroup never sees propagated exceptions
+            try:
+                async with asyncio.TaskGroup() as tg:
+                    task_map = {
+                        st.id: tg.create_task(
+                            self._exec_one(st, state.subtasks),
+                            name=st.id,
+                        )
+                        for st in ready
+                    }
+            except* Exception as eg:
+                # ExceptionGroup catches infrastructure failures
+                for exc in eg.exceptions:
+                    logger.error("DAG infrastructure error: %s", exc)
+                for st in ready:
+                    if st.status == "running":
+                        st.status = "failed"
+                        st.error = str(exc)
 
     def _collect_dep_results(self, st: SubTask, all_tasks: list[SubTask]) -> dict:
         """Collect results from dependency subtasks for chaining."""

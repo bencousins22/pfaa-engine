@@ -1,0 +1,5 @@
+anthropic>=0.80.0
+google-generativeai>=0.24.0
+aiohttp>=3.11.0
+sentence-transformers>=3.4.0
+qdrant-client>=1.13.0

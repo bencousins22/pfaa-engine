@@ -146,10 +146,20 @@ class Nucleus:
                 finally:
                     self.reap(agent)
 
-        results = await asyncio.gather(
-            *[_run_one(a, args) for a, args in zip(agents, args_list)]
-        )
-        return list(results)
+        # Use TaskGroup for structured concurrency (Python 3.11+)
+        # All scatter tasks run in a single group — if one fails,
+        # others continue because errors are caught in _run_one
+        task_results: dict[str, asyncio.Task] = {}
+        try:
+            async with asyncio.TaskGroup() as tg:
+                for a, args in zip(agents, args_list):
+                    task_results[a.id] = tg.create_task(
+                        _run_one(a, args), name=a.id
+                    )
+        except* Exception as eg:
+            logger.error("Scatter group error: %s", [str(e) for e in eg.exceptions])
+
+        return [t.result() for t in task_results.values() if not t.cancelled()]
 
     async def execute_one(
         self,

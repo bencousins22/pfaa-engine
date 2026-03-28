@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pfaa-engine"
+version = "0.1.0"
+description = "Phase-Fluid Agent Architecture — enterprise agent framework"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.9.0",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.0.0",
+    "alembic>=1.12.0",
+    "rich>=13.0.0",
+    "fastapi>=0.70.0",
+    "uvicorn[standard]>=0.15.0",
+    "websockets>=10.0.0",
+    "anthropic>=0.80.0",
+    "google-generativeai>=0.24.0",
+    "pyyaml>=6.0.0",
+    "cryptography>=41.0.0",
+    "jinja2>=3.1.2",
+    "sentence-transformers>=3.4.0",
+    "qdrant-client>=1.13.0",
+    "aiohttp>=3.11.0",
+]
+
+[project.scripts]
+pfaa-py = "agent_setup_cli.cli.__main__:app"
+
+[tool.setuptools.packages.find]
+include = ["agent_setup_cli*", "agents*", "python*"]
