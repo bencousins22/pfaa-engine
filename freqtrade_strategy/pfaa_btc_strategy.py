@@ -145,8 +145,8 @@ class PFAABitcoinStrategy(IStrategy):
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         """Calculate all technical indicators."""
 
-        # ── EMAs ──
-        for period in [5, 9, 13, 21, 34, 55, 89, 100, 200]:
+        # ── EMAs (extended range for wider hyperopt space) ──
+        for period in [3, 5, 9, 13, 21, 34, 55, 89, 100, 200, 233]:
             dataframe[f"ema_{period}"] = ta.EMA(dataframe, timeperiod=period)
 
         # ── RSI ──
@@ -183,6 +183,12 @@ class PFAABitcoinStrategy(IStrategy):
         # ── ADX (trend strength) ──
         dataframe["adx"] = ta.ADX(dataframe, timeperiod=14)
 
+        # ── Market Regime Detection (2026 post-halving cycle) ──
+        dataframe = self._detect_market_regime(dataframe)
+
+        # ── On-Chain Signal Placeholders ──
+        dataframe = self._populate_onchain_signals(dataframe)
+
         # ── Multi-timeframe: get 1h data ──
         if self.dp:
             informative = self.dp.get_pair_dataframe(
@@ -201,6 +207,103 @@ class PFAABitcoinStrategy(IStrategy):
                     ffill=True,
                 )
 
+        return dataframe
+
+    # ── Market Regime Detection ───────────────────────────────────
+
+    def _detect_market_regime(self, dataframe: DataFrame) -> DataFrame:
+        """
+        Detect market regime for 2026 post-halving bull cycle.
+
+        Regimes (encoded as integers for indicator use):
+          1 = Accumulation  (low vol, range-bound, post-correction)
+          2 = Markup         (trending up, expanding vol, bull phase)
+          3 = Distribution   (high vol, topping, late cycle)
+          4 = Markdown       (trending down, capitulation)
+
+        Uses a combination of:
+        - EMA 50/200 relationship (golden/death cross)
+        - ADX trend strength
+        - Volume trend (expanding vs contracting)
+        - RSI regime bands
+        - ATR percentile (volatility regime)
+        """
+        # Volatility regime via ATR percentile (rolling 200-period)
+        dataframe["atr_percentile"] = (
+            dataframe["atr_pct"].rolling(200).rank(pct=True)
+        )
+
+        # Volume trend: 20-period vs 50-period average
+        dataframe["volume_trend"] = (
+            dataframe["volume_mean_20"] / dataframe["volume_mean_50"]
+        )
+
+        # Price momentum: distance from EMA 200 (percent)
+        dataframe["ema200_dist_pct"] = (
+            (dataframe["close"] - dataframe["ema_200"]) / dataframe["ema_200"]
+        )
+
+        # Default: accumulation
+        dataframe["market_regime"] = 1
+
+        # Markup: price above EMA 200, EMA 50 > EMA 200, ADX > 25
+        markup = (
+            (dataframe["close"] > dataframe["ema_200"]) &
+            (dataframe["ema_55"] > dataframe["ema_200"]) &
+            (dataframe["adx"] > 25)
+        )
+        dataframe.loc[markup, "market_regime"] = 2
+
+        # Distribution: price above EMA 200, but RSI > 70 and volume expanding
+        distribution = (
+            (dataframe["close"] > dataframe["ema_200"]) &
+            (dataframe["rsi"] > 70) &
+            (dataframe["volume_trend"] > 1.3) &
+            (dataframe["atr_percentile"] > 0.75)
+        )
+        dataframe.loc[distribution, "market_regime"] = 3
+
+        # Markdown: price below EMA 200, EMA 50 < EMA 200, ADX > 20
+        markdown = (
+            (dataframe["close"] < dataframe["ema_200"]) &
+            (dataframe["ema_55"] < dataframe["ema_200"]) &
+            (dataframe["adx"] > 20)
+        )
+        dataframe.loc[markdown, "market_regime"] = 4
+
+        return dataframe
+
+    # ── On-Chain Signal Placeholders ──────────────────────────────
+
+    def _populate_onchain_signals(self, dataframe: DataFrame) -> DataFrame:
+        """
+        Populate on-chain signal columns as placeholders.
+
+        In production these would be fed from an external data source
+        (e.g. Glassnode API, CryptoQuant, or a custom JMEM data feed).
+        For now they are set to neutral defaults so the strategy runs
+        without external dependencies.
+
+        Signals:
+        - mvrv_zscore: Market Value to Realized Value Z-Score
+          > 7 = overheated (sell zone), < 0 = undervalued (buy zone)
+        - sopr: Spent Output Profit Ratio
+          > 1 = holders in profit, < 1 = holders at loss (capitulation)
+        - funding_rate: Perpetual futures funding rate
+          > 0.01% = overleveraged longs, < -0.01% = overleveraged shorts
+        - exchange_netflow: Net BTC flow to/from exchanges
+          positive = selling pressure, negative = accumulation
+        """
+        # Neutral defaults -- replace with live data feed in production
+        dataframe["mvrv_zscore"] = 3.0        # mid-range neutral
+        dataframe["sopr"] = 1.01              # slightly profitable
+        dataframe["funding_rate"] = 0.0005    # neutral funding
+        dataframe["exchange_netflow"] = 0.0   # neutral flow
+
+        logger.debug(
+            "On-chain signals set to neutral defaults. "
+            "Connect external data feed for live signals."
+        )
         return dataframe
 
     # ── Entry Signal ──────────────────────────────────────────────
@@ -267,10 +370,26 @@ class PFAABitcoinStrategy(IStrategy):
             )
             dataframe.loc[trend_1h, "entry_score"] += 1
 
+        # Signal 7: Market regime bonus (markup = bullish environment)
+        regime_bullish = dataframe["market_regime"] == 2  # markup
+        dataframe.loc[regime_bullish, "entry_score"] += 1
+
+        # Signal 8: On-chain signals (when live data is connected)
+        if self.buy_onchain_enabled.value:
+            onchain_buy = (
+                (dataframe["mvrv_zscore"] < 5.0) &   # not overheated
+                (dataframe["sopr"] > 0.95) &           # not deep capitulation
+                (dataframe["funding_rate"] < 0.05) &   # not overleveraged longs
+                (dataframe["exchange_netflow"] <= 0)    # accumulation (outflows)
+            )
+            dataframe.loc[onchain_buy, "entry_score"] += 1
+
         # Final entry: score must meet minimum threshold
+        # Regime guard: never enter during distribution (3) or markdown (4)
         dataframe.loc[
             (dataframe["entry_score"] >= self.buy_min_score.value) &
-            (dataframe["volume"] > 0),
+            (dataframe["volume"] > 0) &
+            (dataframe["market_regime"] <= 2),
             "enter_long",
         ] = 1
 
@@ -356,6 +475,15 @@ class PFAABitcoinStrategy(IStrategy):
         # Emergency exit: ADX collapse (trend dying)
         if last_candle.get("adx", 25) < 15 and current_profit > 0.02:
             return "trend_collapse_exit"
+
+        # Regime shift exit: distribution or markdown detected
+        regime = last_candle.get("market_regime", 1)
+        if regime >= 3 and current_profit > 0.005:
+            return f"regime_shift_exit_{int(regime)}"
+
+        # On-chain danger: MVRV overheated
+        if last_candle.get("mvrv_zscore", 3.0) > 7.0 and current_profit > 0.01:
+            return "mvrv_overheated_exit"
 
         # Time-based exit: close trades older than 48h with profit
         trade_duration = (current_time - trade.open_date_utc).total_seconds() / 3600
