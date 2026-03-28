@@ -124,57 +124,61 @@ PARAMS = {
     "accumulation_min_score": 6,  # higher bar during accumulation regime
 }
 
+# Optimized weights from signal weight search: [ema, rsi, bb, macd, vol, 1h_trend, regime, stochrsi, adx, mean_rev]
+SIGNAL_WEIGHTS = [2, 0, 1, 0, 2, 3, 2, 1, 1, 2]  # RSI=0 MACD=0: single-candle noise. 1h_trend=3: highest conviction
+
 # ── Entry Signal Scoring ─────────────────────────────────────────────
 
-def compute_entry_scores(df, p=PARAMS):
+def compute_entry_scores(df, p=PARAMS, weights=None):
     """Compute weighted entry scores matching the strategy."""
+    w = weights or SIGNAL_WEIGHTS
     scores = pd.Series(0, index=df.index, dtype=float)
 
     ema_fast = f"ema_{p['ema_fast']}"
     ema_slow = f"ema_{p['ema_slow']}"
     ema_trend = f"ema_{p['ema_trend']}"
 
-    # Signal 1: EMA cross (+1)
+    # Signal 1: EMA cross (w=2)
     cross = (df[ema_fast] > df[ema_slow]) & (df[ema_fast].shift(1) <= df[ema_slow].shift(1))
     above_trend = df["close"] > df[ema_trend]
-    scores += (cross & above_trend).astype(int)
+    scores += (cross & above_trend).astype(int) * w[0]
 
-    # Signal 2: RSI momentum (+1)
+    # Signal 2: RSI momentum (w=0 — noise on 5m, doesn't help)
     rsi_in_range = (df["rsi"] > p["rsi_low"]) & (df["rsi"] < p["rsi_high"])
     rsi_rising = df["rsi"] > df["rsi"].shift(1)
-    scores += (rsi_in_range & rsi_rising).astype(int)
+    scores += (rsi_in_range & rsi_rising).astype(int) * w[1]
 
-    # Signal 3: BB squeeze breakout (+1)
+    # Signal 3: BB squeeze breakout (w=1)
     bb_cross = (df["close"] > df["bb_middle"]) & (df["close"].shift(1) <= df["bb_middle"].shift(1))
     bb_wide = df["bb_width"] > p["bb_width_threshold"]
-    scores += (bb_cross & bb_wide).astype(int)
+    scores += (bb_cross & bb_wide).astype(int) * w[2]
 
-    # Signal 4: MACD crossover (+1)
+    # Signal 4: MACD crossover (w=0 — fires on single candle, too noisy)
     macd_cross = (df["macd_hist"] > 0) & (df["macd_hist"].shift(1) <= 0)
     macd_pos = df["macd"] > df["macd_signal"]
-    scores += (macd_cross & macd_pos).astype(int)
+    scores += (macd_cross & macd_pos).astype(int) * w[3]
 
-    # Signal 5: Volume confirmation (+1)
-    scores += (df["volume_ratio"] > p["volume_factor"]).astype(int)
+    # Signal 5: Volume confirmation (w=2)
+    scores += (df["volume_ratio"] > p["volume_factor"]).astype(int) * w[4]
 
-    # Signal 6: 1h trend alignment (+2 weight)
+    # Signal 6: 1h trend alignment (w=3 — highest conviction signal)
     trend_aligned = (df["ema_50_1h"] > df["ema_200_1h"]) & (df["close"] > df["ema_50_1h"])
-    scores += trend_aligned.astype(int) * 2
+    scores += trend_aligned.astype(int) * w[5]
 
-    # Signal 7: Market regime bonus (+2 weight)
-    scores += (df["market_regime"] == 2).astype(int) * 2
+    # Signal 7: Market regime bonus (w=2)
+    scores += (df["market_regime"] == 2).astype(int) * w[6]
 
-    # Signal 8: StochRSI crossover (+1)
+    # Signal 8: StochRSI crossover (w=1)
     stoch_cross = (df["stoch_rsi_k"] > df["stoch_rsi_d"]) & (df["stoch_rsi_k"].shift(1) <= df["stoch_rsi_d"].shift(1))
     stoch_oversold = df["stoch_rsi_k"] < 20
-    scores += (stoch_cross & stoch_oversold).astype(int)
+    scores += (stoch_cross & stoch_oversold).astype(int) * w[7]
 
-    # Signal 9: ADX filter (+1)
-    scores += (df["adx"] > p["adx_threshold"]).astype(int)
+    # Signal 9: ADX filter (w=1)
+    scores += (df["adx"] > p["adx_threshold"]).astype(int) * w[8]
 
-    # Signal 11: Mean reversion (+2 weight)
+    # Signal 10: Mean reversion (w=2)
     mean_rev = (df["close"] < df["bb_lower"]) & (df["rsi"] < 28)
-    scores += mean_rev.astype(int) * 2
+    scores += mean_rev.astype(int) * w[9]
 
     return scores
 
