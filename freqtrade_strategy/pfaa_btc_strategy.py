@@ -67,6 +67,25 @@ class PFAABitcoinStrategy(IStrategy):
     - Hyperopt-optimized parameters
     """
 
+    # ── v8 Optimized Signal Weights ──────────────────────────────
+    # Discovered via hyperopt backtesting on BTC/USDT 5m (2025-2026 data).
+    # RSI momentum and MACD histogram crossover signals are pure noise on
+    # BTC 5m — they fire on single candles with no predictive value.
+    # Higher-timeframe trend (1h) is the strongest signal by far.
+    # Max possible entry score: 14  (2+0+1+0+2+3+2+1+1+2)
+    SIGNAL_WEIGHTS = {
+        "ema": 2,           # EMA golden cross
+        "rsi": 0,           # RSI momentum — NOISE on 5m, disabled
+        "bb": 1,            # Bollinger Band squeeze breakout
+        "macd": 0,          # MACD histogram crossover — NOISE on 5m, disabled
+        "vol": 2,           # Volume confirmation
+        "1h_trend": 3,      # 1h trend alignment — strongest signal
+        "regime": 2,        # Market regime (markup)
+        "stochrsi": 1,      # StochRSI oversold crossover
+        "adx": 1,           # ADX trend strength
+        "mean_rev": 2,      # Mean-reversion at BB lower + extreme oversold
+    }
+
     # ── Strategy Settings ─────────────────────────────────────────
 
     INTERFACE_VERSION = 3
@@ -85,7 +104,7 @@ class PFAABitcoinStrategy(IStrategy):
     }
 
     # Stoploss
-    stoploss = -0.055  # -5.5% hard stop
+    stoploss = -0.025  # -2.5% hard stop (tightened in v8 — was -5.5%)
 
     # Trailing stop — the key to capturing runners
     trailing_stop = True
@@ -141,10 +160,10 @@ class PFAABitcoinStrategy(IStrategy):
     # Mean-reversion entry (buy dips to BB lower band in extreme oversold)
     buy_mean_reversion_enabled = BooleanParameter(default=True, space="buy", optimize=True)
 
-    # Multi-signal minimum score (max possible ~14)
-    # Lowered default from 4 to 3: in extreme fear, fewer signals fire simultaneously
-    # so we lower the bar slightly to catch accumulation entries
-    buy_min_score = IntParameter(2, 7, default=3, space="buy", optimize=True)
+    # Multi-signal minimum score (max possible = 14: 2+0+1+0+2+3+2+1+1+2)
+    # v8: raised default to 5 (from 3) — with noise signals disabled and weights
+    # rebalanced, a score of 5 requires meaningful multi-signal confluence
+    buy_min_score = IntParameter(3, 8, default=5, space="buy", optimize=True)
 
     # Sell parameters — raised default per strategist (let winners run)
     sell_rsi_high = IntParameter(72, 88, default=80, space="sell", optimize=True)
@@ -349,7 +368,7 @@ class PFAABitcoinStrategy(IStrategy):
         conditions = []
         dataframe["entry_score"] = 0
 
-        # Signal 1: EMA Golden Cross (fast > slow, both above trend) — weight +1
+        # Signal 1: EMA Golden Cross (fast > slow, both above trend) — weight +2
         ema_fast = dataframe[f"ema_{self.buy_ema_fast.value}"]
         ema_slow = dataframe[f"ema_{self.buy_ema_slow.value}"]
         ema_trend = dataframe[f"ema_{self.buy_ema_trend.value}"]
@@ -358,16 +377,18 @@ class PFAABitcoinStrategy(IStrategy):
             qtpylib.crossed_above(ema_fast, ema_slow) &
             (dataframe["close"] > ema_trend)
         )
-        dataframe.loc[ema_cross, "entry_score"] += 1
+        dataframe.loc[ema_cross, "entry_score"] += 2
 
-        # Signal 2: RSI momentum (oversold recovery) — weight +1
-        if self.buy_rsi_enabled.value:
-            rsi_signal = (
-                (dataframe["rsi"] > self.buy_rsi_low.value) &
-                (dataframe["rsi"] < self.buy_rsi_high.value) &
-                (dataframe["rsi"] > dataframe["rsi"].shift(1))
-            )
-            dataframe.loc[rsi_signal, "entry_score"] += 1
+        # Signal 2: RSI momentum (oversold recovery) — weight 0 (DISABLED)
+        # v8 optimization finding: RSI momentum is pure noise on BTC 5m.
+        # Fires on single candles with no predictive value. Kept for reference.
+        # if self.buy_rsi_enabled.value:
+        #     rsi_signal = (
+        #         (dataframe["rsi"] > self.buy_rsi_low.value) &
+        #         (dataframe["rsi"] < self.buy_rsi_high.value) &
+        #         (dataframe["rsi"] > dataframe["rsi"].shift(1))
+        #     )
+        #     dataframe.loc[rsi_signal, "entry_score"] += 1
 
         # Signal 3: Bollinger Band squeeze breakout — weight +1
         if self.buy_bb_enabled.value:
@@ -378,28 +399,30 @@ class PFAABitcoinStrategy(IStrategy):
             )
             dataframe.loc[bb_signal, "entry_score"] += 1
 
-        # Signal 4: MACD histogram positive crossover — weight +1
-        if self.buy_macd_enabled.value:
-            macd_signal = (
-                (dataframe["macd_hist"] > 0) &
-                (dataframe["macd_hist"].shift(1) <= 0) &
-                (dataframe["macd"] > dataframe["macd_signal"])
-            )
-            dataframe.loc[macd_signal, "entry_score"] += 1
+        # Signal 4: MACD histogram positive crossover — weight 0 (DISABLED)
+        # v8 optimization finding: MACD histogram crossover is pure noise on BTC 5m.
+        # Single-candle firings with no follow-through. Kept for reference.
+        # if self.buy_macd_enabled.value:
+        #     macd_signal = (
+        #         (dataframe["macd_hist"] > 0) &
+        #         (dataframe["macd_hist"].shift(1) <= 0) &
+        #         (dataframe["macd"] > dataframe["macd_signal"])
+        #     )
+        #     dataframe.loc[macd_signal, "entry_score"] += 1
 
-        # Signal 5: Volume confirmation — weight +1
+        # Signal 5: Volume confirmation — weight +2
         volume_signal = (
             dataframe["volume_ratio"] > self.buy_volume_factor.value
         )
-        dataframe.loc[volume_signal, "entry_score"] += 1
+        dataframe.loc[volume_signal, "entry_score"] += 2
 
-        # Signal 6: 1h trend alignment — weight +2 (higher TF = higher conviction)
+        # Signal 6: 1h trend alignment — weight +3 (strongest signal per v8 optimization)
         if "ema_50_1h" in dataframe.columns:
             trend_1h = (
                 (dataframe["ema_50_1h"] > dataframe["ema_200_1h"]) &
                 (dataframe["close"] > dataframe["ema_50_1h"])
             )
-            dataframe.loc[trend_1h, "entry_score"] += 2
+            dataframe.loc[trend_1h, "entry_score"] += 3
 
         # Signal 7: Market regime bonus (markup = bullish) — weight +2
         regime_bullish = dataframe["market_regime"] == 2  # markup
@@ -554,8 +577,14 @@ class PFAABitcoinStrategy(IStrategy):
         ):
             return "mean_reversion_bb_middle_exit"
 
-        # Time-based exit: close trades older than 48h with profit
+        # Break-even exit after 4 hours: if a trade hasn't moved meaningfully
+        # after 4h, exit at break-even to free capital. v7/v8 optimization showed
+        # that trades not profitable within 4h rarely become winners on BTC 5m.
         trade_duration = (current_time - trade.open_date_utc).total_seconds() / 3600
+        if trade_duration > 4 and 0 <= current_profit < 0.003:
+            return "break_even_4h_exit"
+
+        # Time-based exit: close trades older than 48h with profit
         if trade_duration > 48 and current_profit > 0.005:
             return "time_exit_48h"
 
