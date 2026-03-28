@@ -1,4 +1,4 @@
-# FreqUI Frontend — Dockerfile for Railway
+# FreqUI Frontend — Dockerfile for Railway / Render
 # Connects to FreqTrade backend API
 
 FROM freqtradeorg/frequi:stable
