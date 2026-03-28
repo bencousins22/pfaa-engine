@@ -3,23 +3,28 @@ PFAA Bitcoin FreqTrade Strategy — Self-Optimizing via Agent Team.
 
 A multi-signal BTC strategy designed for the 2025-2026 market regime:
 - BTC 4th halving completed April 2024
-- Post-halving bull cycle: historically peaks 12-18 months after halving
-- 2026 regime: late-cycle markup / early distribution detection
-- Key on-chain: MVRV Z-Score, SOPR, exchange netflows, funding rates
-- Support levels: $64.7K, $52K (200-week MA)
-- Resistance levels: $78K, $82.5K, $100K psychological
+- ATH: $126,198 (Oct 6, 2025), current price: ~$66.6K (-47% drawdown)
+- 2026 regime: POST-PEAK CORRECTION, extreme fear (F&G: 8)
+- Mean-reversion + accumulation strategy (NOT markup/breakout)
+- 86% of technical indicators bearish, aSOPR < 1 (capitulation zone)
+- 5 on-chain bottom signals converging — historically precedes 300%+ rallies
+- Key on-chain: MVRV Z-Score 1.2, SOPR 0.97-0.99, exchange reserves at 7-year low
+- Support levels: $65K, $62K, $60K (200-week MA)
+- Resistance levels: $69K, $72K (major), $80K
+- ATR daily: $3,510 (4.9% of price — elevated volatility)
 
 Strategy Logic:
 1. Triple EMA crossover with RSI momentum filter
 2. Bollinger Band squeeze breakout detection
 3. MACD histogram divergence with volume confirmation
-4. Dynamic trailing stops based on ATR
-5. Multi-timeframe confirmation (5m + 1h)
-6. Market regime detection (accumulation/markup/distribution/markdown)
-7. On-chain signal placeholders (MVRV, SOPR, funding rates)
+4. Mean-reversion entries at BB lower band + extreme oversold RSI
+5. Dynamic trailing stops based on ATR
+6. Multi-timeframe confirmation (5m + 1h)
+7. Market regime detection (accumulation/markup/distribution/markdown)
+8. On-chain signal placeholders (MVRV, SOPR, funding rates)
 
 Optimized via hyperopt with:
-- SharpeHyperOptLoss (risk-adjusted returns)
+- CalmarHyperOptLoss (drawdown control — critical in choppy correction markets)
 - NSGAIIISampler (multi-objective Bayesian optimization)
 - Walk-forward validation to prevent overfitting
 
@@ -50,7 +55,8 @@ class PFAABitcoinStrategy(IStrategy):
     """
     PFAA Phase-Fluid Bitcoin Strategy.
 
-    Market regime: 2025-2026 BTC correction + recovery.
+    Market regime: 2026 post-peak correction. BTC at $66.6K, -47% from $126K ATH.
+    Extreme fear (F&G: 8). Mean-reversion + accumulation strategy.
     Designed for 5-minute timeframe with 1-hour informative.
 
     Key features:
@@ -132,8 +138,13 @@ class PFAABitcoinStrategy(IStrategy):
     buy_adx_enabled = BooleanParameter(default=True, space="buy", optimize=True)
     buy_adx_threshold = IntParameter(15, 35, default=20, space="buy", optimize=True)
 
-    # Multi-signal minimum score (max possible = 12)
-    buy_min_score = IntParameter(2, 7, default=4, space="buy", optimize=True)
+    # Mean-reversion entry (buy dips to BB lower band in extreme oversold)
+    buy_mean_reversion_enabled = BooleanParameter(default=True, space="buy", optimize=True)
+
+    # Multi-signal minimum score (max possible ~14)
+    # Lowered default from 4 to 3: in extreme fear, fewer signals fire simultaneously
+    # so we lower the bar slightly to catch accumulation entries
+    buy_min_score = IntParameter(2, 7, default=3, space="buy", optimize=True)
 
     # Sell parameters — raised default per strategist (let winners run)
     sell_rsi_high = IntParameter(72, 88, default=80, space="sell", optimize=True)
@@ -227,10 +238,16 @@ class PFAABitcoinStrategy(IStrategy):
 
     def _detect_market_regime(self, dataframe: DataFrame) -> DataFrame:
         """
-        Detect market regime for 2026 post-halving bull cycle.
+        Detect market regime for 2026 post-peak correction.
+
+        As of March 2026, the current regime is Accumulation (phase 1):
+        - BTC at $66.6K, -47% from $126K ATH (Oct 2025)
+        - Extreme fear, aSOPR < 1 (capitulation), MVRV Z-Score 1.2
+        - Exchange reserves at 7-year low (smart money accumulating)
+        - NOT in Markup — do not assume bullish trend continuation
 
         Regimes (encoded as integers for indicator use):
-          1 = Accumulation  (low vol, range-bound, post-correction)
+          1 = Accumulation  (low vol, range-bound, post-correction) ← CURRENT
           2 = Markup         (trending up, expanding vol, bull phase)
           3 = Distribution   (high vol, topping, late cycle)
           4 = Markdown       (trending down, capitulation)
@@ -308,11 +325,11 @@ class PFAABitcoinStrategy(IStrategy):
         - exchange_netflow: Net BTC flow to/from exchanges
           positive = selling pressure, negative = accumulation
         """
-        # Neutral defaults -- replace with live data feed in production
-        dataframe["mvrv_zscore"] = 3.0        # mid-range neutral
-        dataframe["sopr"] = 1.01              # slightly profitable
-        dataframe["funding_rate"] = 0.0005    # neutral funding
-        dataframe["exchange_netflow"] = 0.0   # neutral flow
+        # Defaults reflect March 2026 market conditions — replace with live data feed in production
+        dataframe["mvrv_zscore"] = 1.2        # low — undervalued zone (down from 3.8 at peak)
+        dataframe["sopr"] = 0.98              # below 1 = coins moving at a loss (capitulation)
+        dataframe["funding_rate"] = -0.001    # slightly negative = no long crowding
+        dataframe["exchange_netflow"] = -500  # negative = outflows = accumulation (reserves at 7yr low)
 
         logger.debug(
             "On-chain signals set to neutral defaults. "
@@ -410,6 +427,17 @@ class PFAABitcoinStrategy(IStrategy):
                 (dataframe["exchange_netflow"] <= 0)    # accumulation (outflows)
             )
             dataframe.loc[onchain_buy, "entry_score"] += 1
+
+        # Signal 11: Mean-reversion entry (extreme oversold at BB lower band) — weight +2
+        # High conviction: in a post-peak correction / accumulation regime, buying extreme
+        # dips to support with plan to exit at BB middle is a proven mean-reversion setup.
+        # Condition: close below BB lower band AND RSI < 28 (extreme oversold)
+        if self.buy_mean_reversion_enabled.value:
+            mean_reversion_signal = (
+                (dataframe["close"] < dataframe["bb_lower"]) &
+                (dataframe["rsi"] < 28)
+            )
+            dataframe.loc[mean_reversion_signal, "entry_score"] += 2
 
         # Final entry: score must meet minimum threshold
         # Regime guard: never enter during distribution (3) or markdown (4)
@@ -511,6 +539,20 @@ class PFAABitcoinStrategy(IStrategy):
         # On-chain danger: MVRV overheated
         if last_candle.get("mvrv_zscore", 3.0) > 7.0 and current_profit > 0.01:
             return "mvrv_overheated_exit"
+
+        # Mean-reversion profit-take: if entry was near BB lower band and price
+        # has reverted to BB middle, take profit. In a choppy/correction market,
+        # mean-reversion trades should not be held for trend — capture the bounce.
+        bb_middle = last_candle.get("bb_middle", 0)
+        bb_lower = last_candle.get("bb_lower", 0)
+        if (
+            bb_middle > 0
+            and bb_lower > 0
+            and current_rate >= bb_middle
+            and current_profit > 0.005
+            and trade.open_rate <= bb_lower * 1.005  # entered near/below BB lower
+        ):
+            return "mean_reversion_bb_middle_exit"
 
         # Time-based exit: close trades older than 48h with profit
         trade_duration = (current_time - trade.open_date_utc).total_seconds() / 3600
