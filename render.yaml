@@ -1,0 +1,36 @@
+# Render Blueprint — PFAA FreqTrade + FreqUI
+# Deploy: https://render.com/deploy?repo=https://github.com/bencousins22/pfaa-engine
+
+services:
+  # ── FreqTrade Backend (Web Service) ────────────────────────
+  - type: web
+    name: pfaa-freqtrade
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/v1/ping
+    envVars:
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
+      - key: FREQTRADE_API_USER
+        value: pfaa
+      - key: FREQTRADE_API_PASS
+        value: pfaa2026
+    disk:
+      name: freqtrade-data
+      mountPath: /freqtrade/user_data/data
+      sizeGB: 1
+
+  # ── FreqUI Frontend (Static Site) ──────────────────────────
+  - type: web
+    name: pfaa-frequi
+    runtime: docker
+    dockerfilePath: ./Dockerfile.frequi
+    plan: starter
+    region: oregon
+    envVars:
+      - key: PORT
+        value: "80"

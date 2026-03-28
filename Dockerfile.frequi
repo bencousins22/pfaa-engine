@@ -1,0 +1,21 @@
+# FreqUI Frontend — Dockerfile for Render / Railway
+# Connects to FreqTrade backend API
+
+FROM freqtradeorg/frequi:stable
+
+# Render assigns PORT dynamically (default 10000)
+ENV PORT=80
+EXPOSE 80
+
+# Override nginx to listen on $PORT and proxy API to backend
+RUN printf 'server {\n\
+    listen %s;\n\
+    server_name _;\n\
+    root /usr/share/nginx/html;\n\
+    index index.html;\n\
+    location / {\n\
+        try_files $uri $uri/ /index.html;\n\
+    }\n\
+}\n' '${PORT}' > /etc/nginx/templates/default.conf.template
+
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,9 @@
+.git
+.env
+node_modules
+pfaa-cli/node_modules
+__pycache__
+*.pyc
+user_data/data
+*.sqlite
+.claude

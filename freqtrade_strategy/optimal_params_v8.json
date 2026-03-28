@@ -1,0 +1,23 @@
+{
+  "params": {
+    "stoploss": -0.02,
+    "atr_sl_loss": 3.5,
+    "atr_sl_low": 2.5,
+    "atr_sl_high": 0.8,
+    "trailing_distance": 0.01,
+    "trailing_activation": 0.02,
+    "max_dd_circuit": 0.3,
+    "accumulation_min_score": 7,
+    "profit_lock_pct": 0.015
+  },
+  "result": {
+    "ret": 48.67406135585867,
+    "wr": 55.85443037974683,
+    "mdd": 32.19263347463193,
+    "n": 632,
+    "sharpe": 0.7199403844931985,
+    "pf": 1.1074232597269917,
+    "cap": 14867.406135585867
+  },
+  "score": 43.63327826091659
+}
