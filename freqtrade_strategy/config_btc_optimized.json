@@ -78,18 +78,30 @@
         "password": ""
     },
 
-    "bot_name": "pfaa-btc-bot",
+    "bot_name": "pfaa-btc-bot-optimized",
 
     "initial_state": "running",
 
     "force_entry_enable": false,
 
     "internals": {
-        "process_throttle_secs": 5
+        "process_throttle_secs": 3
     },
 
-    "_comment_strategy": "PFAA Bitcoin Strategy — optimized for 2026 Q1 BTC accumulation/recovery regime",
+    "_comment_strategy": "PFAA Bitcoin Strategy (OPTIMIZED) — tuned for 2026 Q1 BTC accumulation/recovery regime",
     "_comment_market": "BTC consolidating mid-$60K-$80K range as of March 2026. Support: $64.7K. Resistance: $78K, $82.5K. Awaiting macro catalyst for breakout.",
     "_comment_approach": "Multi-signal scoring (EMA+RSI+BB+MACD+Vol) with ATR trailing stops. Single-position sizing to avoid correlated risk.",
-    "_comment_hyperopt": "Run: freqtrade hyperopt --strategy PFAABitcoinStrategy --hyperopt-loss SharpeHyperOptLoss --epochs 1000"
+    "_comment_hyperopt": "Run: freqtrade hyperopt --strategy PFAABitcoinStrategy --hyperopt-loss SharpeHyperOptLoss --epochs 1000 --spaces buy sell roi stoploss trailing",
+    "_comment_hyperopt_tips": "Use --timerange 20251001-20260328 for recent market regime. Consider CalmarHyperOptLoss for drawdown-sensitive optimization.",
+    "_comment_optimization": {
+        "date": "2026-03-28",
+        "agent": "PFAA Risk Manager",
+        "changes": [
+            "max_open_trades: 3 -> 1 — Single-pair BTC/USDT strategy must not open multiple concurrent positions. 3 correlated BTC positions means 3x drawdown on any BTC drop, violating basic risk management.",
+            "stake_amount: 'unlimited' -> 0.95 — Deploy 95% of available balance per trade with a 5% buffer for fees, slippage, and margin-of-safety. Prevents over-allocation that could cause order failures.",
+            "process_throttle_secs: 5 -> 3 — Faster candle processing loop for tighter signal response. Reduces latency between signal detection and order placement.",
+            "Updated market comments to reflect March 2026 conditions and consolidation regime.",
+            "Added expanded hyperopt hints: full search space flags (buy sell roi stoploss trailing) and recommended timerange."
+        ]
+    }
 }

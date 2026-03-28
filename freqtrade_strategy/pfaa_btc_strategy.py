@@ -34,9 +34,9 @@ from freqtrade.strategy import IntParameter, DecimalParameter, BooleanParameter
 from freqtrade.persistence import Trade
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 
-lazy import numpy as np
-lazy import talib.abstract as ta
-lazy import pandas as pd
+import numpy as np
+import talib.abstract as ta
+import pandas as pd
 
 from pandas import DataFrame
 from datetime import datetime, timedelta
@@ -70,20 +70,21 @@ class PFAABitcoinStrategy(IStrategy):
 
     # ROI table — aggressive early exit, patient for runners
     minimal_roi = {
-        "0": 0.08,      # 8% immediate
-        "30": 0.04,     # 4% after 30 min
-        "120": 0.025,   # 2.5% after 2 hrs
-        "360": 0.015,   # 1.5% after 6 hrs
-        "720": 0.008,   # 0.8% after 12 hrs
+        "0": 0.10,       # 10% immediate
+        "30": 0.05,      # 5% after 30 min
+        "120": 0.03,     # 3% after 2 hrs
+        "360": 0.018,    # 1.8% after 6 hrs
+        "720": 0.01,     # 1% after 12 hrs
+        "1440": 0.005,   # 0.5% after 24 hrs
     }
 
     # Stoploss
-    stoploss = -0.06  # -6% hard stop
+    stoploss = -0.055  # -5.5% hard stop
 
     # Trailing stop — the key to capturing runners
     trailing_stop = True
-    trailing_stop_positive = 0.018
-    trailing_stop_positive_offset = 0.045
+    trailing_stop_positive = 0.015
+    trailing_stop_positive_offset = 0.04
     trailing_only_offset_is_reached = True
 
     # Position settings
@@ -104,35 +105,48 @@ class PFAABitcoinStrategy(IStrategy):
 
     # ── Hyperopt Parameters (widened for 2026 post-halving regime) ──
 
-    # EMA crossover — wider range for regime adaptability
-    buy_ema_fast = IntParameter(3, 34, default=9, space="buy", optimize=True)
-    buy_ema_slow = IntParameter(10, 89, default=21, space="buy", optimize=True)
-    buy_ema_trend = IntParameter(34, 233, default=100, space="buy", optimize=True)
+    # EMA crossover — tightened ranges per strategist analysis
+    buy_ema_fast = IntParameter(5, 21, default=8, space="buy", optimize=True)
+    buy_ema_slow = IntParameter(13, 55, default=21, space="buy", optimize=True)
+    buy_ema_trend = IntParameter(55, 200, default=100, space="buy", optimize=True)
 
-    # RSI filter — wider thresholds for volatile post-halving cycles
-    buy_rsi_low = IntParameter(15, 45, default=30, space="buy", optimize=True)
-    buy_rsi_high = IntParameter(50, 80, default=65, space="buy", optimize=True)
+    # RSI filter — tightened thresholds per strategist analysis
+    buy_rsi_low = IntParameter(25, 42, default=35, space="buy", optimize=True)
+    buy_rsi_high = IntParameter(55, 75, default=68, space="buy", optimize=True)
     buy_rsi_enabled = BooleanParameter(default=True, space="buy", optimize=True)
 
-    # Bollinger Bands — wider range for squeeze detection
+    # Bollinger Bands — tightened range for squeeze detection
     buy_bb_enabled = BooleanParameter(default=True, space="buy", optimize=True)
-    buy_bb_width_threshold = DecimalParameter(0.005, 0.08, default=0.025, decimals=3, space="buy", optimize=True)
+    buy_bb_width_threshold = DecimalParameter(0.01, 0.06, default=0.02, decimals=3, space="buy", optimize=True)
 
     # MACD
     buy_macd_enabled = BooleanParameter(default=True, space="buy", optimize=True)
 
-    # Volume — wider factor range
-    buy_volume_factor = DecimalParameter(0.8, 5.0, default=1.5, decimals=1, space="buy", optimize=True)
+    # Volume — tightened factor range
+    buy_volume_factor = DecimalParameter(1.0, 3.0, default=1.5, decimals=1, space="buy", optimize=True)
 
-    # Multi-signal minimum score — allow lower thresholds for aggressive modes
-    buy_min_score = IntParameter(1, 6, default=3, space="buy", optimize=True)
+    # StochRSI entry signal — oversold crossover
+    buy_stochrsi_enabled = BooleanParameter(default=True, space="buy", optimize=True)
 
-    # Sell parameters — wider range for exit tuning
-    sell_rsi_high = IntParameter(60, 90, default=75, space="sell", optimize=True)
+    # ADX trend strength filter
+    buy_adx_enabled = BooleanParameter(default=True, space="buy", optimize=True)
+    buy_adx_threshold = IntParameter(15, 35, default=20, space="buy", optimize=True)
+
+    # Multi-signal minimum score (max possible = 12)
+    buy_min_score = IntParameter(2, 7, default=4, space="buy", optimize=True)
+
+    # Sell parameters — raised default per strategist (let winners run)
+    sell_rsi_high = IntParameter(72, 88, default=80, space="sell", optimize=True)
     sell_ema_cross = BooleanParameter(default=True, space="sell", optimize=True)
 
     # On-chain signal weights (placeholders for external data feeds)
     buy_onchain_enabled = BooleanParameter(default=False, space="buy", optimize=True)
+
+    # ATR stoploss multipliers — hyperopt-optimizable
+    sl_atr_high_profit = DecimalParameter(0.8, 2.0, default=1.2, decimals=1, space="sell", optimize=True)
+    sl_atr_mid_profit = DecimalParameter(1.0, 2.5, default=1.8, decimals=1, space="sell", optimize=True)
+    sl_atr_low_profit = DecimalParameter(1.5, 3.0, default=2.2, decimals=1, space="sell", optimize=True)
+    sl_atr_in_loss = DecimalParameter(2.0, 4.0, default=3.0, decimals=1, space="sell", optimize=True)
 
     # ── Informative Pairs ─────────────────────────────────────────
 
@@ -318,7 +332,7 @@ class PFAABitcoinStrategy(IStrategy):
         conditions = []
         dataframe["entry_score"] = 0
 
-        # Signal 1: EMA Golden Cross (fast > slow, both above trend)
+        # Signal 1: EMA Golden Cross (fast > slow, both above trend) — weight +1
         ema_fast = dataframe[f"ema_{self.buy_ema_fast.value}"]
         ema_slow = dataframe[f"ema_{self.buy_ema_slow.value}"]
         ema_trend = dataframe[f"ema_{self.buy_ema_trend.value}"]
@@ -329,7 +343,7 @@ class PFAABitcoinStrategy(IStrategy):
         )
         dataframe.loc[ema_cross, "entry_score"] += 1
 
-        # Signal 2: RSI momentum (oversold recovery)
+        # Signal 2: RSI momentum (oversold recovery) — weight +1
         if self.buy_rsi_enabled.value:
             rsi_signal = (
                 (dataframe["rsi"] > self.buy_rsi_low.value) &
@@ -338,7 +352,7 @@ class PFAABitcoinStrategy(IStrategy):
             )
             dataframe.loc[rsi_signal, "entry_score"] += 1
 
-        # Signal 3: Bollinger Band squeeze breakout
+        # Signal 3: Bollinger Band squeeze breakout — weight +1
         if self.buy_bb_enabled.value:
             bb_signal = (
                 (dataframe["close"] > dataframe["bb_middle"]) &
@@ -347,7 +361,7 @@ class PFAABitcoinStrategy(IStrategy):
             )
             dataframe.loc[bb_signal, "entry_score"] += 1
 
-        # Signal 4: MACD histogram positive crossover
+        # Signal 4: MACD histogram positive crossover — weight +1
         if self.buy_macd_enabled.value:
             macd_signal = (
                 (dataframe["macd_hist"] > 0) &
@@ -356,25 +370,38 @@ class PFAABitcoinStrategy(IStrategy):
             )
             dataframe.loc[macd_signal, "entry_score"] += 1
 
-        # Signal 5: Volume confirmation
+        # Signal 5: Volume confirmation — weight +1
         volume_signal = (
             dataframe["volume_ratio"] > self.buy_volume_factor.value
         )
         dataframe.loc[volume_signal, "entry_score"] += 1
 
-        # Signal 6: 1h trend alignment (if available)
+        # Signal 6: 1h trend alignment — weight +2 (higher TF = higher conviction)
         if "ema_50_1h" in dataframe.columns:
             trend_1h = (
                 (dataframe["ema_50_1h"] > dataframe["ema_200_1h"]) &
                 (dataframe["close"] > dataframe["ema_50_1h"])
             )
-            dataframe.loc[trend_1h, "entry_score"] += 1
+            dataframe.loc[trend_1h, "entry_score"] += 2
 
-        # Signal 7: Market regime bonus (markup = bullish environment)
+        # Signal 7: Market regime bonus (markup = bullish) — weight +2
         regime_bullish = dataframe["market_regime"] == 2  # markup
-        dataframe.loc[regime_bullish, "entry_score"] += 1
+        dataframe.loc[regime_bullish, "entry_score"] += 2
 
-        # Signal 8: On-chain signals (when live data is connected)
+        # Signal 8: StochRSI oversold crossover — weight +1
+        if self.buy_stochrsi_enabled.value:
+            stochrsi_signal = (
+                qtpylib.crossed_above(dataframe["stoch_rsi_k"], dataframe["stoch_rsi_d"]) &
+                (dataframe["stoch_rsi_k"] < 20)
+            )
+            dataframe.loc[stochrsi_signal, "entry_score"] += 1
+
+        # Signal 9: ADX trend strength filter — weight +1
+        if self.buy_adx_enabled.value:
+            adx_signal = dataframe["adx"] > self.buy_adx_threshold.value
+            dataframe.loc[adx_signal, "entry_score"] += 1
+
+        # Signal 10: On-chain signals (when live data is connected) — weight +1
         if self.buy_onchain_enabled.value:
             onchain_buy = (
                 (dataframe["mvrv_zscore"] < 5.0) &   # not overheated
@@ -440,15 +467,15 @@ class PFAABitcoinStrategy(IStrategy):
         last_candle = dataframe.iloc[-1]
         atr_pct = last_candle.get("atr_pct", 0.02)
 
-        # Tighter stops in low volatility, wider in high
+        # Tighter stops in low volatility, wider in high — multipliers are hyperopt-optimizable
         if current_profit > 0.04:
-            return -atr_pct * 1.0  # Tight: 1x ATR when profitable
+            return -atr_pct * self.sl_atr_high_profit.value
         elif current_profit > 0.02:
-            return -atr_pct * 1.5  # Medium: 1.5x ATR
+            return -atr_pct * self.sl_atr_mid_profit.value
         elif current_profit > 0:
-            return -atr_pct * 2.0  # Wide: 2x ATR when barely profitable
+            return -atr_pct * self.sl_atr_low_profit.value
         else:
-            return -atr_pct * 2.5  # Very wide: 2.5x ATR when in loss (give room)
+            return -atr_pct * self.sl_atr_in_loss.value
 
     # ── Custom Exit ───────────────────────────────────────────────
 
@@ -468,8 +495,8 @@ class PFAABitcoinStrategy(IStrategy):
 
         last_candle = dataframe.iloc[-1]
 
-        # Emergency exit: RSI > 85 (extreme overbought)
-        if last_candle.get("rsi", 50) > 85 and current_profit > 0.01:
+        # Emergency exit: RSI > 88 (extreme overbought — raised to let winners run)
+        if last_candle.get("rsi", 50) > 88 and current_profit > 0.01:
             return "rsi_extreme_exit"
 
         # Emergency exit: ADX collapse (trend dying)
