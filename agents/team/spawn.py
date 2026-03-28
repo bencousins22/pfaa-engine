@@ -24,6 +24,14 @@ from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from typing import Any, Self
 
+# ── Claude API (optional) ──────────────────────────────────────────
+try:
+    import anthropic as _anthropic
+    _HAS_ANTHROPIC = True
+except ImportError:
+    _anthropic = None
+    _HAS_ANTHROPIC = False
+
 # ── Logging Setup ────────────────────────────────────────────────────
 
 logging.basicConfig(
@@ -309,6 +317,68 @@ class TeamRole(Enum):
     DEPLOYER = "deployer"
 
 
+ROLE_DESC = {
+    TeamRole.STRATEGIST: ("Signal generation & parameter design", "VAPOR", ["signals", "indicators", "market"]),
+    TeamRole.OPTIMIZER: ("Hyperparameter tuning & backtest", "LIQUID", ["hyperopt", "backtest", "tuning"]),
+    TeamRole.RISK_MGR: ("Position sizing & drawdown protection", "VAPOR", ["risk", "sizing", "stops"]),
+    TeamRole.RESEARCHER: ("Historical data & trend analysis", "VAPOR", ["search", "analysis", "data"]),
+    TeamRole.VALIDATOR: ("OOS testing & overfitting detection", "SOLID", ["validation", "testing", "quality"]),
+    TeamRole.DEPLOYER: ("Config generation & deployment", "SOLID", ["deploy", "config", "production"]),
+}
+
+ROLE_PROMPTS = {
+    TeamRole.RESEARCHER: "You are a research analyst. Analyze data, find patterns, identify trends, and provide evidence-based insights to inform the team's decisions.",
+    TeamRole.STRATEGIST: "You are a strategy architect. Design approaches, define signal combinations, and create comprehensive plans that balance risk and reward.",
+    TeamRole.OPTIMIZER: "You are a performance optimizer. Find bottlenecks, tune hyperparameters, and maximize efficiency through systematic experimentation.",
+    TeamRole.VALIDATOR: "You are a quality validator. Test, verify, find flaws, detect overfitting, and ensure all outputs meet rigorous quality standards.",
+    TeamRole.RISK_MGR: "You are a risk manager. Identify risks, suggest mitigations, enforce position sizing limits, and protect against catastrophic drawdowns.",
+    TeamRole.DEPLOYER: "You are a deployment specialist. Plan rollouts, generate production configs, and ensure smooth transitions from development to live systems.",
+}
+
+
+class ClaudeClient:
+    """Wrapper around the Anthropic API with graceful fallback."""
+
+    def __init__(self):
+        self._client = None
+        if _HAS_ANTHROPIC and os.environ.get("ANTHROPIC_API_KEY"):
+            try:
+                self._client = _anthropic.Anthropic()
+            except Exception:
+                self._client = None
+
+    @property
+    def available(self) -> bool:
+        return self._client is not None
+
+    def ask(self, role_context: str, task: str, memories: list[str] | None = None) -> str:
+        """Call Claude API. Returns response text, or raises on failure."""
+        if not self._client:
+            raise RuntimeError("Claude API client not available")
+        mem_block = ""
+        if memories:
+            mem_block = "\n\n## Recalled Memories\n" + "\n".join(f"- {m}" for m in memories)
+        system_prompt = f"{role_context}{mem_block}\n\nRespond concisely with actionable results. Use structured formatting."
+        message = self._client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2048,
+            system=system_prompt,
+            messages=[{"role": "user", "content": task}],
+        )
+        return message.content[0].text
+
+
+# Module-level singleton — created lazily
+_claude_client: ClaudeClient | None = None
+
+
+def _get_claude_client() -> ClaudeClient:
+    global _claude_client
+    if _claude_client is None:
+        _claude_client = ClaudeClient()
+    return _claude_client
+
+
 @dataclass
 class AgentState:
     role: TeamRole
@@ -321,13 +391,15 @@ class AgentState:
 
 
 class AgentTeam:
-    def __init__(self, roles: list[TeamRole] | None = None, namespace: str = "pfaa-team"):
+    def __init__(self, roles: list[TeamRole] | None = None, namespace: str = "pfaa-team", live: bool = False):
         self.roles = roles or list(TeamRole)
         self.agents: dict[TeamRole, AgentState] = {}
         self.namespace = namespace
         self._engine: JMemEngine | None = None
         self._task_count = 0
         self._start = time.time()
+        self.live = live
+        self._claude: ClaudeClient | None = None
 
     async def start(self) -> None:
         print(BANNER)
@@ -335,6 +407,14 @@ class AgentTeam:
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self._engine = JMemEngine(db_path)
         print(f"  {C}▸{X} JMEM memory initialized: {D}{db_path}{X}")
+        if self.live:
+            self._claude = _get_claude_client()
+            if self._claude.available:
+                print(f"  {G}▸{X} Claude API: {G}LIVE{X} (claude-sonnet-4-20250514)")
+            else:
+                print(f"  {Y}▸{X} Claude API: {Y}FALLBACK{X} (no API key or anthropic not installed)")
+        else:
+            print(f"  {D}▸{X} Claude API: {D}SIMULATED{X} (use --live for real API calls)")
 
         for role in self.roles:
             agent = AgentState(role=role, name=f"pfaa-{role.value}")
@@ -357,25 +437,49 @@ class AgentTeam:
         memories = await self._engine.recall(task, limit=3)
         mem_context = [f"[L{m.level} Q={m.q_value:.2f}] {m.content[:80]}" for m in memories]
 
-        # Execute (simulated — in production this calls PFAA framework or Claude)
-        result = {
-            "task": task[:100],
-            "context_recalled": len(memories),
-            "prior_knowledge": mem_context[:3],
-        }
+        # Try real Claude API call if --live and client is available
+        live_response = None
+        if self.live and self._claude and self._claude.available:
+            role_prompt = ROLE_PROMPTS.get(role, f"You are a {role.value} agent.")
+            desc, phase, caps = ROLE_DESC.get(role, ("Agent", "VAPOR", []))
+            full_context = f"{role_prompt}\n\nRole: {desc}\nPhase: {phase}\nCapabilities: {', '.join(caps)}"
+            try:
+                live_response = self._claude.ask(full_context, task, mem_context)
+            except Exception as e:
+                logger.warning(f"Claude API call failed for {role.value}: {e}")
+                agent.tasks_fail += 1
+
+        if live_response:
+            result = {
+                "task": task[:100],
+                "context_recalled": len(memories),
+                "prior_knowledge": mem_context[:3],
+                "response": live_response,
+                "live": True,
+            }
+        else:
+            result = {
+                "task": task[:100],
+                "context_recalled": len(memories),
+                "prior_knowledge": mem_context[:3],
+                "live": False,
+            }
 
         elapsed = (time.perf_counter() - start) * 1000
         agent.tasks_ok += 1
         agent.total_ms += elapsed
 
-        # Store outcome
+        # Store outcome (real response or simulated) in JMEM
+        mem_content = f"[{role.value}] {task[:200]} | OK in {elapsed:.0f}ms"
+        if live_response:
+            mem_content = f"[{role.value}] {task[:100]} | {live_response[:300]}"
         note_id = await self._engine.remember(
-            content=f"[{role.value}] {task[:200]} | OK in {elapsed:.0f}ms",
+            content=mem_content,
             level=MemoryLevel.EPISODE,
             context=json.dumps(ctx or {}),
             keywords=_tokenize(task)[:6],
         )
-        await self._engine.reward(note_id, 0.8)
+        await self._engine.reward(note_id, 0.85 if live_response else 0.8)
         agent.memories += 1
         self._task_count += 1
 
@@ -450,9 +554,15 @@ class AgentTeam:
 # ═══════════════════════════════════════════════════════════════════
 
 async def main_async():
-    goal = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "self-build the most profitable bitcoin freqtrade config"
+    import argparse
+    p = argparse.ArgumentParser(description="PFAA Agent Team Spawner")
+    p.add_argument("goal", nargs="?", default="self-build the most profitable bitcoin freqtrade config")
+    p.add_argument("--ns", default="pfaa-btc-team", help="JMEM namespace")
+    p.add_argument("--live", action="store_true", help="Enable real Claude API calls (requires ANTHROPIC_API_KEY)")
+    args = p.parse_args()
 
-    team = AgentTeam(namespace="pfaa-btc-team")
+    goal = args.goal
+    team = AgentTeam(namespace=args.ns, live=args.live)
     await team.start()
 
     try:

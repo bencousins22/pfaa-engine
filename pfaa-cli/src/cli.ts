@@ -80,6 +80,8 @@ program
   .option('--max-agents <n>', 'Max concurrent agents', '8')
   .option('--timeout <ms>', 'Global timeout in milliseconds', '120000')
   .option('--python <path>', 'Python 3.15 interpreter path', 'python3.15')
+  .option('--live', 'Use live Claude API (requires ANTHROPIC_API_KEY)')
+  .option('--api-key <key>', 'Anthropic API key (overrides env var)')
   .option('--config <path>', 'Path to config file')
   .hook('preAction', async (thisCommand) => {
     const opts = thisCommand.opts();
@@ -107,7 +109,10 @@ program
       maxConcurrent: config.maxConcurrentAgents,
     });
 
-    orchestrator = new AgentOrchestrator(bridge);
+    orchestrator = new AgentOrchestrator(bridge, {
+      live: opts.live,
+      apiKey: opts.apiKey,
+    });
     memory = new JMEMClient();
     rateLimiter = new RateLimiter(config.enterprise.rateLimit);
     cache = new AnalysisCache(config.enterprise.cache);
@@ -134,7 +139,9 @@ program
     console.log(colorize('cyan', `\n⚡ PFAA — Executing goal...\n`));
     console.log(colorize('dim', `  Goal: ${goal}`));
     console.log(colorize('dim', `  Model: ${config.model}`));
-    console.log(colorize('dim', `  Max Agents: ${config.maxConcurrentAgents}\n`));
+    console.log(colorize('dim', `  Max Agents: ${config.maxConcurrentAgents}`));
+    console.log(colorize(orchestrator.isLive ? 'green' : 'yellow',
+      `  Mode: ${orchestrator.isLive ? 'LIVE (Claude API)' : 'SIMULATED'}\n`));
 
     const startTime = performance.now();
 
@@ -200,7 +207,9 @@ agentCmd
   .option('-c, --concurrency <n>', 'Max concurrent agents', '4')
   .action(async (goal: string, opts) => {
     const roles = opts.roles.split(',').map((r: string) => r.trim() as AgentRole);
-    console.log(colorize('cyan', `\n🐝 Swarm: ${roles.length} agents\n`));
+    console.log(colorize('cyan', `\n🐝 Swarm: ${roles.length} agents`));
+    console.log(colorize(orchestrator.isLive ? 'green' : 'yellow',
+      `  Mode: ${orchestrator.isLive ? 'LIVE (Claude API)' : 'SIMULATED'}\n`));
 
     try {
       await bridge.start();
@@ -230,6 +239,8 @@ agentCmd
   .action(async (description: string, opts) => {
     try {
       await bridge.start();
+      console.log(colorize(orchestrator.isLive ? 'green' : 'yellow',
+        `\n  Mode: ${orchestrator.isLive ? 'LIVE (Claude API)' : 'SIMULATED'}`));
       const result = await orchestrator.executeTask(description, opts.role as AgentRole);
 
       console.log(colorize(result.success ? 'green' : 'red',
@@ -481,6 +492,7 @@ program
     console.log(`    Python:  ${pyResult.available ? colorize('green', pyResult.version) : colorize('red', 'not found')}`);
     console.log(`    Node:    ${colorize('green', process.version)}`);
     console.log(`    Model:   ${colorize('yellow', config.model)}`);
+    console.log(`    Claude:  ${orchestrator.isLive ? colorize('green', 'LIVE') : colorize('yellow', 'SIMULATED')}`);
     console.log(`    GIL:     ${pyResult.gilEnabled ? 'enabled' : colorize('green', 'free-threading')}`);
 
     // Cache
@@ -568,6 +580,55 @@ program
     } finally {
       await bridge.stop();
     }
+  });
+
+// ── Command: config ──────────────────────────────────────────────────
+
+const configCmd = program
+  .command('config')
+  .description('Manage PFAA configuration');
+
+configCmd
+  .command('set-api-key <key>')
+  .description('Save your Anthropic API key for live Claude API calls')
+  .action(async (key: string) => {
+    const { writeFileSync, mkdirSync } = await import('node:fs');
+    const configDir = join(homedir(), '.pfaa');
+    const configFile = join(configDir, 'credentials.json');
+
+    mkdirSync(configDir, { recursive: true });
+
+    const credentials = existsSync(configFile)
+      ? JSON.parse(readFileSync(configFile, 'utf-8'))
+      : {};
+    credentials.anthropicApiKey = key;
+
+    writeFileSync(configFile, JSON.stringify(credentials, null, 2), { mode: 0o600 });
+
+    console.log(colorize('green', '\n✅ API key saved to ~/.pfaa/credentials.json\n'));
+    console.log(colorize('dim', '  The key will be used automatically when --live is passed.'));
+    console.log(colorize('dim', '  You can also set ANTHROPIC_API_KEY in your environment.\n'));
+  });
+
+configCmd
+  .command('show')
+  .description('Show current configuration')
+  .action(() => {
+    const configFile = join(homedir(), '.pfaa', 'credentials.json');
+    const hasKey = existsSync(configFile) && (() => {
+      try {
+        const creds = JSON.parse(readFileSync(configFile, 'utf-8'));
+        return !!creds.anthropicApiKey;
+      } catch { return false; }
+    })();
+    const envKey = !!process.env['ANTHROPIC_API_KEY'];
+
+    console.log(colorize('cyan', '\n📋 PFAA Configuration\n'));
+    console.log(`  API Key (file):  ${hasKey ? colorize('green', 'configured') : colorize('dim', 'not set')}`);
+    console.log(`  API Key (env):   ${envKey ? colorize('green', 'set') : colorize('dim', 'not set')}`);
+    console.log(`  Model:           ${config?.model || 'claude-sonnet-4-6'}`);
+    console.log(`  Config dir:      ~/.pfaa/`);
+    console.log();
   });
 
 // ── Utility Functions ────────────────────────────────────────────────

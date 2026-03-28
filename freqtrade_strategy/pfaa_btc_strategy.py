@@ -2,9 +2,12 @@
 PFAA Bitcoin FreqTrade Strategy — Self-Optimizing via Agent Team.
 
 A multi-signal BTC strategy designed for the 2025-2026 market regime:
-- BTC peaked at ~$126K in Oct 2025, currently ~$66K (correction phase)
-- Support: $64,700 | Resistance: $78K, $82.5K
-- 200-week MA support near $52K
+- BTC 4th halving completed April 2024
+- Post-halving bull cycle: historically peaks 12-18 months after halving
+- 2026 regime: late-cycle markup / early distribution detection
+- Key on-chain: MVRV Z-Score, SOPR, exchange netflows, funding rates
+- Support levels: $64.7K, $52K (200-week MA)
+- Resistance levels: $78K, $82.5K, $100K psychological
 
 Strategy Logic:
 1. Triple EMA crossover with RSI momentum filter
@@ -12,6 +15,8 @@ Strategy Logic:
 3. MACD histogram divergence with volume confirmation
 4. Dynamic trailing stops based on ATR
 5. Multi-timeframe confirmation (5m + 1h)
+6. Market regime detection (accumulation/markup/distribution/markdown)
+7. On-chain signal placeholders (MVRV, SOPR, funding rates)
 
 Optimized via hyperopt with:
 - SharpeHyperOptLoss (risk-adjusted returns)
@@ -36,6 +41,9 @@ lazy import pandas as pd
 from pandas import DataFrame
 from datetime import datetime, timedelta
 from typing import Optional
+import logging
+
+logger = logging.getLogger("pfaa.strategy")
 
 
 class PFAABitcoinStrategy(IStrategy):
@@ -94,34 +102,37 @@ class PFAABitcoinStrategy(IStrategy):
     # Protections
     startup_candle_count: int = 200
 
-    # ── Hyperopt Parameters ───────────────────────────────────────
+    # ── Hyperopt Parameters (widened for 2026 post-halving regime) ──
 
-    # EMA crossover
-    buy_ema_fast = IntParameter(5, 21, default=9, space="buy", optimize=True)
-    buy_ema_slow = IntParameter(15, 55, default=21, space="buy", optimize=True)
-    buy_ema_trend = IntParameter(50, 200, default=100, space="buy", optimize=True)
+    # EMA crossover — wider range for regime adaptability
+    buy_ema_fast = IntParameter(3, 34, default=9, space="buy", optimize=True)
+    buy_ema_slow = IntParameter(10, 89, default=21, space="buy", optimize=True)
+    buy_ema_trend = IntParameter(34, 233, default=100, space="buy", optimize=True)
 
-    # RSI filter
-    buy_rsi_low = IntParameter(20, 40, default=30, space="buy", optimize=True)
-    buy_rsi_high = IntParameter(55, 75, default=65, space="buy", optimize=True)
+    # RSI filter — wider thresholds for volatile post-halving cycles
+    buy_rsi_low = IntParameter(15, 45, default=30, space="buy", optimize=True)
+    buy_rsi_high = IntParameter(50, 80, default=65, space="buy", optimize=True)
     buy_rsi_enabled = BooleanParameter(default=True, space="buy", optimize=True)
 
-    # Bollinger Bands
+    # Bollinger Bands — wider range for squeeze detection
     buy_bb_enabled = BooleanParameter(default=True, space="buy", optimize=True)
-    buy_bb_width_threshold = DecimalParameter(0.01, 0.05, default=0.025, space="buy", optimize=True)
+    buy_bb_width_threshold = DecimalParameter(0.005, 0.08, default=0.025, decimals=3, space="buy", optimize=True)
 
     # MACD
     buy_macd_enabled = BooleanParameter(default=True, space="buy", optimize=True)
 
-    # Volume
-    buy_volume_factor = DecimalParameter(1.0, 3.0, default=1.5, space="buy", optimize=True)
+    # Volume — wider factor range
+    buy_volume_factor = DecimalParameter(0.8, 5.0, default=1.5, decimals=1, space="buy", optimize=True)
 
-    # Multi-signal minimum score
-    buy_min_score = IntParameter(2, 5, default=3, space="buy", optimize=True)
+    # Multi-signal minimum score — allow lower thresholds for aggressive modes
+    buy_min_score = IntParameter(1, 6, default=3, space="buy", optimize=True)
 
-    # Sell parameters
-    sell_rsi_high = IntParameter(65, 85, default=75, space="sell", optimize=True)
+    # Sell parameters — wider range for exit tuning
+    sell_rsi_high = IntParameter(60, 90, default=75, space="sell", optimize=True)
     sell_ema_cross = BooleanParameter(default=True, space="sell", optimize=True)
+
+    # On-chain signal weights (placeholders for external data feeds)
+    buy_onchain_enabled = BooleanParameter(default=False, space="buy", optimize=True)
 
     # ── Informative Pairs ─────────────────────────────────────────
 

@@ -16,6 +16,14 @@ from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from typing import Any
 
+# ── Claude API (optional) ──────────────────────────────────────────
+try:
+    import anthropic as _anthropic
+    _HAS_ANTHROPIC = True
+except ImportError:
+    _anthropic = None
+    _HAS_ANTHROPIC = False
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)-18s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("pfaa.remix")
 
@@ -189,6 +197,61 @@ ROLE_DESC = {
     Role.SKILL_WRITER: ("Extract skills from high-Q memories", "VAPOR", ["skills","extraction","learning"]),
 }
 
+ROLE_PROMPTS = {
+    Role.LEAD: "You are the team lead coordinating a multi-agent PFAA team. Synthesize inputs from all agents, resolve conflicts, and produce a coherent action plan.",
+    Role.RESEARCHER: "You are a research analyst. Analyze data, find patterns, identify trends, and provide evidence-based insights to inform the team's decisions.",
+    Role.STRATEGIST: "You are a strategy architect. Design approaches, define signal combinations, and create comprehensive plans that balance risk and reward.",
+    Role.OPTIMIZER: "You are a performance optimizer. Find bottlenecks, tune hyperparameters, and maximize efficiency through systematic experimentation.",
+    Role.VALIDATOR: "You are a quality validator. Test, verify, find flaws, detect overfitting, and ensure all outputs meet rigorous quality standards.",
+    Role.RISK_MGR: "You are a risk manager. Identify risks, suggest mitigations, enforce position sizing limits, and protect against catastrophic drawdowns.",
+    Role.DEPLOYER: "You are a deployment specialist. Plan rollouts, generate production configs, and ensure smooth transitions from development to live systems.",
+    Role.REWRITER: "You are a Python 3.15 code rewriter. Apply PEP 810 lazy imports, PEP 814 frozendict, free-threading patterns, and kqueue subprocess for maximum performance.",
+    Role.MODERNIZER: "You are a code modernizer. Upgrade patterns to latest standards including match/case, type parameters, exception groups, and modern Python idioms.",
+    Role.SKILL_WRITER: "You are a skill generator. Create reusable Claude Code skills from high-Q memories, extracting patterns into composable, well-documented skill definitions.",
+}
+
+
+class ClaudeClient:
+    """Wrapper around the Anthropic API with graceful fallback."""
+
+    def __init__(self):
+        self._client = None
+        if _HAS_ANTHROPIC and os.environ.get("ANTHROPIC_API_KEY"):
+            try:
+                self._client = _anthropic.Anthropic()
+            except Exception:
+                self._client = None
+
+    @property
+    def available(self) -> bool:
+        return self._client is not None
+
+    def ask(self, role_context: str, task: str, memories: list[str] | None = None) -> str:
+        """Call Claude API. Returns response text, or raises on failure."""
+        if not self._client:
+            raise RuntimeError("Claude API client not available")
+        mem_block = ""
+        if memories:
+            mem_block = "\n\n## Recalled Memories\n" + "\n".join(f"- {m}" for m in memories)
+        system_prompt = f"{role_context}{mem_block}\n\nRespond concisely with actionable results. Use structured formatting."
+        message = self._client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2048,
+            system=system_prompt,
+            messages=[{"role": "user", "content": task}],
+        )
+        return message.content[0].text
+
+
+# Module-level singleton — created lazily
+_claude_client: ClaudeClient | None = None
+
+def _get_claude_client() -> ClaudeClient:
+    global _claude_client
+    if _claude_client is None:
+        _claude_client = ClaudeClient()
+    return _claude_client
+
 @dataclass
 class Agent:
     role: Role; name: str; phase: AgentPhase = AgentPhase.SPAWNING
@@ -216,12 +279,14 @@ def check_breaker(agent: Agent) -> bool:
 # Remix Agent Team
 # ═══════════════════════════════════════════════════════════════════════
 class RemixTeam:
-    def __init__(self, roles=None, ns="pfaa-remix"):
+    def __init__(self, roles=None, ns="pfaa-remix", live=False):
         self.roles = roles or list(Role)
         self.agents: dict[Role, Agent] = {}
         self.engine: JMem = None
         self.ns = ns; self.tasks = 0; self.t0 = time.time()
         self.knowledge_bus: list[dict] = []
+        self.live = live
+        self._claude: ClaudeClient | None = None
 
     async def start(self):
         print(BANNER)
@@ -229,6 +294,14 @@ class RemixTeam:
         os.makedirs(os.path.dirname(db), exist_ok=True)
         self.engine = JMem(db)
         print(f"  {C}▸{X} JMEM initialized: {D}{db}{X}")
+        if self.live:
+            self._claude = _get_claude_client()
+            if self._claude.available:
+                print(f"  {G}▸{X} Claude API: {G}LIVE{X} (claude-sonnet-4-20250514)")
+            else:
+                print(f"  {Y}▸{X} Claude API: {Y}FALLBACK{X} (no API key or anthropic not installed)")
+        else:
+            print(f"  {D}▸{X} Claude API: {D}SIMULATED{X} (use --live for real API calls)")
         print(f"  {C}▸{X} Spawning {B}{len(self.roles)}{X} agents...\n")
         for role in self.roles:
             desc, phase, caps = ROLE_DESC.get(role, ("Agent","VAPOR",[]))
@@ -247,11 +320,34 @@ class RemixTeam:
         t = a.transition(AgentPhase.EXECUTING)
         t0 = time.perf_counter()
         mems = await self.engine.recall(task, limit=3)
-        result = {"task":task[:100],"recalled":len(mems),"prior":[m["content"][:60] for m in mems[:2]]}
+        mem_strings = [m["content"][:80] for m in mems[:3]]
+
+        # Try real Claude API call if --live and client is available
+        live_response = None
+        if self.live and self._claude and self._claude.available:
+            role_prompt = ROLE_PROMPTS.get(role, f"You are a {role.value} agent.")
+            desc, phase, caps = ROLE_DESC.get(role, ("Agent","VAPOR",[]))
+            full_context = f"{role_prompt}\n\nRole: {desc}\nPhase: {phase}\nCapabilities: {', '.join(caps)}"
+            try:
+                live_response = self._claude.ask(full_context, task, mem_strings)
+            except Exception as e:
+                log.warning(f"Claude API call failed for {role.value}: {e}")
+                a.consec_fail += 1
+
+        if live_response:
+            result = {"task":task[:100],"recalled":len(mems),"prior":mem_strings[:2],"response":live_response,"live":True}
+        else:
+            result = {"task":task[:100],"recalled":len(mems),"prior":mem_strings[:2],"live":False}
+
         ms = (time.perf_counter()-t0)*1000
         a.ok += 1; a.consec_fail = 0; a.ms += ms; a.breaker_tripped = False
-        nid = await self.engine.remember(f"[{role.value}] {task[:200]} | OK {ms:.0f}ms", kw=_tokenize(task)[:6])
-        await self.engine.reward(nid, 0.8); a.mems += 1
+
+        # Store outcome (real response or simulated) in JMEM
+        mem_content = f"[{role.value}] {task[:200]} | OK {ms:.0f}ms"
+        if live_response:
+            mem_content = f"[{role.value}] {task[:100]} | {live_response[:300]}"
+        nid = await self.engine.remember(mem_content, kw=_tokenize(task)[:6])
+        await self.engine.reward(nid, 0.85 if live_response else 0.8); a.mems += 1
         self.knowledge_bus.append({"role":role.value,"task":task[:80],"nid":nid})
         self.tasks += 1
         if self.tasks % 10 == 0: await self.engine.consolidate()
@@ -372,10 +468,11 @@ async def main():
     p.add_argument("--mode", choices=["swarm","pipeline","dag","remix"], default="remix")
     p.add_argument("--roles", help="Comma-separated roles")
     p.add_argument("--ns", default="pfaa-remix", help="JMEM namespace")
+    p.add_argument("--live", action="store_true", help="Enable real Claude API calls (requires ANTHROPIC_API_KEY)")
     args = p.parse_args()
 
     roles = [Role(r.strip()) for r in args.roles.split(",")] if args.roles else list(Role)
-    team = RemixTeam(roles=roles, ns=args.ns)
+    team = RemixTeam(roles=roles, ns=args.ns, live=args.live)
     await team.start()
     try:
         if args.mode == "remix":
