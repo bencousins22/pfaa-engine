@@ -1,0 +1,32 @@
+{
+  "params": {
+    "stoploss": -0.02,
+    "atr_sl_high": 0.8,
+    "atr_sl_loss": 3.5,
+    "trailing_distance": 0.012,
+    "profit_lock_pct": 0.01,
+    "profit_lock_ratio": 0.3,
+    "max_dd_circuit": 0.22,
+    "cooldown_candles": 36
+  },
+  "result": {
+    "ret": 23.86359780751527,
+    "wr": 55.703125,
+    "mdd": 34.83947919109221,
+    "n": 1280,
+    "pf": 1.1119302620817337,
+    "cap": 12386.359780751527
+  },
+  "weights": [
+    2,
+    0,
+    1,
+    0,
+    2,
+    3,
+    2,
+    1,
+    1,
+    2
+  ]
+}

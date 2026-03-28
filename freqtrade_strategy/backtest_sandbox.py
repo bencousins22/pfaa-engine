@@ -109,16 +109,16 @@ PARAMS = {
     "min_score": 5,
     "adx_threshold": 20,
     "sell_rsi_high": 88,
-    "stoploss": -0.025,            # TIGHTER — stress test found -2.5% optimal (+32.6% return)
+    "stoploss": -0.02,             # v9: -2% optimal
     "trailing_activation": 0.025,  # start trailing early
     "trailing_distance": 0.015,    # tight trail — lock profits aggressively
     "roi": {0: 0.06, 15: 0.04, 30: 0.03, 60: 0.022, 120: 0.015, 240: 0.01, 480: 0.006},
-    "atr_sl_high": 1.0,           # very tight in big profit — don't give back gains
-    "atr_sl_mid": 1.5,
+    "atr_sl_high": 0.8,           # v9: very tight in profit
+    "atr_sl_mid": 1.2,            # v9: tight mid-profit ATR
     "atr_sl_low": 2.5,            # moderate when barely profitable
     "atr_sl_loss": 3.0,           # tight in loss — exit quickly, re-enter later
     "cooldown_candles": 48,        # 4hr cooldown — wait for conditions to change
-    "profit_lock_pct": 0.015,     # lock 1.5% profit once reached
+    "profit_lock_pct": 0.01,      # v9: lock 1% profit (earlier trigger)
     "max_dd_circuit": 0.25,       # pause trading if drawdown > 25%
     "dd_recovery_pct": 0.4,       # resume when DD recovers 40%
     "accumulation_min_score": 6,  # higher bar during accumulation regime
