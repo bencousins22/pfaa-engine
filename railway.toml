@@ -1,0 +1,13 @@
+# Railway deployment config for PFAA FreqTrade
+# Repo: bencousins22/pfaa-engine
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "freqtrade trade --config /freqtrade/config.json --strategy PFAABitcoinStrategy --strategy-path /freqtrade/user_data/strategies"
+healthcheckPath = "/api/v1/ping"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

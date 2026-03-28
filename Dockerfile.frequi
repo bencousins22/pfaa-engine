@@ -1,0 +1,19 @@
+# FreqUI Frontend — Dockerfile for Railway
+# Connects to FreqTrade backend API
+
+FROM freqtradeorg/frequi:stable
+
+# FreqUI serves on port 80 by default (nginx)
+EXPOSE 80
+
+# Railway sets PORT env var — nginx needs to listen on it
+# Override nginx config to use Railway's PORT
+RUN echo 'server { \
+    listen ${PORT:-80}; \
+    server_name _; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/templates/default.conf.template
