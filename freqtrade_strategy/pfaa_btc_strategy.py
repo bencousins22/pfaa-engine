@@ -97,19 +97,24 @@ class PFAABitcoinStrategy(IStrategy):
     minimal_roi = {
         "0": 0.10,       # 10% immediate
         "30": 0.05,      # 5% after 30 min
-        "120": 0.03,     # 3% after 2 hrs
-        "360": 0.018,    # 1.8% after 6 hrs
-        "720": 0.01,     # 1% after 12 hrs
-        "1440": 0.005,   # 0.5% after 24 hrs
+        "120": 0.04,     # 4% after 2 hrs (raised 50% for alts)
+        "360": 0.025,    # 2.5% after 6 hrs
+        "720": 0.015,    # 1.5% after 12 hrs
+        "1440": 0.008,   # 0.8% after 24 hrs
     }
 
-    # Stoploss
-    stoploss = -0.025  # -2.5% hard stop (tightened in v8 — was -5.5%)
+    # Stoploss — widened for multi-coin (altcoins need more room than BTC)
+    stoploss = -0.05  # -5% hard floor (was -2.5% for BTC-only)
 
-    # Trailing stop — the key to capturing runners
+    # Per-pair stoploss tiers (used in custom_stoploss)
+    LARGE_CAP = {"BTC/USDC:USDC", "ETH/USDC:USDC"}
+    MID_CAP = {"SOL/USDC:USDC", "XRP/USDC:USDC", "AVAX/USDC:USDC", "LINK/USDC:USDC", "SUI/USDC:USDC"}
+    # Everything else is small-cap/meme
+
+    # Trailing stop — widened for altcoin volatility
     trailing_stop = True
-    trailing_stop_positive = 0.015
-    trailing_stop_positive_offset = 0.04
+    trailing_stop_positive = 0.025   # was 0.015 — wider for alts
+    trailing_stop_positive_offset = 0.06  # was 0.04 — let alt moves develop
     trailing_only_offset_is_reached = True
 
     # Position settings
@@ -510,7 +515,7 @@ class PFAABitcoinStrategy(IStrategy):
         after_fill: bool,
         **kwargs,
     ) -> float:
-        """Dynamic stop loss based on ATR volatility."""
+        """Dynamic stop loss based on ATR volatility — per-pair tier aware."""
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         if len(dataframe) < 1:
             return self.stoploss
@@ -518,15 +523,23 @@ class PFAABitcoinStrategy(IStrategy):
         last_candle = dataframe.iloc[-1]
         atr_pct = last_candle.get("atr_pct", 0.02)
 
+        # Per-pair volatility scaling: large-caps get tighter stops
+        if pair in self.LARGE_CAP:
+            vol_scale = 0.8   # BTC/ETH: tighter
+        elif pair in self.MID_CAP:
+            vol_scale = 1.0   # mid-caps: standard
+        else:
+            vol_scale = 1.3   # small-cap/meme: wider stops
+
         # Tighter stops in low volatility, wider in high — multipliers are hyperopt-optimizable
         if current_profit > 0.04:
-            return -atr_pct * self.sl_atr_high_profit.value
+            return -atr_pct * self.sl_atr_high_profit.value * vol_scale
         elif current_profit > 0.02:
-            return -atr_pct * self.sl_atr_mid_profit.value
+            return -atr_pct * self.sl_atr_mid_profit.value * vol_scale
         elif current_profit > 0:
-            return -atr_pct * self.sl_atr_low_profit.value
+            return -atr_pct * self.sl_atr_low_profit.value * vol_scale
         else:
-            return -atr_pct * self.sl_atr_in_loss.value
+            return -atr_pct * self.sl_atr_in_loss.value * vol_scale
 
     # ── Custom Exit ───────────────────────────────────────────────
 
