@@ -1,14 +1,14 @@
 {
     "max_open_trades": 1,
-    "stake_currency": "USDT",
+    "stake_currency": "USDC",
     "stake_amount": 0.95,
     "tradable_balance_ratio": 0.99,
     "fiat_display_currency": "USD",
     "dry_run": true,
     "dry_run_wallet": 10000,
     "cancel_open_orders_on_exit": false,
-    "trading_mode": "spot",
-    "margin_mode": "",
+    "trading_mode": "futures",
+    "margin_mode": "isolated",
     "unfilledtimeout": {
         "entry": 10,
         "exit": 10,
@@ -31,9 +31,9 @@
         "order_book_top": 1
     },
     "exchange": {
-        "name": "binance",
-        "key": "",
-        "secret": "",
+        "name": "hyperliquid",
+        "key": "0x0000000000000000000000000000000000000001",
+        "secret": "0x0000000000000000000000000000000000000000000000000000000000000001",
         "ccxt_sync_config": {
             "enableRateLimit": true
         },
@@ -42,7 +42,7 @@
             "rateLimit": 200
         },
         "pair_whitelist": [
-            "BTC/USDT"
+            "BTC/USDC:USDC"
         ],
         "pair_blacklist": []
     },
