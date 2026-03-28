@@ -11,3 +11,4 @@ venv/
 .env
 .env.local
 *.sqlite3
+user_data/

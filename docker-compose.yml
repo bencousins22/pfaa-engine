@@ -1,0 +1,60 @@
+version: '3.8'
+
+# PFAA FreqTrade Stack — Backend + FreqUI Frontend
+# Deploy: docker-compose up -d
+# Railway: connect this repo → auto-detects docker-compose.yml
+
+services:
+  # ── FreqTrade Bot (Backend API) ─────────────────────────────────
+  freqtrade:
+    image: freqtradeorg/freqtrade:stable
+    container_name: pfaa-freqtrade
+    restart: unless-stopped
+    volumes:
+      - ./freqtrade_strategy:/freqtrade/user_data/strategies
+      - ./freqtrade_strategy/config_btc_optimized.json:/freqtrade/config.json
+      - freqtrade-data:/freqtrade/user_data/data
+      - freqtrade-db:/freqtrade/user_data/tradesv3.sqlite
+    ports:
+      - "${FREQTRADE_PORT:-8080}:8080"
+    environment:
+      - FREQTRADE__EXCHANGE__KEY=${BINANCE_API_KEY:-}
+      - FREQTRADE__EXCHANGE__SECRET=${BINANCE_API_SECRET:-}
+      - FREQTRADE__TELEGRAM__ENABLED=${TELEGRAM_ENABLED:-false}
+      - FREQTRADE__TELEGRAM__TOKEN=${TELEGRAM_TOKEN:-}
+      - FREQTRADE__TELEGRAM__CHAT_ID=${TELEGRAM_CHAT_ID:-}
+    command: >
+      trade
+      --config /freqtrade/config.json
+      --strategy PFAABitcoinStrategy
+      --strategy-path /freqtrade/user_data/strategies
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ── FreqUI (Web Frontend) ───────────────────────────────────────
+  frequi:
+    image: freqtradeorg/frequi:stable
+    container_name: pfaa-frequi
+    restart: unless-stopped
+    ports:
+      - "${FREQUI_PORT:-8081}:80"
+    environment:
+      - BACKEND_URL=http://freqtrade:8080
+    depends_on:
+      freqtrade:
+        condition: service_healthy
+
+  # ── FreqTrade API Server (for FreqUI connection) ────────────────
+  # Note: The API server is built into FreqTrade. We just need to
+  # ensure the config enables it. See config_btc_optimized.json:
+  #   "api_server": { "enabled": true, ... }
+
+volumes:
+  freqtrade-data:
+    driver: local
+  freqtrade-db:
+    driver: local

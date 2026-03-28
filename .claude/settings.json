@@ -1,0 +1,31 @@
+{
+  "agents": {
+    "pfaa-lead": {
+      "path": ".claude/agents/pfaa-lead.md",
+      "description": "PFAA Team Lead — orchestrates 10 specialized agents"
+    },
+    "pfaa-rewriter": {
+      "path": ".claude/agents/pfaa-rewriter.md",
+      "description": "Python 3.15 performance rewriter (PEP 810/814)"
+    },
+    "pfaa-validator": {
+      "path": ".claude/agents/pfaa-validator.md",
+      "description": "Read-only validation and QA agent"
+    }
+  },
+  "skills": {
+    "pfaa-team": {
+      "path": ".claude/skills/pfaa-team/SKILL.md",
+      "description": "Spawn and run the PFAA agent team"
+    }
+  },
+  "mcpServers": {
+    "jmem": {
+      "command": "python3",
+      "args": ["-m", "jmem_mcp_server.jmem.server"],
+      "env": {
+        "PFAA_AGENT_NAME": "claude-code"
+      }
+    }
+  }
+}
