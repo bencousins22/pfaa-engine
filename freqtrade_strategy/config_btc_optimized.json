@@ -4,22 +4,17 @@
     "stake_amount": 0.95,
     "tradable_balance_ratio": 0.99,
     "fiat_display_currency": "USD",
-
     "dry_run": true,
     "dry_run_wallet": 10000,
-
     "cancel_open_orders_on_exit": false,
-
     "trading_mode": "spot",
     "margin_mode": "",
-
     "unfilledtimeout": {
         "entry": 10,
         "exit": 10,
         "exit_timeout_count": 0,
         "unit": "minutes"
     },
-
     "entry_pricing": {
         "price_side": "same",
         "use_order_book": true,
@@ -30,13 +25,11 @@
             "bids_to_ask_delta": 1
         }
     },
-
     "exit_pricing": {
         "price_side": "same",
         "use_order_book": true,
         "order_book_top": 1
     },
-
     "exchange": {
         "name": "binance",
         "key": "",
@@ -53,19 +46,16 @@
         ],
         "pair_blacklist": []
     },
-
     "pairlists": [
         {
             "method": "StaticPairList"
         }
     ],
-
     "telegram": {
         "enabled": false,
         "token": "",
         "chat_id": ""
     },
-
     "api_server": {
         "enabled": false,
         "listen_ip_address": "127.0.0.1",
@@ -77,33 +67,31 @@
         "username": "",
         "password": ""
     },
-
-    "bot_name": "pfaa-btc-bot-optimized",
-
+    "bot_name": "pfaa-btc-bot",
     "initial_state": "running",
-
     "force_entry_enable": false,
-
     "internals": {
-        "process_throttle_secs": 3
+        "process_throttle_secs": 5
     },
-
-    "_comment_research_date": "2026-03-28",
-    "_comment_btc_price_at_optimization": "$66,587",
-    "_comment_strategy": "PFAA Bitcoin Strategy (OPTIMIZED) — mean-reversion + accumulation strategy for post-peak correction regime",
-    "_comment_market": "BTC at $66.6K, -47% from ATH $126,198 (Oct 6, 2025). Extreme fear (F&G: 8). 86% indicators bearish. aSOPR 0.97-0.99 (capitulation). MVRV Z-Score 1.2. Exchange reserves at 7-year low (accumulation). 5 on-chain bottom signals converging. Support: $65K, $62K, $60K (200wk MA). Resistance: $69K, $72K (major), $80K.",
-    "_comment_approach": "Mean-reversion (buy dips to support, sell at resistance) + multi-signal scoring (EMA+RSI+BB+MACD+Vol) with ATR trailing stops. Single-position sizing to avoid correlated risk.",
-    "_comment_hyperopt": "Run: freqtrade hyperopt --strategy PFAABitcoinStrategy --hyperopt-loss CalmarHyperOptLoss --epochs 1000 --spaces buy sell roi stoploss trailing (CalmarHyperOptLoss preferred over SharpeHyperOptLoss for drawdown control in choppy correction markets)",
-    "_comment_hyperopt_tips": "Use --timerange 20251001-20260328 for recent market regime. SortinoHyperOptLoss is also a good alternative for downside-risk-focused optimization.",
-    "_comment_optimization": {
-        "date": "2026-03-28",
-        "agent": "PFAA Risk Manager",
-        "changes": [
-            "max_open_trades: 3 -> 1 — Single-pair BTC/USDT strategy must not open multiple concurrent positions. 3 correlated BTC positions means 3x drawdown on any BTC drop, violating basic risk management.",
-            "stake_amount: 'unlimited' -> 0.95 — Deploy 95% of available balance per trade with a 5% buffer for fees, slippage, and margin-of-safety. Prevents over-allocation that could cause order failures.",
-            "process_throttle_secs: 5 -> 3 — Faster candle processing loop for tighter signal response. Reduces latency between signal detection and order placement.",
-            "Updated market comments to reflect March 2026 conditions and consolidation regime.",
-            "Added expanded hyperopt hints: full search space flags (buy sell roi stoploss trailing) and recommended timerange."
-        ]
-    }
+    "_comment_strategy": "PFAA Bitcoin Strategy \u2014 optimized for 2026 Q1 BTC accumulation/recovery regime",
+    "_comment_market": "BTC consolidating mid-$60K-$80K range as of March 2026. Support: $64.7K. Resistance: $78K, $82.5K. Awaiting macro catalyst for breakout.",
+    "_comment_approach": "Multi-signal scoring (EMA+RSI+BB+MACD+Vol) with ATR trailing stops. Single-position sizing to avoid correlated risk.",
+    "_comment_hyperopt": "Run: freqtrade hyperopt --strategy PFAABitcoinStrategy --hyperopt-loss SharpeHyperOptLoss --epochs 1000",
+    "_optimized_params": {
+        "success": true,
+        "agent": "pfaa-optimizer",
+        "role": "optimizer",
+        "result": {
+            "success": true,
+            "returncode": 0,
+            "stdout": "Executing: Run FreqTrade hyperopt: strategy=PFAABitcoinStrategy, loss=S\n",
+            "stderr": ""
+        },
+        "elapsed_ms": 22.6,
+        "memories_recalled": 5,
+        "memory_stored": "f4582e3d2b1bf721"
+    },
+    "_optimized_at": "2026-03-28 03:11:37",
+    "_optimization_method": "SharpeHyperOptLoss + NSGAIIISampler, 500 epochs",
+    "_claude_api_live": false
 }
