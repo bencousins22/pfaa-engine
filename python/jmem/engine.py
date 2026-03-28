@@ -804,7 +804,7 @@ class JMemEngine:
         """Run Phase 2 CONSOLIDATE — linking, promotion, decay, synthesis."""
         return await self._loop.consolidate()
 
-    # ── PFAA integration ─────────────────────────────────────────
+    # ── Aussie Agents integration ──────────────────────────────────
 
     async def record_tool_execution(
         self,
@@ -815,7 +815,7 @@ class JMemEngine:
         success: bool = True,
         execution_time_ms: float = 0,
     ) -> MemoryNote:
-        """Record a tool execution as an episode memory for PFAA integration."""
+        """Record a tool execution as an episode memory for Aussie Agents integration."""
         content = f"Tool '{tool_name}': {input_summary}"
         if output_summary:
             content += f" -> {output_summary}"

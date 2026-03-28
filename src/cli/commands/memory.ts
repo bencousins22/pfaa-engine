@@ -1,5 +1,5 @@
 /**
- * pfaa memory — Agent Zero-styled memory management UI.
+ * pfaa memory — Aussie Agents-styled memory management UI.
  * View, search, manage, and inspect the jmem memory store.
  *
  * Subcommands:
@@ -15,17 +15,17 @@ import { MemoryStore } from '../../memory/store.js'
 import { loadConfig } from '../../core/config.js'
 import chalk from 'chalk'
 
-// Agent Zero PrintStyle colors
-const toolHead = (t: string) => chalk.bgWhite.hex('#1B4F72').bold(` ${t} `)
-const toolVal = (t: string) => chalk.hex('#85C1E9')(t)
-const toolKey = (t: string) => chalk.hex('#85C1E9').bold(t)
-const agentHead = (t: string) => chalk.bgHex('#1D8348').white.bold(` ${t} `)
-const hint = (t: string) => chalk.hex('#6C3483')(t)
-const info = (t: string) => chalk.blue(t)
-const ok = (t: string) => chalk.green(t)
-const err = (t: string) => chalk.red(t)
-const warn = (t: string) => chalk.hex('#FFA500')(t)
-const dim = (t: string) => chalk.hex('#808080')(t)
+// JMEM brand: emerald + gold
+const toolHead = (t: string) => chalk.bgHex('#C9A73B').hex('#1a1a1a').bold(` ${t} `)
+const toolVal = (t: string) => chalk.hex('#4CAF50')(t)
+const toolKey = (t: string) => chalk.hex('#C9A73B').bold(t)
+const agentHead = (t: string) => chalk.bgHex('#2E7D32').white.bold(` ${t} `)
+const hint = (t: string) => chalk.hex('#2E7D32')(t)
+const info = (t: string) => chalk.hex('#4CAF50')(t)
+const ok = (t: string) => chalk.hex('#00E676')(t)
+const err = (t: string) => chalk.hex('#EF5350')(t)
+const warn = (t: string) => chalk.hex('#D4A017')(t)
+const dim = (t: string) => chalk.hex('#5A6A5A')(t)
 
 export function memoryCommand(): Command {
   const cmd = new Command('memory')
@@ -41,7 +41,7 @@ export function memoryCommand(): Command {
       const s = await store.stats()
 
       console.log()
-      console.log(toolHead('Agent 0: Memory Statistics'))
+      console.log(toolHead('Aussie: Memory Statistics'))
       console.log()
 
       if (!s.available) {
@@ -87,7 +87,7 @@ export function memoryCommand(): Command {
       const store = new MemoryStore(config.qdrantUrl)
 
       console.log()
-      console.log(toolHead(`Agent 0: Using tool 'memory_recall':`))
+      console.log(toolHead(`Aussie: Using tool 'memory_recall':`))
       console.log(toolKey('query: ') + toolVal(query))
       if (opts.area) console.log(toolKey('area: ') + toolVal(opts.area))
       if (opts.type) console.log(toolKey('type: ') + toolVal(opts.type))
@@ -98,7 +98,7 @@ export function memoryCommand(): Command {
         fact_type: opts.type,
       })
 
-      console.log(toolHead(`Agent 0: Response from tool 'memory_recall':`))
+      console.log(toolHead(`Aussie: Response from tool 'memory_recall':`))
       console.log()
 
       if (!results.length) {
@@ -133,7 +133,7 @@ export function memoryCommand(): Command {
       const store = new MemoryStore(config.qdrantUrl)
 
       console.log()
-      console.log(toolHead('Agent 0: Memory listing'))
+      console.log(toolHead('Aussie: Memory listing'))
       console.log()
 
       const memories = await store.list({
@@ -200,7 +200,7 @@ export function memoryCommand(): Command {
       const store = new MemoryStore(config.qdrantUrl)
 
       console.log()
-      console.log(toolHead(`Agent 0: Memory inspection`))
+      console.log(toolHead(`Aussie: Memory inspection`))
       console.log()
 
       // Search with the ID as query — not ideal but works for inspection

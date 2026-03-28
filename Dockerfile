@@ -1,4 +1,4 @@
-# PFAA Engine — Multi-stage build
+# Aussie Agents Engine — Multi-stage build
 FROM node:22-slim AS node-build
 WORKDIR /app
 COPY package.json tsconfig.json ./
@@ -42,5 +42,5 @@ ENV PYTHONPATH=/app/python:/app
 ENV PYTHON_GIL=0
 ENV NODE_ENV=production
 
-# Default: run the Agent Zero-style CLI
+# Default: run the Aussie Agents CLI
 CMD ["node", "bin/pfaa-cli.js"]

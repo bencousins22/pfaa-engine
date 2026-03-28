@@ -1,5 +1,5 @@
 """
-PFAA Persistent Memory — Disk-backed storage for the 5-layer memory system.
+Aussie Agents Persistent Memory — Disk-backed storage for the 5-layer memory system.
 
 Learning persists across sessions. When the agent starts, it loads
 all prior knowledge. When it learns something new, it writes incrementally.

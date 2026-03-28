@@ -1,5 +1,5 @@
 """
-PFAA Dashboard — FastAPI WebSocket server for memory + swarm visualization.
+Aussie Agents Dashboard — FastAPI WebSocket server for memory + swarm visualization.
 Serves a single-page HTML dashboard with real-time WebSocket updates.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ logger = logging.getLogger("pfaa.dashboard")
 HTML = """<!DOCTYPE html>
 <html>
 <head>
-<title>PFAA Dashboard</title>
+<title>Aussie Agents Dashboard</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #1a1a2e; color: #e0e0e0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 14px; }
@@ -61,7 +61,7 @@ HTML = """<!DOCTYPE html>
 </head>
 <body>
 <div class="header">
-  <h1>PFAA Dashboard</h1>
+  <h1>Aussie Agents Dashboard</h1>
   <span class="badge">Platform for Autonomous Agents</span>
   <span id="status-dot" class="disconnected"></span>
   <span id="status-text" style="color:#808080;font-size:12px">connecting...</span>
@@ -171,7 +171,7 @@ async def create_app():
         print("FastAPI not installed. Run: pip install fastapi uvicorn")
         return None
 
-    app = FastAPI(title="PFAA Dashboard")
+    app = FastAPI(title="Aussie Agents Dashboard")
     connections: list[WebSocket] = []
 
     @app.get("/")

@@ -1,6 +1,6 @@
-# PFAA Agent Team — Claude Code Skill
+# Aussie Agent Team — Claude Code Skill
 
-Spawn and orchestrate the full PFAA agent team with JMEM semantic memory.
+Spawn and orchestrate the full Aussie Agents team with JMEM semantic memory.
 
 ## Usage
 

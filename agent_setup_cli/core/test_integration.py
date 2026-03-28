@@ -1,5 +1,5 @@
 """
-PFAA Full Integration Test — Tools + Memory + Orchestrator
+Aussie Agents Full Integration Test — Tools + Memory + Orchestrator
 
 Demonstrates the complete system:
     1. Register tools → Execute via orchestrator → Record in memory
@@ -231,7 +231,7 @@ async def test_self_improving_loop() -> None:
 
 async def main() -> None:
     print("╔══════════════════════════════════════════════════════╗")
-    print("║  PFAA FULL INTEGRATION TEST                         ║")
+    print("║  AUSSIE AGENTS FULL INTEGRATION TEST                ║")
     print("║  Tools + Memory + Orchestrator + Meta-Learning      ║")
     print(f"║  Python {sys.version.split()[0]}  |  {sys.platform}  |  cores={os.cpu_count()}" + " " * 9 + "║")
     print("╚══════════════════════════════════════════════════════╝")

@@ -1,5 +1,5 @@
 """
-PFAA Meta-Learning Memory System — Level 5+ Self-Improving Memory
+Aussie Agents Meta-Learning Memory System — Level 5+ Self-Improving Memory
 
 This isn't a simple key-value store. It's a FIVE-LAYER memory architecture
 where each layer feeds back into the layers below, creating a self-improving

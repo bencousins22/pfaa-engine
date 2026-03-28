@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-PFAA Bridge — Python-side JSON-over-stdin/stdout bridge.
+Aussie Agents Bridge — Python-side JSON-over-stdin/stdout bridge.
 
 This is the entry point that the Node.js CLI spawns as a subprocess.
 It receives JSON commands on stdin and returns JSON responses on stdout.
 
-The bridge exposes the full PFAA engine:
+The bridge exposes the full Aussie Agents engine:
 - Tool execution (27+ tools, phase-aware)
 - Goal decomposition and autonomous execution
 - Memory operations (5-layer meta-learning)
@@ -30,12 +30,12 @@ import time
 lazy import json
 lazy import traceback
 
-# Add parent directory to path for PFAA engine imports
+# Add parent directory to path for Aussie Agents engine imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 async def handle_command(cmd: dict) -> dict:
-    """Route a bridge command to the appropriate PFAA engine function."""
+    """Route a bridge command to the appropriate Aussie Agents engine function."""
     action = cmd.get("action", "")
     args = cmd.get("args", {})
     cmd_id = cmd.get("id", "unknown")
@@ -307,6 +307,52 @@ async def handle_command(cmd: dict) -> dict:
             finally:
                 await builder.shutdown()
 
+        elif action == "deferred_tool_search":
+            from agent_setup_cli.core.tools import ToolRegistry
+            import agent_setup_cli.core.tools_extended  # noqa: F401
+            try:
+                import agent_setup_cli.core.tools_generated  # noqa: F401
+            except ImportError:
+                pass
+
+            registry = ToolRegistry.get()
+            query = args.get("query", "").lower()
+            limit = args.get("limit", 5)
+
+            all_tools = registry.list_tools()
+            scored = []
+            for t in all_tools:
+                name_lower = t.name.lower()
+                desc_lower = (t.description or "").lower()
+                # Score: exact name match > name contains > description contains
+                if query == name_lower:
+                    score = 100
+                elif query in name_lower:
+                    score = 50
+                elif query in desc_lower:
+                    score = 10
+                else:
+                    # Check individual query words
+                    words = query.split()
+                    score = sum(
+                        3 if w in name_lower else 1 if w in desc_lower else 0
+                        for w in words
+                    )
+                if score > 0:
+                    scored.append((score, t))
+
+            scored.sort(key=lambda x: x[0], reverse=True)
+            matches = [
+                {
+                    "name": t.name,
+                    "description": t.description,
+                    "phase": t.phase.name,
+                    "capabilities": list(t.capabilities),
+                }
+                for _, t in scored[:limit]
+            ]
+            return _ok(cmd_id, matches, start_ns)
+
         elif action == "benchmark":
             from agent_setup_cli.core.benchmark import main as bench_main
             # Capture benchmark output
@@ -319,6 +365,76 @@ async def handle_command(cmd: dict) -> dict:
             finally:
                 sys.stdout = old_stdout
             return _ok(cmd_id, {"output": output}, start_ns)
+
+        elif action == "save_session":
+            # Save current session state
+            import os, json, time
+            session_dir = os.path.expanduser("~/.pfaa/sessions")
+            os.makedirs(session_dir, exist_ok=True)
+            session_id = args.get("session_id", f"session_{int(time.time())}")
+            state = args.get("state", {})
+            state["timestamp"] = time.time()
+            path = os.path.join(session_dir, f"{session_id}.json")
+            with open(path, "w") as f:
+                json.dump(state, f, indent=2, default=str)
+            return _ok(cmd_id, {"saved": path}, start_ns)
+
+        elif action == "load_session":
+            import os, json, glob
+            session_dir = os.path.expanduser("~/.pfaa/sessions")
+            session_id = args.get("session_id")
+            if session_id:
+                path = os.path.join(session_dir, f"{session_id}.json")
+                if os.path.exists(path):
+                    with open(path) as f:
+                        return _ok(cmd_id, json.load(f), start_ns)
+                return _err(cmd_id, f"Session not found: {session_id}", start_ns)
+            # List all sessions
+            sessions = []
+            for f in sorted(glob.glob(os.path.join(session_dir, "*.json")), reverse=True)[:20]:
+                with open(f) as fh:
+                    data = json.load(fh)
+                    sessions.append({"id": os.path.basename(f).replace(".json",""), "timestamp": data.get("timestamp"), "goals": data.get("goals_count", 0)})
+            return _ok(cmd_id, {"sessions": sessions}, start_ns)
+
+        elif action == "extract_instincts":
+            import subprocess as sp
+            script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "python", "swarm", "instinct_learner.py")
+            proc = sp.run([sys.executable, script], capture_output=True, text=True, timeout=30)
+            if proc.returncode == 0:
+                return _ok(cmd_id, json.loads(proc.stdout), start_ns)
+            return _err(cmd_id, proc.stderr or "instinct extraction failed", start_ns)
+
+        elif action == "clean_memory":
+            import subprocess as sp
+            script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "python", "swarm", "memory_cleaner.py")
+            proc = sp.run([sys.executable, script], capture_output=True, text=True, timeout=30)
+            if proc.returncode == 0:
+                return _ok(cmd_id, json.loads(proc.stdout), start_ns)
+            return _err(cmd_id, proc.stderr or "memory cleanup failed", start_ns)
+
+        elif action == "evolve_skills":
+            import subprocess as sp
+            script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "python", "swarm", "skill_evolver.py")
+            proc = sp.run([sys.executable, script], capture_output=True, text=True, timeout=30,
+                         cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            if proc.returncode == 0:
+                return _ok(cmd_id, json.loads(proc.stdout), start_ns)
+            return _err(cmd_id, proc.stderr or "skill evolution failed", start_ns)
+
+        elif action == "auto_learn":
+            # Run all three in sequence
+            results = {}
+            import subprocess as sp
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            for name, script_name in [("instincts", "instinct_learner.py"), ("cleanup", "memory_cleaner.py"), ("evolution", "skill_evolver.py")]:
+                script = os.path.join(base, "python", "swarm", script_name)
+                try:
+                    proc = sp.run([sys.executable, script], capture_output=True, text=True, timeout=30, cwd=base)
+                    results[name] = json.loads(proc.stdout) if proc.returncode == 0 else {"error": proc.stderr}
+                except Exception as e:
+                    results[name] = {"error": str(e)}
+            return _ok(cmd_id, results, start_ns)
 
         else:
             return _err(cmd_id, f"Unknown action: {action}", start_ns)
@@ -340,7 +456,7 @@ def _err(cmd_id: str, error: str, start_ns: int) -> dict:
 async def main():
     """Main bridge loop — read JSON commands from stdin, write responses to stdout."""
     # Signal ready
-    sys.stdout.write(json.dumps({"id": "ready", "success": True, "data": "PFAA bridge ready"}) + "\n")
+    sys.stdout.write(json.dumps({"id": "ready", "success": True, "data": "Aussie Agents bridge ready"}) + "\n")
     sys.stdout.flush()
 
     loop = asyncio.get_event_loop()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PFAA Arena Benchmark — Head-to-head vs published framework scores.
+Aussie Agents Arena Benchmark — Head-to-head vs published framework scores.
 
 Reproduces the methodology from the AutoAgents 2026 benchmark
 (dev.to/saivishwak) to generate directly comparable numbers.
@@ -69,7 +69,7 @@ COMPETITORS = [
 
 async def measure_pfaa():
     """Run the same measurements the AutoAgents benchmark uses."""
-    print("  Measuring PFAA performance...")
+    print("  Measuring Aussie Agents performance...")
 
     registry = ToolRegistry.get()
 
@@ -194,7 +194,7 @@ def compute_composite(metrics: dict, all_entries: list[dict]) -> float:
 
 async def main():
     print("╔══════════════════════════════════════════════════════════════════╗")
-    print("║  PFAA ARENA BENCHMARK — Head-to-Head vs Published Scores       ║")
+    print("║  AUSSIE AGENTS ARENA BENCHMARK — Head-to-Head vs Published      ║")
     print("║  Methodology: dev.to/saivishwak (Jan 2026)                     ║")
     print("║  Composite: Latency 27.8% + Throughput 33.3% + Memory 22.2%    ║")
     print("║             + CPU 16.7%                                        ║")
@@ -207,15 +207,15 @@ async def main():
     composite = compute_composite(pfaa, COMPETITORS)
     pfaa["composite"] = composite
 
-    print(f"\n    ★ PFAA Composite Score: {composite}")
+    print(f"\n    ★ Aussie Agents Composite Score: {composite}")
 
     # ── Leaderboard ─────────────────────────────────────────────
-    all_entries = COMPETITORS + [{"name": "★ PFAA", **pfaa, "latency_ms": pfaa["avg_latency_ms"]}]
+    all_entries = COMPETITORS + [{"name": "★ Aussie Agents", **pfaa, "latency_ms": pfaa["avg_latency_ms"]}]
     all_entries.sort(key=lambda x: x.get("composite", 0), reverse=True)
 
     print(f"\n{'═' * 95}")
     print(f"\n  ARENA LEADERBOARD — Framework Orchestration Performance")
-    print(f"  (PFAA measures framework overhead only — no LLM API calls)")
+    print(f"  (Aussie Agents measures framework overhead only — no LLM API calls)")
     print()
 
     header = f"  {'#':<4} {'Framework':<22} {'Avg Lat':<12} {'P95 Lat':<12} {'RPS':<12} {'Mem (MB)':<12} {'CPU %':<10} {'Composite':<10}"
@@ -231,15 +231,15 @@ async def main():
         cpu = entry.get("cpu_pct", 0)
         comp = entry.get("composite", 0)
 
-        marker = " ◄◄◄" if "PFAA" in name else ""
+        marker = " ◄◄◄" if "Aussie" in name else ""
         print(f"  {i+1:<4} {name:<22} {str(round(lat))+'ms':<12} {str(round(p95) if isinstance(p95,float) else p95)+'ms':<12} {rps:<12} {mem:<12} {str(cpu)+'%':<10} {comp:<10}{marker}")
 
     # ── Comparison Summary ──────────────────────────────────────
     best_competitor = COMPETITORS[0]  # AutoAgents
     print(f"\n{'═' * 95}")
-    print(f"\n  HEAD-TO-HEAD: PFAA vs AutoAgents (Rust) — Previous #1")
+    print(f"\n  HEAD-TO-HEAD: Aussie Agents vs AutoAgents (Rust) — Previous #1")
     print(f"  {'─' * 60}")
-    print(f"  {'Metric':<25} {'PFAA':<20} {'AutoAgents':<20} {'Delta':<15}")
+    print(f"  {'Metric':<25} {'Aussie Agents':<20} {'AutoAgents':<20} {'Delta':<15}")
     print(f"  {'─' * 60}")
 
     comparisons = [
@@ -261,9 +261,9 @@ async def main():
     for name, pfaa_val, comp_val, delta in comparisons:
         print(f"  {name:<25} {pfaa_val:<20} {comp_val:<20} {delta}")
 
-    # ── PFAA Unique Advantages ──────────────────────────────────
+    # ── Aussie Agents Unique Advantages ──────────────────────────
     print(f"\n{'═' * 95}")
-    print(f"\n  PFAA CAPABILITIES NOT MEASURED IN ARENA (unique advantages):")
+    print(f"\n  AUSSIE AGENTS CAPABILITIES NOT MEASURED IN ARENA (unique advantages):")
     print(f"  {'─' * 60}")
     print(f"  ✓ 3 execution phases (VAPOR/LIQUID/SOLID)")
     print(f"  ✓ Runtime phase transitions (6 named transitions)")
@@ -280,7 +280,7 @@ async def main():
     # JSON output
     print(f"\n{'═' * 95}")
     print(json.dumps({
-        "benchmark": "PFAA Arena Benchmark v1.0",
+        "benchmark": "Aussie Agents Arena Benchmark v1.0",
         "methodology": "dev.to/saivishwak AutoAgents benchmark (Jan 2026)",
         "composite_weights": {"latency": "27.8%", "throughput": "33.3%", "memory": "22.2%", "cpu": "16.7%"},
         "pfaa_results": pfaa,

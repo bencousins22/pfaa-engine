@@ -1,7 +1,7 @@
 """
-PFAA CLI Commands — Phase-Fluid Agent Architecture interface.
+Aussie Agents CLI Commands — Phase-Fluid Agent Architecture interface.
 
-Exposes the PFAA engine through the Typer CLI:
+Exposes the Aussie Agents engine through the Typer CLI:
     agent-setup pfaa status    — Show engine + memory status
     agent-setup pfaa tools     — List available tools
     agent-setup pfaa run       — Execute a tool
@@ -33,7 +33,7 @@ def _run(coro):
 
 @app.command()
 def status():
-    """Show PFAA engine status — nucleus, memory, tools."""
+    """Show Aussie Agents engine status — nucleus, memory, tools."""
     from agent_setup_cli.core.tools import ToolRegistry
     from agent_setup_cli.core.persistence import PersistentMemory
 
@@ -43,7 +43,7 @@ def status():
     registry = ToolRegistry.get()
     mem = PersistentMemory()
 
-    table = Table(title="PFAA Engine Status", show_lines=True)
+    table = Table(title="Aussie Agents Engine Status", show_lines=True)
     table.add_column("Component", style="cyan")
     table.add_column("Value", style="green")
 
@@ -66,14 +66,14 @@ def status():
 
 @app.command()
 def tools():
-    """List all registered PFAA tools."""
+    """List all registered Aussie Agents tools."""
     from agent_setup_cli.core.tools import ToolRegistry
     import agent_setup_cli.core.tools_extended  # noqa: F401
 
     registry = ToolRegistry.get()
     tool_list = registry.list_tools()
 
-    table = Table(title=f"PFAA Tools ({len(tool_list)} registered)")
+    table = Table(title=f"Aussie Agents Tools ({len(tool_list)} registered)")
     table.add_column("Name", style="cyan")
     table.add_column("Phase", style="yellow")
     table.add_column("Isolated", style="red")
@@ -97,7 +97,7 @@ def run(
     tool_name: str = typer.Argument(..., help="Tool to execute"),
     args: list[str] = typer.Argument(None, help="Tool arguments"),
 ):
-    """Execute a single PFAA tool."""
+    """Execute a single Aussie Agents tool."""
     from agent_setup_cli.core.tools import ToolRegistry
     from agent_setup_cli.core.persistence import PersistentMemory
     import agent_setup_cli.core.tools_extended  # noqa: F401
@@ -203,8 +203,8 @@ def learn():
 
 @app.command()
 def bench():
-    """Run PFAA benchmark suite."""
-    console.print("[bold cyan]Running PFAA benchmarks...[/bold cyan]\n")
+    """Run Aussie Agents benchmark suite."""
+    console.print("[bold cyan]Running Aussie Agents benchmarks...[/bold cyan]\n")
     _run(_run_bench())
 
 
@@ -219,7 +219,7 @@ def ask(
     prompt: str = typer.Argument(..., help="Question for Claude"),
     model: str = typer.Option("sonnet", help="Claude model"),
 ):
-    """Ask Claude a question via the PFAA bridge."""
+    """Ask Claude a question via the Aussie Agents bridge."""
     from agent_setup_cli.core.claude_bridge import ClaudeBridge, ClaudeConfig
     from agent_setup_cli.core.persistence import PersistentMemory
 

@@ -1,5 +1,5 @@
 """
-PFAA Orchestrator — The brain that decides WHAT to do and HOW to do it.
+Aussie Agents Orchestrator — The brain that decides WHAT to do and HOW to do it.
 
 This is the top-level coordinator that:
     1. Accepts natural language or structured task descriptions

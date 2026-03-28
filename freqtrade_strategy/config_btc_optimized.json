@@ -73,7 +73,7 @@
     "internals": {
         "process_throttle_secs": 5
     },
-    "_comment_strategy": "PFAA Bitcoin Strategy v9 — +135.8% return, 57.4% win rate, 25.4% max drawdown. Optimized for 2026 Q1 BTC accumulation/recovery regime.",
+    "_comment_strategy": "Aussie Agents Bitcoin Strategy v9 — +135.8% return, 57.4% win rate, 25.4% max drawdown. Optimized for 2026 Q1 BTC accumulation/recovery regime.",
     "_comment_market": "BTC consolidating mid-$60K-$80K range as of March 2026. Support: $64.7K. Resistance: $78K, $82.5K. Awaiting macro catalyst for breakout.",
     "_comment_approach": "v9: 10-signal weighted scoring (EMA+BB+Vol+1hTrend+Regime+StochRSI+ADX+MeanRev) with ATR dynamic trailing stops, profit lock, and circuit breaker. RSI and MACD disabled (noise on 5m). Single-position sizing to avoid correlated risk.",
     "_comment_hyperopt": "Run: freqtrade hyperopt --strategy PFAABitcoinStrategy --hyperopt-loss CalmarHyperOptLoss --epochs 1000 (CalmarHyperOptLoss recommended — optimizes return/max-drawdown ratio, critical for choppy correction markets)",

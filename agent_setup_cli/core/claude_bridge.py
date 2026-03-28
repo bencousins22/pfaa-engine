@@ -1,7 +1,7 @@
 """
-Claude Code Bridge — PFAA ↔ Claude Code orchestration layer.
+Claude Code Bridge — Aussie Agents ↔ Claude Code orchestration layer.
 
-This module lets PFAA spawn Claude Code subagents as SOLID-phase agents.
+This module lets Aussie Agents spawn Claude Code subagents as SOLID-phase agents.
 Each Claude Code invocation runs in its own subprocess (crash-safe, isolated)
 and communicates back via stdout/stderr JSON.
 
@@ -146,7 +146,7 @@ def _invoke_claude_sync(
 
 class ClaudeBridge:
     """
-    Bridge between PFAA and Claude Code.
+    Bridge between Aussie Agents and Claude Code.
 
     Claude invocations always run as SOLID-phase agents (subprocess isolation).
     The bridge handles:

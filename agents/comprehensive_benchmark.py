@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PFAA Comprehensive Benchmark Suite — Industry-Standard Agent Tests
+Aussie Agents Comprehensive Benchmark Suite — Industry-Standard Agent Tests
 
 Covers the major categories from popular 2026 agent benchmarks:
 
@@ -481,7 +481,7 @@ async def test_H_phase_fluid():
 
 async def main():
     print("╔══════════════════════════════════════════════════════════════════╗")
-    print("║  PFAA COMPREHENSIVE BENCHMARK — Industry-Standard Agent Tests   ║")
+    print("║  AUSSIE AGENTS BENCHMARK — Industry-Standard Agent Tests        ║")
     print("║  Created by Jamie (@bencousins22) · Python 3.15 · macOS        ║")
     print("╚══════════════════════════════════════════════════════════════════╝")
 
@@ -538,7 +538,7 @@ async def main():
     # JSON
     print(f"\n{'═' * 68}")
     print(json.dumps({
-        "benchmark": "PFAA Comprehensive Benchmark v1.0",
+        "benchmark": "Aussie Agents Comprehensive Benchmark v1.0",
         "date": "2026-03-23",
         "author": "Jamie (@bencousins22)",
         "python": "3.15.0a7",

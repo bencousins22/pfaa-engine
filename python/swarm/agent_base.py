@@ -1,5 +1,5 @@
 """
-PFAA Agent Base — Python 3.15
+Aussie Agents Base — Python 3.15
 Mirrors Agent Zero's async execute(**kwargs) -> Response pattern.
 All tier agents inherit from this.
 
@@ -184,7 +184,7 @@ class PFAAAgent:
     def build_system_prompt(self) -> str:
         """Override in subclasses for tier specialisation."""
         return (
-            f"You are a PFAA autonomous agent.\n"
+            f"You are an Aussie Agents autonomous agent.\n"
             f"Tier: {self.ctx.tier}\n"
             f"Role: {self.ctx.role}\n"
             f"Workspace: {self.ctx.workspace}\n"
@@ -228,7 +228,7 @@ class PFAAAgent:
         if "memory_recall" in self.ctx.tools:
             defs.append({
                 "name": "memory_recall",
-                "description": "Semantic search over PFAA memory (Qdrant + sentence-transformers)",
+                "description": "Semantic search over Aussie Agents memory (Qdrant + sentence-transformers)",
                 "input_schema": {"type": "object", "properties": {
                     "query": {"type": "string"},
                     "limit": {"type": "integer", "default": 5},
@@ -279,7 +279,7 @@ class PFAAAgent:
             import urllib.request
             loop = asyncio.get_event_loop()
             def _fetch():
-                req = urllib.request.Request(url, headers={"User-Agent": "PFAA/1.0"})
+                req = urllib.request.Request(url, headers={"User-Agent": "AussieAgents/1.0"})
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     return resp.read().decode("utf-8", errors="replace")[:3000]
             return await loop.run_in_executor(None, _fetch)

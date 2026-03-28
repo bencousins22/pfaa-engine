@@ -1,5 +1,5 @@
 /**
- * Claude API Client — Direct Anthropic SDK integration for PFAA.
+ * Claude API Client — Direct Anthropic SDK integration for Aussie Agents.
  *
  * Provides real Claude API calls with graceful fallback to simulated
  * responses when no API key is available. Supports both simple ask

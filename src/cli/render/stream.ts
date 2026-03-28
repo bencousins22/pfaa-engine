@@ -1,5 +1,5 @@
 /**
- * Stream renderer — Agent Zero PrintStyle output for pfaa run command.
+ * Stream renderer — Aussie Agents PrintStyle output for pfaa run command.
  * Same hex colors, same padding behavior, same tool display format.
  */
 
@@ -7,18 +7,18 @@ import chalk from 'chalk'
 import type { AgentEvent } from '../../core/types.js'
 import { writeFile } from 'fs/promises'
 
-// Agent Zero colors
-const agentText = chalk.hex('#b3ffd9').italic
-const toolHead = chalk.bgWhite.hex('#1B4F72').bold
-const toolKey = chalk.hex('#85C1E9').bold
-const toolVal = chalk.hex('#85C1E9')
-const agentHead = chalk.bgHex('#1D8348').white.bold
-const err = chalk.red
-const warn = chalk.hex('#FFA500')
-const cleanup = chalk.bgWhite.hex('#FFA500').bold
-const ok = chalk.green
-const hint = chalk.hex('#6C3483')
-const dead = chalk.bgRed.white
+// JMEM brand: emerald + gold
+const agentText = chalk.hex('#00E676').italic
+const toolHead = chalk.bgHex('#C9A73B').hex('#1a1a1a').bold
+const toolKey = chalk.hex('#C9A73B').bold
+const toolVal = chalk.hex('#4CAF50')
+const agentHead = chalk.bgHex('#2E7D32').white.bold
+const err = chalk.hex('#EF5350')
+const warn = chalk.hex('#D4A017')
+const cleanup = chalk.bgHex('#C9A73B').hex('#1a1a1a').bold
+const ok = chalk.hex('#00E676')
+const hint = chalk.hex('#2E7D32')
+const dead = chalk.bgHex('#B71C1C').white
 
 let lastEndline = true
 
@@ -43,7 +43,7 @@ export class StreamRenderer {
   private opts: { json: boolean }
   private name: string
 
-  constructor(opts: { json: boolean }, name = 'Agent 0') {
+  constructor(opts: { json: boolean }, name = 'Aussie') {
     this.opts = opts
     this.name = name
   }

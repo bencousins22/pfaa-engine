@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PFAA Remix Agent Team — Full-power multi-agent spawner with ALL capabilities.
+Aussie Agents Remix Team — Full-power multi-agent spawner with ALL capabilities.
 
 10 agents · JMEM memory · State machine · Circuit breaker · Skill gen
 Swarm + Pipeline + DAG + Remix execution modes
@@ -32,14 +32,21 @@ C, G, Y, R, M, D, B, W, X = "\033[36m","\033[32m","\033[33m","\033[31m","\033[35
 
 BANNER = f"""{C}{B}
 ╔═══════════════════════════════════════════════════════════════════════╗
-║  ██████╗ ███████╗ █████╗  █████╗     ██████╗ ███████╗███╗   ███╗██╗ ║
-║  ██╔══██╗██╔════╝██╔══██╗██╔══██╗    ██╔══██╗██╔════╝████╗ ████║██║ ║
-║  ██████╔╝█████╗  ███████║███████║    ██████╔╝█████╗  ██╔████╔██║██║ ║
-║  ██╔═══╝ ██╔══╝  ██╔══██║██╔══██║    ██╔══██╗██╔══╝  ██║╚██╔╝██║╚═╝ ║
-║  ██║     ██║     ██║  ██║██║  ██║    ██║  ██║███████╗██║ ╚═╝ ██║██╗ ║
-║  ╚═╝     ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝╚═╝ ║
 ║                                                                       ║
-║  Phase-Fluid Agent Architecture — REMIX Mode (Full Power)             ║
+║    █████╗ ██╗   ██╗███████╗███████╗██╗███████╗                        ║
+║   ██╔══██╗██║   ██║██╔════╝██╔════╝██║██╔════╝                        ║
+║   ███████║██║   ██║███████╗███████╗██║█████╗                          ║
+║   ██╔══██║██║   ██║╚════██║╚════██║██║██╔══╝                          ║
+║   ██║  ██║╚██████╔╝███████║███████║██║███████╗                        ║
+║   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝╚═╝╚══════╝                        ║
+║                 █████╗  ██████╗ ███████╗███╗   ██╗████████╗███████╗   ║
+║                ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██╔════╝   ║
+║                ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ███████╗   ║
+║                ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ╚════██║   ║
+║                ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ███████║   ║
+║                ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝   ║
+║                                                                       ║
+║  REMIX Mode (Full Power) — Phase-Fluid Agent Architecture             ║
 ║  10 Agents · JMEM 5-Layer Memory · Q-Learning · Self-Build            ║
 ╚═══════════════════════════════════════════════════════════════════════╝{X}
 """
@@ -198,7 +205,7 @@ ROLE_DESC = {
 }
 
 ROLE_PROMPTS = {
-    Role.LEAD: "You are the team lead coordinating a multi-agent PFAA team. Synthesize inputs from all agents, resolve conflicts, and produce a coherent action plan.",
+    Role.LEAD: "You are the team lead coordinating a multi-agent Aussie Agents team. Synthesize inputs from all agents, resolve conflicts, and produce a coherent action plan.",
     Role.RESEARCHER: "You are a research analyst. Analyze data, find patterns, identify trends, and provide evidence-based insights to inform the team's decisions.",
     Role.STRATEGIST: "You are a strategy architect. Design approaches, define signal combinations, and create comprehensive plans that balance risk and reward.",
     Role.OPTIMIZER: "You are a performance optimizer. Find bottlenecks, tune hyperparameters, and maximize efficiency through systematic experimentation.",
@@ -463,7 +470,7 @@ class RemixTeam:
 # ═══════════════════════════════════════════════════════════════════════
 async def main():
     import argparse
-    p = argparse.ArgumentParser(description="PFAA Remix Agent Team")
+    p = argparse.ArgumentParser(description="Aussie Agents Remix Team")
     p.add_argument("goal", nargs="?", default="self-build the most profitable bitcoin freqtrade config for 2026 based on historical data")
     p.add_argument("--mode", choices=["swarm","pipeline","dag","remix"], default="remix")
     p.add_argument("--roles", help="Comma-separated roles")

@@ -1,7 +1,7 @@
 """JMEM — Persistent semantic memory for AI agents.
 
 Ported from https://github.com/Aussie-Agents/jmem-mcp-server
-into the PFAA engine for integrated agent team operation.
+into the Aussie Agents engine for integrated agent team operation.
 
 Features:
     - 7 MCP tools: recall, remember, consolidate, reflect, reward, evolve, status

@@ -1,5 +1,5 @@
 """
-PFAA macOS Daily Tools — Real-world automation for everyday tasks.
+Aussie Agents macOS Daily Tools — Real-world automation for everyday tasks.
 
 These tools give the agent hands on your Mac: open apps, manage
 windows, read clipboard, send notifications, control Finder, and more.
@@ -359,7 +359,7 @@ def tool_timer(seconds: int = 60, message: str = "Timer done!") -> dict[str, Any
     import time as t
     t.sleep(seconds)
     # Notify when done
-    script = f'display notification "{message}" with title "PFAA Timer" sound name "Glass"'
+    script = f'display notification "{message}" with title "Aussie Agents Timer" sound name "Glass"'
     subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=5)
     return {"success": True, "seconds": seconds, "message": message}
 

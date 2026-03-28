@@ -1,10 +1,10 @@
 """
-PFAA Framework — The complete agent framework entry point.
+Aussie Agents Framework — The complete agent framework entry point.
 
 This is the replacement for Agent Zero's monologue loop. Instead of:
     Agent Zero: while True → LLM → tool → LLM → response (sequential)
 
-PFAA does:
+Aussie Agents does:
     Framework.run(goal) → decompose → parallel DAG → phase-fluid execute
                         → stream events → learn → checkpoint → respond
 
@@ -48,7 +48,7 @@ logger = logging.getLogger("pfaa")
 
 class Framework:
     """
-    The PFAA Framework — a complete agent system.
+    The Aussie Agents Framework — a complete agent system.
 
     Usage:
         # Minimal

@@ -88,7 +88,7 @@
         "process_throttle_secs": 5
     },
 
-    "_comment_strategy": "PFAA Bitcoin Strategy — optimized for 2026 Q1 BTC accumulation/recovery regime",
+    "_comment_strategy": "Aussie Agents Bitcoin Strategy — optimized for 2026 Q1 BTC accumulation/recovery regime",
     "_comment_market": "BTC consolidating mid-$60K-$80K range as of March 2026. Support: $64.7K. Resistance: $78K, $82.5K. Awaiting macro catalyst for breakout.",
     "_comment_approach": "Multi-signal scoring (EMA+RSI+BB+MACD+Vol) with ATR trailing stops. Single-position sizing to avoid correlated risk.",
     "_comment_hyperopt": "Run: freqtrade hyperopt --strategy PFAABitcoinStrategy --hyperopt-loss SharpeHyperOptLoss --epochs 1000"

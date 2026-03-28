@@ -1,5 +1,5 @@
 """
-PFAA Benchmark Suite — Proves the Phase-Fluid Architecture works.
+Aussie Agents Benchmark Suite — Proves the Phase-Fluid Architecture works.
 
 Tests:
     1. SPAWN SPEED: 1000 Vapor agents in <50ms

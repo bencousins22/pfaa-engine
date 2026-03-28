@@ -1,5 +1,5 @@
 """
-PFAA Server — WebSocket + HTTP API for the framework.
+Aussie Agents Server — WebSocket + HTTP API for the framework.
 
 Replaces Agent Zero's WebSocket monologue endpoint with a
 proper streaming API that sends real-time events as goals execute.
@@ -38,9 +38,9 @@ lazy from fastapi.middleware.cors import CORSMiddleware
 
 
 def create_app(framework: Framework | None = None) -> FastAPI:
-    """Create the PFAA FastAPI application."""
+    """Create the Aussie Agents FastAPI application."""
     app = FastAPI(
-        title="PFAA — Phase-Fluid Agent Architecture",
+        title="Aussie Agents — Phase-Fluid Agent Architecture",
         version="1.0.0",
         description="Self-improving agent framework with phase-fluid execution",
     )
@@ -258,7 +258,7 @@ def _safe_serialize(obj: Any) -> Any:
 
 
 def serve(host: str = "0.0.0.0", port: int = 8000):
-    """Start the PFAA server."""
+    """Start the Aussie Agents server."""
     app = create_app()
     uvicorn.run(app, host=host, port=port, log_level="info")
 

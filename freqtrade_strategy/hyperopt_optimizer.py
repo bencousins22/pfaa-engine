@@ -1,7 +1,7 @@
 """
-PFAA Hyperopt Optimizer — Self-optimizing BTC strategy via Agent Team.
+Aussie Agents Hyperopt Optimizer — Self-optimizing BTC strategy via Agent Team.
 
-This module uses the PFAA Agent Team to:
+This module uses the Aussie Agents Team to:
 1. RESEARCHER agent: Analyze historical BTC data for regime detection
 2. STRATEGIST agent: Generate optimal indicator parameters
 3. OPTIMIZER agent: Run hyperopt with SharpeHyperOptLoss
@@ -131,7 +131,7 @@ class HyperoptResult:
 # ── Stage Prompts ─────────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = (
-    "You are a quantitative crypto trading analyst working with the PFAA "
+    "You are a quantitative crypto trading analyst working with the Aussie Agents "
     "FreqTrade optimization pipeline. Provide concise, actionable analysis."
 )
 
@@ -202,7 +202,7 @@ class PFAAHyperoptOptimizer:
     """
     Agent-team-driven hyperopt optimizer.
 
-    Uses all 6 PFAA agent roles to collaboratively optimize the
+    Uses all 6 Aussie Agents roles to collaboratively optimize the
     Bitcoin trading strategy.  When the agent team is unavailable
     (e.g. standalone mode) it falls back to Claude API calls per stage.
     """
@@ -471,7 +471,7 @@ class PFAAHyperoptOptimizer:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="PFAA Hyperopt Optimizer — self-optimizing BTC strategy",
+        description="Aussie Agents Hyperopt Optimizer — self-optimizing BTC strategy",
     )
     parser.add_argument(
         "--epochs", type=int, default=500,

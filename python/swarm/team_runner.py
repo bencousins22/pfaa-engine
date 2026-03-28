@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PFAA Team Runner — Python 3.15
+Aussie Agents Team Runner — Python 3.15
 Structured concurrency for agent teams using asyncio.TaskGroup + ExceptionGroup.
 
 Run: echo '<json>' | python3 team_runner.py

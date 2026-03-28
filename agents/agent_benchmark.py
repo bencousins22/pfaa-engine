@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PFAA Agent Benchmark — Standardized agent capability assessment.
+Aussie Agents Benchmark — Standardized agent capability assessment.
 
 Tests 8 categories that measure what matters for an agent framework:
 
@@ -16,7 +16,7 @@ Tests 8 categories that measure what matters for an agent framework:
 Scoring: Each category is 0-125 points. Maximum score: 1000.
 
 This benchmark is designed to be runnable against ANY agent framework
-by implementing the same test interface. PFAA results are the baseline.
+by implementing the same test interface. Aussie Agents results are the baseline.
 
 Created by Jamie (@bencousins22)
 Python 3.15
@@ -465,7 +465,7 @@ async def bench_persistence() -> BenchResult:
 
 async def main():
     print("╔════════════════════════════════════════════════════════════╗")
-    print("║  PFAA AGENT BENCHMARK — Standardized Assessment          ║")
+    print("║  AUSSIE AGENTS BENCHMARK — Standardized Assessment       ║")
     print("║  Created by Jamie (@bencousins22)                        ║")
     print("║  Python 3.15.0a7 · macOS · Phase-Fluid Architecture      ║")
     print("╚════════════════════════════════════════════════════════════╝")
@@ -525,8 +525,8 @@ async def main():
     # JSON output
     print(f"\n{'═' * 60}")
     print(json.dumps({
-        "benchmark": "PFAA Agent Benchmark v1.0",
-        "framework": "PFAA — Phase-Fluid Agent Architecture",
+        "benchmark": "Aussie Agents Benchmark v1.0",
+        "framework": "Aussie Agents — Phase-Fluid Agent Architecture",
         "python": "3.15.0a7",
         "total_score": total_score,
         "max_score": max_score,

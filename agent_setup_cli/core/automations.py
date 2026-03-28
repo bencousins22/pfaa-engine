@@ -1,5 +1,5 @@
 """
-PFAA Automations — Self-learning macOS task automations.
+Aussie Agents Automations — Self-learning macOS task automations.
 
 Built from observing your environment:
     - Disk at 98% → auto-cleanup automation

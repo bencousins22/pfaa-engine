@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PFAA Agent Team Spawner — Full team with JMEM memory.
+Aussie Agents Team Spawner — Full team with JMEM memory.
 
 Runs on Python 3.12+ (no lazy import syntax required).
 Spawns all 6 agent roles, initializes JMEM semantic memory,
@@ -54,19 +54,25 @@ X = "\033[0m"    # Reset
 
 BANNER = f"""
 {C}{B}
-╔═══════════════════════════════════════════════════════════════════╗
-║                                                                   ║
-║   ██████╗ ███████╗ █████╗  █████╗     ████████╗███████╗ █████╗   ║
-║   ██╔══██╗██╔════╝██╔══██╗██╔══██╗    ╚══██╔══╝██╔════╝██╔══██╗  ║
-║   ██████╔╝█████╗  ███████║███████║       ██║   █████╗  ███████║  ║
-║   ██╔═══╝ ██╔══╝  ██╔══██║██╔══██║       ██║   ██╔══╝  ██╔══██║  ║
-║   ██║     ██║     ██║  ██║██║  ██║       ██║   ███████╗██║  ██║  ║
-║   ╚═╝     ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝       ╚═╝   ╚══════╝╚═╝  ╚═╝  ║
-║                                                                   ║
-║   Phase-Fluid Agent Architecture — Agent Team Mode                ║
-║   JMEM Memory · 6 Agents · Q-Learning · Swarm Execution          ║
-║                                                                   ║
-╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════════╗
+║                                                                       ║
+║    █████╗ ██╗   ██╗███████╗███████╗██╗███████╗                        ║
+║   ██╔══██╗██║   ██║██╔════╝██╔════╝██║██╔════╝                        ║
+║   ███████║██║   ██║███████╗███████╗██║█████╗                          ║
+║   ██╔══██║██║   ██║╚════██║╚════██║██║██╔══╝                          ║
+║   ██║  ██║╚██████╔╝███████║███████║██║███████╗                        ║
+║   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝╚═╝╚══════╝                        ║
+║                 █████╗  ██████╗ ███████╗███╗   ██╗████████╗███████╗   ║
+║                ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██╔════╝   ║
+║                ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ███████╗   ║
+║                ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ╚════██║   ║
+║                ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ███████║   ║
+║                ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝   ║
+║                                                                       ║
+║   Phase-Fluid Agent Architecture — Agent Team Mode                    ║
+║   JMEM Memory · 6 Agents · Q-Learning · Swarm Execution              ║
+║                                                                       ║
+╚═══════════════════════════════════════════════════════════════════════╝
 {X}"""
 
 
@@ -555,7 +561,7 @@ class AgentTeam:
 
 async def main_async():
     import argparse
-    p = argparse.ArgumentParser(description="PFAA Agent Team Spawner")
+    p = argparse.ArgumentParser(description="Aussie Agents Team Spawner")
     p.add_argument("goal", nargs="?", default="self-build the most profitable bitcoin freqtrade config")
     p.add_argument("--ns", default="pfaa-btc-team", help="JMEM namespace")
     p.add_argument("--live", action="store_true", help="Enable real Claude API calls (requires ANTHROPIC_API_KEY)")

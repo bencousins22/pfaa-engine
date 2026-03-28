@@ -1,5 +1,5 @@
 """
-PFAA Full System Test — Everything together.
+Aussie Agents Full System Test — Everything together.
 
 Tests:
     1. Extended tools (28 total) all register correctly
@@ -271,7 +271,7 @@ async def test_memory_with_extended_tools() -> None:
 
 async def main() -> None:
     print("╔══════════════════════════════════════════════════════════════╗")
-    print("║  PFAA FULL SYSTEM TEST                                     ║")
+    print("║  AUSSIE AGENTS FULL SYSTEM TEST                            ║")
     print("║  Core + Tools + Memory + Persistence + Bridge + CLI        ║")
     print(f"║  Python {sys.version.split()[0]}  |  {sys.platform}  |  cores={os.cpu_count()}" + " " * 17 + "║")
     print("╚══════════════════════════════════════════════════════════════╝")

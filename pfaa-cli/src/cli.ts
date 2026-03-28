@@ -60,11 +60,63 @@ function renderBanner(): string {
     gradLine += `\x1b[38;2;${r};${g};${b}m━`;
   }
 
+  // Per-character gradient for "AUSSIE AGENTS"
+  const title = 'AUSSIE  AGENTS';
+  const titleStops: [number, number, number][] = [
+    [255, 200, 40],   // gold
+    [255, 160, 20],   // amber
+    [255, 120, 40],   // orange
+    [220, 80, 120],   // coral
+    [0, 200, 100],    // emerald
+    [0, 230, 118],    // bright green
+    [0, 220, 160],    // teal
+    [0, 200, 200],    // cyan
+    [0, 180, 220],    // sky
+    [40, 160, 255],   // blue
+    [100, 140, 255],  // indigo
+    [0, 230, 118],    // back to green
+    [0, 200, 100],    // emerald
+    [0, 180, 80],     // dark green
+  ];
+  let colorTitle = '  \x1b[1m';
+  for (let i = 0; i < title.length; i++) {
+    if (title[i] === ' ') { colorTitle += ' '; continue; }
+    const t = i / (title.length - 1);
+    const idx = t * (titleStops.length - 1);
+    const lo = Math.floor(idx);
+    const hi = Math.min(lo + 1, titleStops.length - 1);
+    const f = idx - lo;
+    const cr = Math.round(titleStops[lo][0] + (titleStops[hi][0] - titleStops[lo][0]) * f);
+    const cg = Math.round(titleStops[lo][1] + (titleStops[hi][1] - titleStops[lo][1]) * f);
+    const cb = Math.round(titleStops[lo][2] + (titleStops[hi][2] - titleStops[lo][2]) * f);
+    colorTitle += `\x1b[38;2;${cr};${cg};${cb}m${title[i]}`;
+  }
+  colorTitle += R;
+
+  // Wider rainbow gradient separator
+  const lineW2 = 70;
+  let rainbowLine = '';
+  const rainbowStops: [number, number, number][] = [
+    [255, 200, 40], [255, 140, 30], [255, 80, 80], [220, 60, 160],
+    [140, 60, 240], [60, 120, 255], [0, 200, 200], [0, 230, 118], [0, 180, 80],
+  ];
+  for (let i = 0; i < lineW2; i++) {
+    const t = i / lineW2;
+    const idx = t * (rainbowStops.length - 1);
+    const lo = Math.floor(idx);
+    const hi = Math.min(lo + 1, rainbowStops.length - 1);
+    const f = idx - lo;
+    const cr = Math.round(rainbowStops[lo][0] + (rainbowStops[hi][0] - rainbowStops[lo][0]) * f);
+    const cg = Math.round(rainbowStops[lo][1] + (rainbowStops[hi][1] - rainbowStops[lo][1]) * f);
+    const cb = Math.round(rainbowStops[lo][2] + (rainbowStops[hi][2] - rainbowStops[lo][2]) * f);
+    rainbowLine += `\x1b[38;2;${cr};${cg};${cb}m━`;
+  }
+
   return [
     '',
-    `  ${GOLDBR}\x1b[1mAUSSIE${R}  ${GREEN}\x1b[1mAGENTS${R}`,
-    `  ${gradLine}${R}`,
-    `  ${DIM}v${VERSION}${R}  ${GREENDD}│${R}  ${GOLDBR}\x1b[1m48${R} ${GOLD}Tools${R}  ${GREENDD}│${R}  ${GREEN}\x1b[1m5${R}${GREEND}-Layer Memory${R}  ${GREENDD}│${R}  ${GREEN}\x1b[1mMulti${R}${GREEND}-Agent${R}  ${GREENDD}│${R}  ${GOLDBR}\x1b[1mPy${R} ${GOLD}3.15${R}`,
+    colorTitle,
+    `  ${rainbowLine}${R}`,
+    `  ${DIM}v${VERSION}${R}  ${GREENDD}│${R}  \x1b[38;2;255;200;40m\x1b[1m44${R} \x1b[38;2;255;160;20mTools${R}  ${GREENDD}│${R}  \x1b[38;2;0;200;200m\x1b[1m17${R} \x1b[38;2;0;180;180mMCP${R}  ${GREENDD}│${R}  \x1b[38;2;140;60;240m\x1b[1m5${R}\x1b[38;2;120;80;200m-Layer Memory${R}  ${GREENDD}│${R}  \x1b[38;2;255;80;80m\x1b[1m6${R} \x1b[38;2;220;60;60mHooks${R}  ${GREENDD}│${R}  ${GREEN}\x1b[1mPy${R}${GREEND} 3.15${R}`,
     '',
   ].join('\n');
 }
@@ -82,7 +134,7 @@ let cache: AnalysisCache;
 let py315: Python315Tools;
 
 // ═════════════════════════════════════════════════════════════════════
-// RENDERING ENGINE — Agent Zero colors + Rich-style tables & panels
+// RENDERING ENGINE — Aussie Agents colors + Rich-style tables & panels
 // ═════════════════════════════════════════════════════════════════════
 
 const R = '\x1b[0m';  // reset
@@ -107,24 +159,31 @@ function bgHex(h: string): string {
   return bgRgb((n >> 16) & 0xFF, (n >> 8) & 0xFF, n & 0xFF);
 }
 
-// ── Agent Zero PrintStyle (exact hex codes from python/helpers/print_style.py) ──
+// ── Aussie Agents PrintStyle — JMEM brand: emerald + gold ───────────
 
 const AZ = {
-  userPrompt:  (t: string) => `${bgHex('#6C3483')}\x1b[37m\x1b[1m ${t} ${R}`,
-  agentHeader: (t: string) => `${bgHex('#1D8348')}\x1b[37m\x1b[1m ${t} ${R}`,
-  agentGen:    (t: string) => `\x1b[47m${hex('#1D8348')}\x1b[1m ${t} ${R}`,
-  agentText:   (t: string) => `${hex('#b3ffd9')}\x1b[3m${t}${R}`,
-  toolHead:    (t: string) => `\x1b[47m${hex('#1B4F72')}\x1b[1m ${t} ${R}`,
+  // User prompt: gold background, dark text
+  userPrompt:  (t: string) => `${bgHex('#D4A017')}${hex('#1a1a1a')}\x1b[1m ${t} ${R}`,
+  // Agent header: emerald background, white text
+  agentHeader: (t: string) => `${bgHex('#2E7D32')}\x1b[37m\x1b[1m ${t} ${R}`,
+  // Agent generating: dark bg, bright emerald text
+  agentGen:    (t: string) => `${bgHex('#1a2e1a')}${hex('#00E676')}\x1b[1m ${t} ${R}`,
+  // Agent streaming text: bright emerald italic
+  agentText:   (t: string) => `${hex('#00E676')}\x1b[3m${t}${R}`,
+  // Tool header: gold bg, dark text
+  toolHead:    (t: string) => `${bgHex('#C9A73B')}${hex('#1a1a1a')}\x1b[1m ${t} ${R}`,
+  // Key/value: gold keys, emerald values
   toolKey:     (t: string) => `${hex('#C9A73B')}\x1b[1m${t}${R}`,
-  toolVal:     (t: string) => `${hex('#76AF50')}${t}${R}`,
-  error:       (t: string) => `\x1b[31m${t}${R}`,
-  warning:     (t: string) => `${hex('#FFA500')}${t}${R}`,
-  hint:        (t: string) => `${hex('#6C3483')}${t}${R}`,
-  info:        (t: string) => `\x1b[34m${t}${R}`,
-  success:     (t: string) => `\x1b[32m${t}${R}`,
-  dim:         (t: string) => `\x1b[2m${t}${R}`,
-  dead:        (t: string) => `\x1b[41m\x1b[37m ${t} ${R}`,
-  cleanup:     (t: string) => `\x1b[47m${hex('#FFA500')}\x1b[1m ${t} ${R}`,
+  toolVal:     (t: string) => `${hex('#4CAF50')}${t}${R}`,
+  // Status colors
+  error:       (t: string) => `${hex('#EF5350')}${t}${R}`,
+  warning:     (t: string) => `${hex('#D4A017')}${t}${R}`,
+  hint:        (t: string) => `${hex('#2E7D32')}${t}${R}`,
+  info:        (t: string) => `${hex('#4CAF50')}${t}${R}`,
+  success:     (t: string) => `${hex('#00E676')}${t}${R}`,
+  dim:         (t: string) => `${hex('#5A6A5A')}${t}${R}`,
+  dead:        (t: string) => `${bgHex('#B71C1C')}\x1b[37m ${t} ${R}`,
+  cleanup:     (t: string) => `${bgHex('#C9A73B')}${hex('#1a1a1a')}\x1b[1m ${t} ${R}`,
 };
 
 // ── Simple color shorthand (backward compat) ────────────────────────
@@ -335,7 +394,7 @@ program
   .option('-r, --roles <roles>', 'Agent roles to use (comma-separated)')
   .option('--dry-run', 'Show plan without executing')
   .action(async (goal: string, opts) => {
-    console.log(colorize('cyan', `\n⚡ PFAA — Executing goal...\n`));
+    console.log(colorize('cyan', `\n⚡ Aussie Agents — Executing goal...\n`));
     console.log(colorize('dim', `  Goal: ${goal}`));
     console.log(colorize('dim', `  Model: ${config.model}`));
     console.log(colorize(orchestrator.isLive ? 'green' : 'yellow',
@@ -459,7 +518,7 @@ program
 
 program
   .command('tool <name> [args...]')
-  .description('Execute a single PFAA tool by name (e.g. shell, grep, compute)')
+  .description('Execute a single Aussie Agents tool by name (e.g. shell, grep, compute)')
   .action(async (name: string, args: string[]) => {
     try {
       await withBridge(async () => {
@@ -545,7 +604,7 @@ program
 
 program
   .command('team <goal>')
-  .description('Spawn the full PFAA agent team (6 or 10 agents)')
+  .description('Spawn the full Aussie Agents team (6 or 10 agents)')
   .option('-m, --mode <mode>', 'Team mode: basic (6 agents) or remix (10 agents)', 'basic')
   .action(async (goal: string, opts) => {
     const agentCount = opts.mode === 'remix' ? 10 : 6;
@@ -559,6 +618,36 @@ program
       });
     } catch (err) {
       console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
+    }
+  });
+
+// ── generate ─────────────────────────────────────────────────────────
+
+program
+  .command('generate <description>')
+  .description('Generate code using Claude via the Aussie Agents bridge')
+  .option('-l, --language <lang>', 'Language', 'python')
+  .option('-o, --output <path>', 'Write to file')
+  .action(async (description: string, opts) => {
+    console.log(AZ.agentGen(` Aussie: Generating ${opts.language} code `));
+    console.log();
+
+    try {
+      await withBridge(async () => {
+        const result = await bridge.generateCode(description, opts.language, opts.output);
+        if (result.success) {
+          console.log(result.code);
+          if (result.file) {
+            console.log(AZ.success(`\nWritten to ${result.file}`));
+          }
+        } else {
+          console.error(AZ.error(`Error: ${result.code}`));
+          process.exitCode = 1;
+        }
+      });
+    } catch (err) {
+      console.error(AZ.error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exitCode = 1;
     }
   });
@@ -597,17 +686,42 @@ program
     try {
       await withBridge(async () => {
         await bridge.forceLearn();
-        const mem = await bridge.getMemory();
+        const mem = await bridge.getMemory() as any;
 
-        console.log(colorize('green', `  ✅ Learning complete\n`));
-        console.log(`  L2 Patterns:    ${colorize('green', String(mem.patterns.length))}`);
-        console.log(`  L3 Strategies:  ${colorize('yellow', String(mem.strategies.length))}`);
-        console.log(`  L1 Episodes:    ${colorize('dim', String(mem.episodes))}`);
+        // Handle both array and dict shapes from the Python bridge
+        const status = mem.status || {};
+        const patterns = mem.patterns || {};
+        const strategies = mem.strategies || {};
+        const patternCount = Array.isArray(patterns) ? patterns.length : Object.keys(patterns).length;
+        const strategyCount = Array.isArray(strategies) ? strategies.length : Object.keys(strategies).length;
+        const episodeCount = status.l1_episodes || 0;
 
-        if (mem.strategies.length > 0) {
-          console.log(colorize('cyan', '\n  Phase Optimizations Discovered:\n'));
-          for (const s of mem.strategies) {
-            console.log(`    ${s.tool}: ${colorize('red', s.from_phase)} → ${colorize('green', s.to_phase)} (${s.speedup})`);
+        console.log(AZ.success(`  Learning complete\n`));
+        console.log(`  ${AZ.toolKey('L1 Episodes:  ')} ${colorize('green', String(episodeCount))}`);
+        console.log(`  ${AZ.toolKey('L2 Patterns:  ')} ${colorize('green', String(patternCount))}`);
+        console.log(`  ${AZ.toolKey('L3 Strategies:')} ${colorize('yellow', String(strategyCount))}`);
+
+        if (patternCount > 0) {
+          const patternEntries = Array.isArray(patterns) ? patterns : Object.entries(patterns).map(([tool, p]: [string, any]) => ({ tool, ...p }));
+          console.log(AZ.info('\n  Top patterns:\n'));
+          for (const p of patternEntries.slice(0, 8)) {
+            const name = p.tool || p.name || '?';
+            const phase = p.best_phase || '?';
+            const avg = Math.round(p.avg_us || p.avg_latency_us || 0);
+            const conf = (p.confidence || 0).toFixed(2);
+            const phaseColor = phase === 'VAPOR' ? 'cyan' : phase === 'LIQUID' ? 'yellow' : 'red';
+            console.log(`    ${name.padEnd(20)} ${colorize(phaseColor as Color, phase.padEnd(7))} ${String(avg).padStart(8)}μs  conf=${conf}`);
+          }
+        }
+
+        if (strategyCount > 0) {
+          const stratEntries = Array.isArray(strategies) ? strategies : Object.entries(strategies).map(([tool, s]: [string, any]) => ({ tool, ...s }));
+          console.log(AZ.info('\n  Phase optimizations:\n'));
+          for (const s of stratEntries) {
+            const from = s.default || s.from_phase || '?';
+            const to = s.override || s.to_phase || '?';
+            const speedup = s.speedup_factor ? `${s.speedup_factor.toFixed(1)}x` : (s.speedup || '?');
+            console.log(`    ${s.tool}: ${colorize('red', from)} → ${colorize('green', to)} (${speedup})`);
           }
         }
         console.log();
@@ -713,7 +827,7 @@ memoryCmd
   .command('stats')
   .description('Show memory status across all 5 cognitive layers')
   .action(async () => {
-    // Try PFAA engine memory first, fall back to JMEM MCP
+    // Try Aussie Agents engine memory first, fall back to JMEM MCP
     try {
       await bridge.start();
       const mem = await bridge.getMemory();
@@ -725,7 +839,7 @@ memoryCmd
         `${AZ.toolKey('L3 Strategies:')} ${colorize('yellow', String(mem.strategies.length).padStart(6))}  ${bar(mem.strategies.length, Math.max(mem.patterns.length, 1), 20)}`,
       ].join('\n');
 
-      console.log('\n' + panel(statusContent, '🧠 PFAA Memory Status'));
+      console.log('\n' + panel(statusContent, '🧠 Aussie Agents Memory Status'));
 
       if (mem.patterns.length > 0) {
         const patternRows = mem.patterns.slice(0, 12).map((p) => [
@@ -939,7 +1053,7 @@ py315Cmd
 
 program
   .command('tools')
-  .description('List all registered PFAA tools (48 tools across 3 phases)')
+  .description('List all registered Aussie Agents tools (48 tools across 3 phases)')
   .action(async () => {
     try {
       await bridge.start();
@@ -957,7 +1071,7 @@ program
           ];
         });
 
-      console.log('\n' + table(`PFAA Tools (${tools.length} registered)`, [
+      console.log('\n' + table(`Aussie Agents Tools (${tools.length} registered)`, [
         { header: 'Name', style: 'cyan', width: 20 },
         { header: 'Phase', width: 7 },
         { header: 'Capabilities', style: 'dim', width: 20 },
@@ -973,9 +1087,9 @@ program
 
 program
   .command('bench')
-  .description('Run PFAA performance benchmarks (7 tests)')
+  .description('Run Aussie Agents performance benchmarks (7 tests)')
   .action(async () => {
-    console.log(colorize('cyan', '\n⏱  Running PFAA Benchmarks...\n'));
+    console.log(colorize('cyan', '\n⏱  Running Aussie Agents Benchmarks...\n'));
     try {
       await withBridge(async () => {
         const results = await bridge.benchmark();
@@ -1020,7 +1134,7 @@ program
       console.log(panel(engineLines.join('\n'), '\x1b[38;2;212;160;23m\x1b[1m Engine \x1b[0m', 'yellow'));
       await bridge.stop();
     } catch {
-      console.log(panel(colorize('dim', 'Not available (install PFAA Python engine)'), '\x1b[38;2;212;160;23m\x1b[1m Engine \x1b[0m', 'dim'));
+      console.log(panel(colorize('dim', 'Not available (install Aussie Agents Python engine)'), '\x1b[38;2;212;160;23m\x1b[1m Engine \x1b[0m', 'dim'));
     }
 
     // Enterprise panel
@@ -1058,6 +1172,18 @@ program
     }
     process.stdout.write = origStdoutWrite;
 
+    // Hooks & Skills panel
+    const GOLDBR  = '\x1b[38;2;212;160;23m';
+    const GREEN   = '\x1b[38;2;0;230;118m';
+    const GREEND  = '\x1b[38;2;76;175;80m';
+    const hooksLines = [
+      `${AZ.toolKey('Skills:     ')} \x1b[38;2;0;255;136m\x1b[1m10${R} registered  ${AZ.dim('/aussie-*')}`,
+      `${AZ.toolKey('Agents:     ')} \x1b[38;2;0;255;136m\x1b[1m3${R}  (lead, rewriter, validator)`,
+      `${AZ.toolKey('Hooks:      ')} \x1b[38;2;0;255;136m\x1b[1m6${R}  (PreToolUse, PostToolUse, SessionStart, Stop, PreCompact, PostCompact)`,
+      `${AZ.toolKey('MCP Tools:  ')} \x1b[38;2;0;255;136m\x1b[1m17${R} JMEM (recall, remember, consolidate, reflect, reward, evolve, status)`,
+    ];
+    console.log(panel(hooksLines.join('\n'), `${GOLDBR}\x1b[1m Aussie Agents \x1b[0m`, 'yellow'));
+
     console.log();
   });
 
@@ -1079,11 +1205,11 @@ program
 
 program
   .command('init')
-  .description('Initialize PFAA configuration in current project')
+  .description('Initialize Aussie Agents configuration in current project')
   .action(() => {
     initProjectConfig();
     console.log(colorize('green', '\n✅ Created .pfaa.yaml in current directory\n'));
-    console.log(colorize('dim', '  Edit this file to configure PFAA for your project.'));
+    console.log(colorize('dim', '  Edit this file to configure Aussie Agents for your project.'));
     console.log(colorize('dim', '  Run `pfaa status` to verify your setup.\n'));
   });
 
@@ -1143,7 +1269,7 @@ program
 // CONFIG SUBCOMMANDS
 // ═════════════════════════════════════════════════════════════════════
 
-const configCmd = program.command('config').description('Manage PFAA configuration');
+const configCmd = program.command('config').description('Manage Aussie Agents configuration');
 
 configCmd
   .command('set-api-key <key>')
@@ -1177,7 +1303,7 @@ configCmd
     })();
     const envKey = !!process.env['ANTHROPIC_API_KEY'];
 
-    console.log(colorize('cyan', '\n📋 PFAA Configuration\n'));
+    console.log(colorize('cyan', '\n📋 Aussie Agents Configuration\n'));
     console.log(`  API Key (file):  ${hasKey ? colorize('green', 'configured') : colorize('dim', 'not set')}`);
     console.log(`  API Key (env):   ${envKey ? colorize('green', 'set') : colorize('dim', 'not set')}`);
     console.log(`  Model:           ${config?.model || 'claude-sonnet-4-6'}`);
@@ -1187,13 +1313,13 @@ configCmd
   });
 
 // ═════════════════════════════════════════════════════════════════════
-// INTERACTIVE MODE (Agent Zero chat loop)
+// INTERACTIVE MODE (Aussie Agents chat loop)
 // ═════════════════════════════════════════════════════════════════════
 
 program
   .command('chat')
-  .description('Interactive Agent Zero-style chat loop')
-  .option('-n, --name <name>', 'Agent name', 'Agent 0')
+  .description('Interactive Aussie Agents-style chat loop')
+  .option('-n, --name <name>', 'Agent name', 'Aussie')
   .action(async (opts) => {
     console.log(renderBanner());
     console.log(AZ.agentHeader(`${opts.name}: Ready`));
@@ -1337,6 +1463,111 @@ program
       console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
     } finally {
       await bridge.stop();
+    }
+  });
+
+// ── tool-search ─────────────────────────────────────────────────────
+
+program
+  .command('tool-search <query>')
+  .description('Search for tools by name or description (deferred tool discovery)')
+  .option('-l, --limit <n>', 'Max results to return', '5')
+  .action(async (query: string, opts) => {
+    const limit = parseInt(opts.limit) || 5;
+    console.log(colorize('cyan', `\n⚡ Tool Search: "${query}" (limit ${limit})\n`));
+
+    try {
+      await withBridge(async () => {
+        const tools = await bridge.searchTools(query, limit);
+        if (tools.length === 0) {
+          console.log(colorize('yellow', '  No tools found matching that query.\n'));
+          return;
+        }
+
+        for (const t of tools) {
+          const phaseColor = t.phase === 'VAPOR' ? 'cyan' : t.phase === 'LIQUID' ? 'yellow' : 'red';
+          console.log(colorize('green', `  ${t.name}`));
+          console.log(colorize(phaseColor as Color, `    Phase: ${t.phase}`));
+          console.log(colorize('dim', `    ${t.description || '(no description)'}`));
+          if (t.capabilities && t.capabilities.length > 0) {
+            console.log(colorize('dim', `    Capabilities: ${t.capabilities.join(', ')}`));
+          }
+          console.log('');
+        }
+        console.log(colorize('dim', `  ${tools.length} tool(s) found\n`));
+      });
+    } catch (err) {
+      console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
+    }
+  });
+
+// ═════════════════════════════════════════════════════════════════════
+// SESSION PERSISTENCE
+// ═════════════════════════════════════════════════════════════════════
+
+program
+  .command('sessions')
+  .description('List saved sessions')
+  .action(async () => {
+    try {
+      await withBridge(async () => {
+        const result = await bridge.loadSession();
+        const sessions = (result as any).sessions || [];
+        if (sessions.length === 0) {
+          console.log(colorize('dim', '\n  No saved sessions found.\n'));
+          return;
+        }
+        console.log(colorize('cyan', '\n  Saved Sessions\n'));
+        for (const s of sessions) {
+          const ts = s.timestamp ? new Date(s.timestamp * 1000).toISOString() : 'unknown';
+          console.log(colorize('green', `    ${s.id}`));
+          console.log(colorize('dim', `      Time: ${ts}  Goals: ${s.goals ?? 0}`));
+        }
+        console.log('');
+      });
+    } catch (err) {
+      console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('session-save')
+  .description('Save current session state')
+  .option('--id <sessionId>', 'Session ID (default: session_<timestamp>)')
+  .action(async (opts) => {
+    try {
+      await withBridge(async () => {
+        const sessionId = opts.id || `session_${Date.now()}`;
+        const state: Record<string, unknown> = {
+          goals_count: 0,
+          tools_used: [],
+          goals_executed: [],
+          memories_stored: 0,
+          l2_patterns_count: 0,
+          l3_strategies_count: 0,
+        };
+
+        // Try to populate from live memory status
+        try {
+          const memStatus = await bridge.status();
+          if (memStatus) {
+            state.l2_patterns_count = (memStatus as any).l2Patterns ?? 0;
+            state.l3_strategies_count = (memStatus as any).l3Strategies ?? 0;
+            state.memories_stored = (memStatus as any).l1Episodes ?? 0;
+          }
+        } catch {
+          // Memory status unavailable, save with defaults
+        }
+
+        const result = await bridge.saveSession(sessionId, state);
+        console.log(colorize('green', `\n  Session saved: ${sessionId}`));
+        console.log(colorize('dim', `  Path: ${result.saved}\n`));
+      });
+    } catch (err) {
+      console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
     }
   });
 

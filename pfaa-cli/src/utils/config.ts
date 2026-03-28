@@ -158,7 +158,7 @@ export function initProjectConfig(): void {
   const path = join(process.cwd(), '.pfaa.yaml');
   if (existsSync(path)) return;
 
-  const template = `# PFAA CLI — Project Configuration
+  const template = `# Aussie Agents CLI — Project Configuration
 model: claude-sonnet-4-6
 maxConcurrentAgents: 8
 timeoutMs: 120000

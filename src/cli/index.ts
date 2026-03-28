@@ -1,5 +1,5 @@
 /**
- * PFAA CLI — Commander-based entry point.
+ * Aussie Agents CLI — Commander-based entry point.
  * Subcommands: run, chat, exec, swarm
  */
 
@@ -17,7 +17,7 @@ const program = new Command()
 
 program
   .name('pfaa')
-  .description('Platform for Autonomous Agents — enterprise CLI')
+  .description('Aussie Agents — enterprise CLI')
   .version(pkg.version)
 
 program

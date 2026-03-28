@@ -1,5 +1,5 @@
 """
-PFAA Extended Tool Suite — Git, Docker, System, Process, Network tools.
+Aussie Agents Extended Tool Suite — Git, Docker, System, Process, Network tools.
 
 These tools extend the core 10 with operations commonly needed by
 an autonomous agent working in Claude Code.

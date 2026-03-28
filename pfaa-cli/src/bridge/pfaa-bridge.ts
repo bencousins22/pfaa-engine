@@ -1,7 +1,7 @@
 /**
- * PFAA Bridge — Node.js ↔ Python 3.15 PFAA Engine Bridge
+ * Aussie Agents Bridge — Node.js ↔ Python 3.15 Engine Bridge
  *
- * Spawns the PFAA Python engine as a subprocess and communicates
+ * Spawns the Aussie Agents Python engine as a subprocess and communicates
  * via JSON-over-stdin/stdout. Supports streaming results, phase
  * transitions, and memory synchronization.
  *
@@ -72,12 +72,12 @@ export class PFAABridge extends EventEmitter {
     const engineEntry = this.findEngineEntry();
     if (!engineEntry) {
       throw new Error(
-        `PFAA engine not found. Expected at ${this.config.enginePath}. ` +
+        `Aussie Agents engine not found. Expected at ${this.config.enginePath}. ` +
         'Run: pip install -e . in the pfaa-engine root.',
       );
     }
 
-    log.info('Starting PFAA engine', {
+    log.info('Starting Aussie Agents engine', {
       python: this.config.pythonPath,
       engine: engineEntry,
     });
@@ -103,7 +103,7 @@ export class PFAABridge extends EventEmitter {
     });
 
     this.process.on('exit', (code) => {
-      log.warn('PFAA engine exited', { code });
+      log.warn('Aussie Agents engine exited', { code });
       this.ready = false;
       this.process = null;
       this.rejectAll(new Error(`Engine exited with code ${code}`));
@@ -116,7 +116,7 @@ export class PFAABridge extends EventEmitter {
     });
 
     this.ready = true;
-    log.info('PFAA engine bridge started');
+    log.info('Aussie Agents engine bridge started');
   }
 
   async stop(): Promise<void> {
@@ -268,6 +268,30 @@ export class PFAABridge extends EventEmitter {
     return resp.data as any;
   }
 
+  // ── Session Persistence ──────────────────────────────────────────
+
+  async saveSession(sessionId: string, state: Record<string, unknown>): Promise<{saved: string}> {
+    const resp = await this.send('save_session', { session_id: sessionId, state });
+    return resp.data as {saved: string};
+  }
+
+  async loadSession(sessionId?: string): Promise<Record<string, unknown>> {
+    const resp = await this.send('load_session', sessionId ? { session_id: sessionId } : {});
+    return resp.data as Record<string, unknown>;
+  }
+
+  // ── Deferred Tool Discovery ──────────────────────────────────────
+
+  async searchTools(query: string, limit: number = 5): Promise<Array<{
+    name: string;
+    description: string;
+    phase: string;
+    capabilities: string[];
+  }>> {
+    const resp = await this.send('deferred_tool_search', { query, limit });
+    return resp.data as any;
+  }
+
   // ── Internal ─────────────────────────────────────────────────────
 
   private async send(
@@ -325,10 +349,17 @@ export class PFAABridge extends EventEmitter {
   }
 
   private findEngineEntry(): string | null {
+    // pfaa_bridge.py is the ONLY valid entry point — it has the stdin/stdout loop.
+    // framework.py defines classes but has no bridge protocol.
     const candidates = [
-      join(this.config.enginePath, 'agent_setup_cli', 'core', 'framework.py'),
+      // 1. Same directory as this package (pfaa-cli/pfaa_bridge.py)
+      join(this.config.workingDir, 'pfaa_bridge.py'),
+      // 2. Relative to enginePath (when cwd is project root)
+      join(this.config.enginePath, 'pfaa-cli', 'pfaa_bridge.py'),
+      // 3. One level up from cwd (pfaa-cli/../pfaa-cli/pfaa_bridge.py)
       join(this.config.enginePath, 'pfaa_bridge.py'),
-      join(this.config.enginePath, 'bridge.py'),
+      // 4. Resolve from this file's package location
+      new URL('../../../pfaa_bridge.py', import.meta.url).pathname,
     ];
     for (const path of candidates) {
       if (existsSync(path)) return path;
@@ -338,7 +369,7 @@ export class PFAABridge extends EventEmitter {
 }
 
 /**
- * Create a bridge with sensible defaults for the PFAA engine.
+ * Create a bridge with sensible defaults for the Aussie Agents engine.
  */
 export function createBridge(overrides: Partial<BridgeConfig> = {}): PFAABridge {
   const defaults: BridgeConfig = {

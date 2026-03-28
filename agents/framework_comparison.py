@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-PFAA vs The World — Framework Arena Benchmark
+Aussie Agents vs The World — Framework Arena Benchmark
 
-Compares PFAA against published 2026 benchmark data from:
+Compares Aussie Agents against published 2026 benchmark data from:
     - AutoGen (Microsoft)
     - CrewAI
     - LangGraph (LangChain)
@@ -17,7 +17,7 @@ Sources:
     - o-mega.ai: Top 10 Agent Frameworks (2026)
 
 Methodology:
-    PFAA numbers are measured live on this machine.
+    Aussie Agents numbers are measured live on this machine.
     Competitor numbers are from published benchmarks (cited).
     Where competitor data is unavailable, marked as "N/A".
 
@@ -145,11 +145,11 @@ COMPETITORS = {
 
 
 # ═══════════════════════════════════════════════════════════════════
-# PFAA LIVE MEASUREMENTS
+# AUSSIE AGENTS LIVE MEASUREMENTS
 # ═══════════════════════════════════════════════════════════════════
 
 async def measure_pfaa() -> dict:
-    """Run live benchmarks for PFAA."""
+    """Run live benchmarks for Aussie Agents."""
     results = {}
 
     # 1. Spawn latency
@@ -224,14 +224,14 @@ async def measure_pfaa() -> dict:
 
 async def main():
     print("╔══════════════════════════════════════════════════════════════════════════════╗")
-    print("║  PFAA vs THE WORLD — Agent Framework Arena Benchmark                       ║")
+    print("║  AUSSIE AGENTS vs THE WORLD — Framework Arena Benchmark                    ║")
     print("║  Created by Jamie (@bencousins22) · March 2026                             ║")
     print("╚══════════════════════════════════════════════════════════════════════════════╝")
 
-    print("\n  Measuring PFAA live...")
+    print("\n  Measuring Aussie Agents live...")
     pfaa = await measure_pfaa()
 
-    print(f"\n  PFAA Results:")
+    print(f"\n  Aussie Agents Results:")
     print(f"    Spawn: {pfaa['spawn_us']}μs per agent ({pfaa['spawn_ms']}ms)")
     print(f"    Throughput: {pfaa['throughput_rps']} tasks/sec")
     print(f"    Tools: {pfaa['tools']}")
@@ -243,7 +243,7 @@ async def main():
     # Build comparison table
     print("\n" + "═" * 95)
     print(f"\n  {'FRAMEWORK ARENA COMPARISON':^91}")
-    print(f"  {'Published benchmarks (Jan-Mar 2026) vs PFAA live measurements':^91}")
+    print(f"  {'Published benchmarks (Jan-Mar 2026) vs Aussie Agents live measurements':^91}")
     print()
 
     # Header
@@ -251,8 +251,8 @@ async def main():
     print(h)
     print("  " + "─" * 93)
 
-    # PFAA row (highlighted)
-    print(f"  {'★ PFAA':<22} {str(pfaa['spawn_us'])+'μs':<14} {str(pfaa['throughput_rps'])+'/s':<14} {pfaa['tools']:<8} {'✓':<10} {'✓':<8} {'✓':<12} {'✓':<9} {'✓':<10}")
+    # Aussie Agents row (highlighted)
+    print(f"  {'★ Aussie Agents':<22} {str(pfaa['spawn_us'])+'μs':<14} {str(pfaa['throughput_rps'])+'/s':<14} {pfaa['tools']:<8} {'✓':<10} {'✓':<8} {'✓':<12} {'✓':<9} {'✓':<10}")
     print("  " + "─" * 93)
 
     # Competitor rows
@@ -294,7 +294,7 @@ async def main():
         ("kqueue subprocess",       "✓",        "✗",        "✗",        "✗",        "✗",          "N/A",        "✗"),
     ]
 
-    frameworks = ["PFAA", "AutoGen", "CrewAI", "LangGraph", "Swarm", "AutoAgents", "Agent Zero"]
+    frameworks = ["Aussie Agents", "AutoGen", "CrewAI", "LangGraph", "Swarm", "AutoAgents", "Agent Zero"]
     header = f"  {'Capability':<24} " + " ".join(f"{f:<12}" for f in frameworks)
     print(header)
     print("  " + "─" * (24 + 12 * len(frameworks)))
@@ -304,7 +304,7 @@ async def main():
         vals = row[1:]
         line = f"  {name:<24} "
         for i, v in enumerate(vals):
-            if i == 0:  # PFAA column
+            if i == 0:  # Aussie Agents column
                 line += f"{'★ '+v:<12} "
             else:
                 line += f"{v:<12} "
@@ -313,14 +313,14 @@ async def main():
     # Count unique capabilities per framework
     print(f"\n  {'─' * 93}")
     pfaa_wins = sum(1 for row in capabilities if row[1] == "✓")
-    print(f"\n  PFAA unique capabilities: {pfaa_wins} (✓ marks)")
+    print(f"\n  Aussie Agents unique capabilities: {pfaa_wins} (✓ marks)")
     print(f"  No other framework has: Phase transitions, 5-layer meta-learning,")
     print(f"  epsilon-greedy exploration, self-building, or Python 3.15 native features.")
 
     # JSON output
     print(f"\n{'═' * 95}")
     comparison = {
-        "benchmark": "PFAA vs The World — Framework Arena",
+        "benchmark": "Aussie Agents vs The World — Framework Arena",
         "date": "2026-03-23",
         "author": "Jamie (@bencousins22)",
         "pfaa_live": pfaa,

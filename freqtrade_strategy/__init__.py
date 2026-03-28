@@ -1,1 +1,1 @@
-"""FreqTrade Bitcoin Strategy — PFAA Agent Team self-optimizing."""
+"""FreqTrade Bitcoin Strategy — Aussie Agents Team self-optimizing."""

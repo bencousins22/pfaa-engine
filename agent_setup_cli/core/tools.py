@@ -1,5 +1,5 @@
 """
-PFAA Tool System — Self-registering, phase-aware tools.
+Aussie Agents Tool System — Self-registering, phase-aware tools.
 
 Tools are the building blocks that agents use to interact with the world.
 Each tool declares its optimal phase, and the Nucleus automatically
@@ -439,7 +439,7 @@ async def tool_http_fetch(url: str, timeout: float = 10.0) -> dict[str, Any]:
     loop = asyncio.get_running_loop()
     try:
         def _fetch():
-            req = urllib.request.Request(url, headers={"User-Agent": "PFAA/1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "AussieAgents/1.0"})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
                 return {

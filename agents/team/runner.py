@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-PFAA Agent Team Runner — Spin up and execute the full agent team.
+Aussie Agents Team Runner — Spin up and execute the full agent team.
 
-This is the main entry point for running the PFAA agents in team mode.
+This is the main entry point for running the Aussie Agents in team mode.
 It initializes all agents, connects JMEM memory, and executes the
 requested goal using the multi-agent swarm.
 
@@ -206,7 +206,7 @@ async def main_async(args: argparse.Namespace) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="PFAA Agent Team Runner — spin up and execute the full agent team",
+        description="Aussie Agents Team Runner — spin up and execute the full agent team",
     )
     parser.add_argument("goal", nargs="?", default="analyze and optimize", help="Goal to execute")
     parser.add_argument("--mode", choices=["swarm", "pipeline", "auto"], default="auto", help="Execution mode")

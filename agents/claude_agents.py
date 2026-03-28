@@ -1,9 +1,9 @@
 """
-PFAA Claude Code Agent Definitions.
+Aussie Agents Claude Code Agent Definitions.
 
 These functions are designed to be called from Claude Code's Agent tool.
 Each function is a self-contained agent that:
-    1. Imports PFAA lazily (Python 3.15)
+    1. Imports Aussie Agents lazily (Python 3.15)
     2. Executes a specific capability
     3. Returns structured JSON results
     4. Records execution in persistent memory
@@ -33,7 +33,7 @@ def _run(coro):
 
 def analyst(goal: str) -> str:
     """
-    PFAA Analyst Agent — Decomposes and executes natural language goals.
+    Aussie Agents Analyst — Decomposes and executes natural language goals.
 
     Spawned by Claude Code when a complex analysis task needs to be
     broken into parallel subtasks across multiple tools.
@@ -71,7 +71,7 @@ def analyst(goal: str) -> str:
 
 def searcher(pattern: str, root: str = ".", context: int = 2) -> str:
     """
-    PFAA Searcher Agent — Code pattern search with context lines.
+    Aussie Agents Searcher — Code pattern search with context lines.
 
     Runs in LIQUID phase (threaded) for CPU-parallel file scanning.
     """
@@ -97,7 +97,7 @@ def searcher(pattern: str, root: str = ".", context: int = 2) -> str:
 
 def git_ops(repo: str = ".") -> str:
     """
-    PFAA Git Agent — Parallel git operations (status + log + diff + branches).
+    Aussie Agents Git Agent — Parallel git operations (status + log + diff + branches).
 
     All run in SOLID phase (subprocess isolation) simultaneously.
     """
@@ -128,7 +128,7 @@ def git_ops(repo: str = ".") -> str:
 
 def system_check() -> str:
     """
-    PFAA System Agent — Parallel system diagnostics.
+    Aussie Agents System Agent — Parallel system diagnostics.
 
     Runs system_info + disk_usage + port_check + process_list in VAPOR phase.
     """
@@ -159,7 +159,7 @@ def system_check() -> str:
 
 def pipeline_agent(*steps: str) -> str:
     """
-    PFAA Pipeline Agent — Supervised parallel execution with restart policies.
+    Aussie Agents Pipeline Agent — Supervised parallel execution with restart policies.
 
     Steps format: "name:tool:arg"
     Example: pipeline_agent("search:codebase_search:TODO", "count:line_count:.", "git:git_status")
@@ -191,7 +191,7 @@ def pipeline_agent(*steps: str) -> str:
 
 def explorer(rounds: int = 100) -> str:
     """
-    PFAA Explorer Agent — Trains L3 strategies via epsilon-greedy exploration.
+    Aussie Agents Explorer Agent — Trains L3 strategies via epsilon-greedy exploration.
 
     Runs N tool executions with phase exploration to discover optimal
     phase selections. Results persist to ~/.pfaa/memory.db.
@@ -228,7 +228,7 @@ def explorer(rounds: int = 100) -> str:
 
 def self_builder(auto_apply: bool = False) -> str:
     """
-    PFAA Self-Builder Agent — Introspects and improves its own codebase.
+    Aussie Agents Self-Builder Agent — Introspects and improves its own codebase.
 
     1. Analyzes own source code
     2. Diagnoses improvements

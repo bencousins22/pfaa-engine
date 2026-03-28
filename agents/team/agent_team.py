@@ -1,5 +1,5 @@
 """
-PFAA Agent Team — Multi-agent orchestration with JMEM memory.
+Aussie Agents Team — Multi-agent orchestration with JMEM memory.
 
 Spawns specialized agents in team mode where each agent:
 1. Recalls relevant knowledge from JMEM before acting
@@ -88,7 +88,7 @@ class AgentTeam:
 
     async def start(self) -> None:
         """Initialize the team — start JMEM engine and spawn agents."""
-        logger.info("Starting PFAA Agent Team with %d roles", len(self.config.roles))
+        logger.info("Starting Aussie Agents Team with %d roles", len(self.config.roles))
 
         # Initialize JMEM engine
         from jmem_mcp_server.jmem.engine import JMemEngine
@@ -98,12 +98,12 @@ class AgentTeam:
         )
         await self._engine.start()
 
-        # Initialize PFAA framework
+        # Initialize Aussie Agents framework
         try:
             from agent_setup_cli.core.framework import Framework
             self._framework = Framework()
         except ImportError:
-            logger.warning("PFAA framework not available, running in standalone mode")
+            logger.warning("Aussie Agents framework not available, running in standalone mode")
 
         # Spawn agents
         for role in self.config.roles:
@@ -160,7 +160,7 @@ class AgentTeam:
             for m in memories
         ) if memories else "No prior knowledge."
 
-        # Phase 2: Execute via PFAA framework or Claude bridge
+        # Phase 2: Execute via Aussie Agents framework or Claude bridge
         try:
             if self._framework:
                 result = await self._framework.tool("shell", f"echo 'Executing: {task[:60]}'")

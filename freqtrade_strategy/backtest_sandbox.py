@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PFAA Sandbox Backtester — Run strategy logic against generated BTC data.
+Aussie Agents Sandbox Backtester — Run strategy logic against generated BTC data.
 
 Bypasses FreqTrade exchange connectivity requirement by implementing
 the core backtesting engine directly with ta-lib indicators.
@@ -405,7 +405,7 @@ def print_results(trades, final_capital, initial=10000.0):
 
     print(f"""
 \033[36m\033[1m╔══════════════════════════════════════════════════════════════════╗
-║  PFAA BTC Strategy — Backtest Results                            ║
+║  Aussie Agents BTC Strategy — Backtest Results                   ║
 ╠══════════════════════════════════════════════════════════════════╣\033[0m
 
   \033[1mPerformance\033[0m

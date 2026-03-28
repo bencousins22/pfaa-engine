@@ -1,6 +1,6 @@
 """Stubs for optional dependencies (ClaudeBridge, SkillGenerator).
 
-These features require the full PFAA framework. In standalone JMEM mode,
+These features require the full Aussie Agents framework. In standalone JMEM mode,
 they gracefully degrade — consolidation and reflection still work, but
 LLM-powered principle extraction and auto-skill generation are disabled.
 """

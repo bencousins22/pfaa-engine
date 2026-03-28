@@ -1,1 +1,1 @@
-"""PFAA Agent Team — Multi-agent orchestration with JMEM semantic memory."""
+"""Aussie Agents Team — Multi-agent orchestration with JMEM semantic memory."""

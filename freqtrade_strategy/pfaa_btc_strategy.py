@@ -1,5 +1,5 @@
 """
-PFAA Bitcoin FreqTrade Strategy — Self-Optimizing via Agent Team.
+Aussie Agents Bitcoin FreqTrade Strategy — Self-Optimizing via Agent Team.
 
 A multi-signal BTC strategy designed for the 2025-2026 market regime:
 - BTC 4th halving completed April 2024
@@ -53,7 +53,7 @@ logger = logging.getLogger("pfaa.strategy")
 
 class PFAABitcoinStrategy(IStrategy):
     """
-    PFAA Phase-Fluid Bitcoin Strategy.
+    Aussie Agents Phase-Fluid Bitcoin Strategy.
 
     Market regime: 2026 post-peak correction. BTC at $66.6K, -47% from $126K ATH.
     Extreme fear (F&G: 8). Mean-reversion + accumulation strategy.

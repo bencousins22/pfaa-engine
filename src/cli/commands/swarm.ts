@@ -1,6 +1,6 @@
 /**
- * pfaa swarm — dispatch a task to the full PFAA 9-tier agent swarm.
- * Uses Agent Zero PrintStyle colors throughout.
+ * pfaa swarm — dispatch a task to the full Aussie Agents 9-tier agent swarm.
+ * Uses Aussie Agents PrintStyle colors throughout.
  */
 
 import { Command } from 'commander'
@@ -8,38 +8,38 @@ import { SwarmOrchestrator, type AgentTier } from '../../swarm/team.js'
 import { loadConfig } from '../../core/config.js'
 import chalk from 'chalk'
 
-// Agent Zero color scheme
+// JMEM brand: emerald + gold
 const s = {
-  userPrompt:     chalk.bgHex('#6C3483').white.bold,
-  agentHeader:    chalk.bgHex('#1D8348').white.bold,
-  agentStream:    chalk.hex('#b3ffd9').italic,
-  toolHeader:     chalk.bgWhite.hex('#1B4F72').bold,
-  toolArg:        chalk.hex('#85C1E9'),
-  toolArgBold:    chalk.hex('#85C1E9').bold,
-  error:          chalk.red,
-  warning:        chalk.hex('#FFA500'),
-  hint:           chalk.hex('#6C3483'),
-  info:           chalk.blue,
-  success:        chalk.green,
+  userPrompt:     chalk.bgHex('#D4A017').hex('#1a1a1a').bold,
+  agentHeader:    chalk.bgHex('#2E7D32').white.bold,
+  agentStream:    chalk.hex('#00E676').italic,
+  toolHeader:     chalk.bgHex('#C9A73B').hex('#1a1a1a').bold,
+  toolArg:        chalk.hex('#4CAF50'),
+  toolArgBold:    chalk.hex('#C9A73B').bold,
+  error:          chalk.hex('#EF5350'),
+  warning:        chalk.hex('#D4A017'),
+  hint:           chalk.hex('#2E7D32'),
+  info:           chalk.hex('#4CAF50'),
+  success:        chalk.hex('#00E676'),
   white:          chalk.white,
 }
 
-// Per-tier colors (extending Agent Zero's palette for 9 tiers)
+// Per-tier colors — emerald/gold spectrum
 const TIER_COLOR: Record<AgentTier, string> = {
-  intelligence: '#b3ffd9',   // mint (agent stream color)
-  acquisition:  '#85C1E9',   // light blue (tool color)
-  enrichment:   '#85C1E9',
-  scoring:      '#FFA500',   // orange (warning color)
-  outreach:     '#1D8348',   // green (agent header)
-  conversion:   '#6C3483',   // purple (user prompt)
-  nurture:      '#6C3483',
-  content:      '#1B4F72',   // dark blue (tool header)
-  operations:   '#808080',   // gray
+  intelligence: '#00E676',   // bright emerald
+  acquisition:  '#4CAF50',   // mid emerald
+  enrichment:   '#4CAF50',
+  scoring:      '#D4A017',   // gold
+  outreach:     '#2E7D32',   // dark emerald
+  conversion:   '#C9A73B',   // muted gold
+  nurture:      '#C9A73B',
+  content:      '#2E7D32',   // dark emerald
+  operations:   '#5A6A5A',   // grey-green
 }
 
 export function swarmCommand(): Command {
   return new Command('swarm')
-    .description('Dispatch a task to the full PFAA agent swarm (all 9 tiers)')
+    .description('Dispatch a task to the full Aussie Agents swarm (all 9 tiers)')
     .argument('<prompt>', 'Task for the swarm')
     .option('--tiers <tiers...>', 'Run specific tiers only')
     .option('--sequential', 'Run tiers sequentially', false)
@@ -56,9 +56,9 @@ export function swarmCommand(): Command {
         maxParallelTeams: config.maxParallelTeams ?? 9,
       })
 
-      // Agent Zero style header
+      // Aussie Agents style header
       console.log()
-      console.log(s.agentHeader(` Agent 0: Dispatching to 9-tier swarm `))
+      console.log(s.agentHeader(` Aussie: Dispatching to 9-tier swarm `))
       console.log(s.hint(`Prompt: ${prompt.slice(0, 80)}`))
       console.log(s.info(`Info: Provider: ${globals.provider} | Tiers: 9 | Agents: ~25`))
       console.log()
@@ -66,7 +66,7 @@ export function swarmCommand(): Command {
       orchestrator.on('status', ({ type, message }: any) => {
         if (type === 'swarm_complete') {
           console.log()
-          console.log(s.agentHeader(` Agent 0: Swarm complete `))
+          console.log(s.agentHeader(` Aussie: Swarm complete `))
         } else if (type === 'tier_start') {
           console.log()
           console.log(s.toolHeader(` ${message} `))
@@ -108,7 +108,7 @@ export function swarmCommand(): Command {
       orchestrator.on('team_complete', (result: any) => {
         if (result.merged) {
           console.log()
-          console.log(s.agentHeader(` Agent 0: Team result (${result.task_id}) `))
+          console.log(s.agentHeader(` Aussie: Team result (${result.task_id}) `))
           console.log(s.white(result.merged.slice(0, 1000)))
         }
       })

@@ -1,5 +1,5 @@
 """
-PFAA Browser Agent — Automated visual testing with Playwright.
+Aussie Agents Browser Agent — Automated visual testing with Playwright.
 
 Checks pages for:
     - Console errors (JS runtime errors)

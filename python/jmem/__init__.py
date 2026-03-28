@@ -1,4 +1,4 @@
-"""JMEM — Jamie's Meta-Evolving Memory for PFAA."""
+"""JMEM — Jamie's Meta-Evolving Memory for Aussie Agents."""
 
 __version__ = "1.0.0"
 

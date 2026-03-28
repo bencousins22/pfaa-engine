@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PFAA Stress & Edge Case Benchmark — Push the limits.
+Aussie Agents Stress & Edge Case Benchmark — Push the limits.
 
     I.  STRESS TESTS — Break things at scale
     J.  LATENCY PROFILING — Sub-millisecond measurements
@@ -403,7 +403,7 @@ async def test_N_checkpoint():
 
 async def main():
     print("╔══════════════════════════════════════════════════════════════════╗")
-    print("║  PFAA STRESS & EDGE CASE BENCHMARK                             ║")
+    print("║  AUSSIE AGENTS STRESS & EDGE CASE BENCHMARK                     ║")
     print("║  Created by Jamie (@bencousins22) · Python 3.15 · macOS        ║")
     print("╚══════════════════════════════════════════════════════════════════╝")
 
@@ -457,7 +457,7 @@ async def main():
 
     print(f"\n{'═' * 68}")
     print(json.dumps({
-        "benchmark": "PFAA Stress & Edge Case Benchmark v1.0",
+        "benchmark": "Aussie Agents Stress & Edge Case Benchmark v1.0",
         "total_passed": total_passed,
         "total_tests": total_tests,
         "percentage": pct,

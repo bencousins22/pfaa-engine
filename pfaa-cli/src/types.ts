@@ -1,5 +1,5 @@
 /**
- * PFAA CLI — Core Type Definitions
+ * Aussie Agents CLI — Core Type Definitions
  *
  * Enterprise-grade types for the Phase-Fluid Agent Architecture CLI.
  * Designed for Python 3.15 code capabilities with full type safety.

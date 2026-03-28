@@ -227,7 +227,7 @@ export class AgentOrchestrator extends EventEmitter {
         const systemPrompt = this.buildRolePrompt(role, preset);
         output = await this.claude.ask(systemPrompt, description);
       } else {
-        // Simulation mode: route to PFAA Python bridge
+        // Simulation mode: route to Aussie Agents Python bridge
         switch (role) {
           case AgentRole.ANALYZER:
           case AgentRole.REVIEWER:
@@ -374,14 +374,14 @@ export class AgentOrchestrator extends EventEmitter {
     if (this.isLive) {
       // Live mode: call Claude API directly for goal decomposition
       const systemPrompt =
-        'You are an expert orchestrator in the PFAA (Phase-Fluid Agent Architecture) system. ' +
+        'You are an expert orchestrator in the Aussie Agents (Phase-Fluid Agent Architecture) system. ' +
         'Decompose user goals into well-defined subtasks for specialist agents. ' +
         'Always respond with a valid JSON array. Each task should have a clear description, ' +
         'an appropriate agent role, and list any dependency task indices.';
 
       rawOutput = await this.claude.ask(systemPrompt, decompositionPrompt);
     } else {
-      // Simulation fallback: use the PFAA Python bridge
+      // Simulation fallback: use the Aussie Agents Python bridge
       const result = await this.bridge.askClaude(decompositionPrompt);
 
       if (!result.success) {
@@ -464,7 +464,7 @@ export class AgentOrchestrator extends EventEmitter {
 
     return (
       `${roleDescriptions[role] || 'You are a helpful AI assistant.'}\n\n` +
-      `You are operating in the PFAA (Phase-Fluid Agent Architecture) system.\n` +
+      `You are operating in the Aussie Agents (Phase-Fluid Agent Architecture) system.\n` +
       `Current phase: ${preset.phase}\n` +
       `Capabilities: ${preset.capabilities.join(', ')}\n\n` +
       `Provide clear, structured, actionable responses. ` +

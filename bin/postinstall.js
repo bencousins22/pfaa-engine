@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * PFAA postinstall — checks Python availability and optionally installs deps.
+ * Aussie Agents postinstall — checks Python availability and optionally installs deps.
  * Runs after `npm install @aussie-agents/pfaa` or `npx @aussie-agents/pfaa`.
  */
 
@@ -28,7 +28,7 @@ function run(cmd) {
 }
 
 console.log()
-console.log(`${PURPLE}  PFAA${RESET} — Platform for Autonomous Agents`)
+console.log(`${PURPLE}  Aussie Agents${RESET} — Phase-Fluid Agent Architecture`)
 console.log()
 
 // Check Python
@@ -71,7 +71,7 @@ if (qdrant === '200') {
 console.log()
 console.log(`${GREEN}  Ready!${RESET} Run with:`)
 console.log()
-console.log(`${DIM}    npx @aussie-agents/pfaa              ${RESET}${PURPLE}# Agent Zero-style interactive CLI${RESET}`)
+console.log(`${DIM}    npx @aussie-agents/pfaa              ${RESET}${PURPLE}# Aussie Agents interactive CLI${RESET}`)
 console.log(`${DIM}    npx @aussie-agents/pfaa run "task"    ${RESET}${PURPLE}# One-shot task execution${RESET}`)
 console.log(`${DIM}    npx @aussie-agents/pfaa exec -c "..." ${RESET}${PURPLE}# Python sandbox${RESET}`)
 console.log(`${DIM}    npx @aussie-agents/pfaa swarm "task"  ${RESET}${PURPLE}# 9-tier agent swarm${RESET}`)

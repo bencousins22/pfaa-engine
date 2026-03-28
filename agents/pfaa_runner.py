@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-PFAA Agent Runner — Claude Code entry point.
+Aussie Agents Runner — Claude Code entry point.
 
 This script is invoked by Claude Code agents via Bash. It exposes
-every PFAA capability as a simple CLI command with JSON output.
+every Aussie Agents capability as a simple CLI command with JSON output.
 
 Usage from Claude Code:
     python3 agents/pfaa_runner.py tool compute "sqrt(42) * pi"
@@ -69,7 +69,7 @@ def _coerce_arg(val: str):
 
 
 async def cmd_tool(fw: Framework, args: list[str]) -> None:
-    """Execute a single PFAA tool."""
+    """Execute a single Aussie Agents tool."""
     if len(args) < 1:
         _json_out({"error": "Usage: tool <name> [args...]"})
         return

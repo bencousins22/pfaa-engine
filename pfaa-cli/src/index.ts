@@ -1,7 +1,7 @@
 /**
- * PFAA CLI — Programmatic API
+ * Aussie Agents CLI — Programmatic API
  *
- * Use this module to embed the PFAA CLI capabilities in other
+ * Use this module to embed the Aussie Agents CLI capabilities in other
  * Node.js applications. All subsystems are available:
  *
  *   import { createBridge, AgentOrchestrator, JMEMClient } from '@pfaa/cli';

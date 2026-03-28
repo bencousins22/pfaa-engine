@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * PFAA CLI — run_cli.ts
+ * Aussie Agents CLI — run_cli.ts
  *
- * Exact replica of Agent Zero's run_cli.py + agent.py terminal interface.
+ * Exact replica of Aussie Agents's run_cli.py + agent.py terminal interface.
  * Same colors. Same flow. Same snappy feel.
  */
 
@@ -13,7 +13,7 @@ import { loadConfig } from '../core/config.js'
 import { AuditLogger } from '../audit/logger.js'
 import type { PFAAConfig } from '../core/types.js'
 
-// ── Agent Zero PrintStyle ───────────────────────────────────────────
+// ── Aussie Agents PrintStyle ───────────────────────────────────────────
 // Exact hex codes from python/helpers/print_style.py
 
 let lastEndline = true
@@ -34,40 +34,27 @@ function stream(text: string) {
   lastEndline = false
 }
 
-// bg:#6C3483 font:white bold
-const userPrompt = (t: string) => chalk.bgHex('#6C3483').white.bold(` ${t} `)
-// bg:#1D8348 font:white bold
-const agentHeader = (t: string) => chalk.bgHex('#1D8348').white.bold(` ${t} `)
-// bg:white font:green bold
-const agentGen = (t: string) => chalk.bgWhite.green.bold(` ${t} `)
-// font:#b3ffd9 italic
-const agentText = (t: string) => chalk.hex('#b3ffd9').italic(t)
-// bg:white font:#1B4F72 bold
-const toolHead = (t: string) => chalk.bgWhite.hex('#1B4F72').bold(` ${t} `)
-// font:#85C1E9 bold
-const toolKey = (t: string) => chalk.hex('#85C1E9').bold(t)
-// font:#85C1E9
-const toolVal = (t: string) => chalk.hex('#85C1E9')(t)
-// font:red
-const error = (t: string) => chalk.red(t)
-// font:orange
-const warn = (t: string) => chalk.hex('#FFA500')(t)
-// font:#6C3483
-const hint = (t: string) => chalk.hex('#6C3483')(t)
-// bg:red font:white
-const dead = (t: string) => chalk.bgRed.white(` ${t} `)
-// bg:white font:orange bold
-const cleanup = (t: string) => chalk.bgWhite.hex('#FFA500').bold(` ${t} `)
-// font:blue
-const info = (t: string) => chalk.blue(t)
-// font:green
-const ok = (t: string) => chalk.green(t)
+// JMEM brand: emerald green + gold
+const userPrompt = (t: string) => chalk.bgHex('#D4A017').hex('#1a1a1a').bold(` ${t} `)
+const agentHeader = (t: string) => chalk.bgHex('#2E7D32').white.bold(` ${t} `)
+const agentGen = (t: string) => chalk.bgHex('#1a2e1a').hex('#00E676').bold(` ${t} `)
+const agentText = (t: string) => chalk.hex('#00E676').italic(t)
+const toolHead = (t: string) => chalk.bgHex('#C9A73B').hex('#1a1a1a').bold(` ${t} `)
+const toolKey = (t: string) => chalk.hex('#C9A73B').bold(t)
+const toolVal = (t: string) => chalk.hex('#4CAF50')(t)
+const error = (t: string) => chalk.hex('#EF5350')(t)
+const warn = (t: string) => chalk.hex('#D4A017')(t)
+const hint = (t: string) => chalk.hex('#2E7D32')(t)
+const dead = (t: string) => chalk.bgHex('#B71C1C').white(` ${t} `)
+const cleanup = (t: string) => chalk.bgHex('#C9A73B').hex('#1a1a1a').bold(` ${t} `)
+const info = (t: string) => chalk.hex('#4CAF50')(t)
+const ok = (t: string) => chalk.hex('#00E676')(t)
 
 // ── State ────────────────────────────────────────────────────────────
 let interrupted = false
 let streaming = false
 
-// ── Key capture (Agent Zero capture_keys thread) ─────────────────────
+// ── Key capture (Aussie Agents capture_keys thread) ─────────────────────
 function captureKeys() {
   if (!process.stdin.isTTY) return
   readline.emitKeypressEvents(process.stdin)
@@ -93,7 +80,7 @@ async function input(prompt: string, timeout?: number): Promise<string> {
   })
 }
 
-// ── Intervention (Agent Zero intervention()) ─────────────────────────
+// ── Intervention (Aussie Agents intervention()) ─────────────────────────
 async function intervention(): Promise<string | null> {
   streaming = false
   pad()
@@ -105,7 +92,7 @@ async function intervention(): Promise<string | null> {
   return msg || null
 }
 
-// ── Chat loop (Agent Zero chat()) ────────────────────────────────────
+// ── Chat loop (Aussie Agents chat()) ────────────────────────────────────
 async function chat(orc: Orchestrator, name: string) {
   while (true) {
     interrupted = false
@@ -202,7 +189,7 @@ async function chat(orc: Orchestrator, name: string) {
           case 'complete':
             streaming = false
             // PrintStyle(font_color="white", background_color="#1D8348", bold=True, padding=True)
-            // .print(f"{name}: reponse:")  (yes, typo is in Agent Zero source)
+            // .print(f"{name}: reponse:")  (yes, typo is in Aussie Agents source)
             pad()
             print(agentHeader(`${name}: reponse:`))
             print(hint(`${event.iterations} iterations · ~${(event.tokenCount as number).toLocaleString()} tokens`))
@@ -226,7 +213,7 @@ async function chat(orc: Orchestrator, name: string) {
   }
 }
 
-// ── Main (Agent Zero __main__) ───────────────────────────────────────
+// ── Main (Aussie Agents __main__) ───────────────────────────────────────
 async function main() {
   const args = process.argv.slice(2)
   const arg = (f: string, d: string) => { const i = args.indexOf(f); return i !== -1 ? args[i + 1] ?? d : d }
@@ -237,14 +224,14 @@ async function main() {
   const sandbox = flag('--sandbox')
   const configPath = arg('--config', './pfaa.config.json')
   const workspace = arg('--workspace', process.cwd())
-  const name = arg('--name', 'Agent 0')
+  const name = arg('--name', 'Aussie')
 
-  // Agent Zero: print("Initializing framework...")
+  // Aussie Agents: print("Initializing framework...")
   print('Initializing framework...')
 
   const config = await loadConfig(configPath)
 
-  // Agent Zero style: PrintStyle.info(), PrintStyle.success()
+  // Aussie Agents style: PrintStyle.info(), PrintStyle.success()
   print(info(`Info: provider=${provider} model=${model || (provider === 'gemini' ? 'gemini-2.5-pro' : 'claude-sonnet-4-6')}`))
   print(info(`Info: workspace=${workspace}${sandbox ? ' sandbox=python3(free-threaded)' : ''}`))
   print(ok('Success: Framework initialized'))
