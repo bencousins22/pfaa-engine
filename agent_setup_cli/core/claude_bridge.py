@@ -65,6 +65,7 @@ class ClaudeResult:
 def _find_claude_binary() -> str | None:
     """Find the claude binary on the system."""
     for path in [
+        os.path.expanduser("~/.local/bin/claude"),
         os.path.expanduser("~/.claude/local/claude"),
         "/usr/local/bin/claude",
         "claude",
