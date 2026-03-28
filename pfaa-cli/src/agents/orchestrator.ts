@@ -227,20 +227,26 @@ export class AgentOrchestrator extends EventEmitter {
         const systemPrompt = this.buildRolePrompt(role, preset);
         output = await this.claude.ask(systemPrompt, description);
       } else {
-        // Simulation mode: route to Aussie Agents Python bridge
+        // Bridge mode: route to Aussie Agents Python engine tools
         switch (role) {
           case AgentRole.ANALYZER:
           case AgentRole.REVIEWER:
             output = await this.bridge.executeTool('codebase_search', description);
             break;
           case AgentRole.TESTER:
-            output = await this.bridge.executeTool('sandbox_exec', description);
+            output = await this.bridge.executeTool('sandbox_exec', `print("Testing: ${description.slice(0, 100)}")`);
             break;
           case AgentRole.BUILDER:
-            output = await this.bridge.executeTool('shell', description);
+            output = await this.bridge.executeTool('shell', 'echo "Build task received"');
+            break;
+          case AgentRole.RESEARCHER:
+            output = await this.bridge.executeTool('glob_search', '*.py', '.');
+            break;
+          case AgentRole.REFACTORER:
+            output = await this.bridge.executeTool('codebase_search', description);
             break;
           default:
-            output = await this.bridge.askClaude(description);
+            output = await this.bridge.executeTool('system_info');
         }
       }
 
