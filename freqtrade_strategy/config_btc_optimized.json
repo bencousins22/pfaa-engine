@@ -1,8 +1,8 @@
 {
-    "max_open_trades": 1,
+    "max_open_trades": 5,
     "stake_currency": "USDC",
-    "stake_amount": 0.95,
-    "tradable_balance_ratio": 0.99,
+    "stake_amount": "unlimited",
+    "tradable_balance_ratio": 0.95,
     "fiat_display_currency": "USD",
     "dry_run": true,
     "dry_run_wallet": 10000,
@@ -32,6 +32,7 @@
     },
     "exchange": {
         "name": "hyperliquid",
+        "walletAddress": "0x0000000000000000000000000000000000000001",
         "key": "0x0000000000000000000000000000000000000001",
         "secret": "0x0000000000000000000000000000000000000000000000000000000000000001",
         "ccxt_sync_config": {
@@ -42,13 +43,32 @@
             "rateLimit": 200
         },
         "pair_whitelist": [
-            "BTC/USDC:USDC"
+            "BTC/USDC:USDC",
+            "ETH/USDC:USDC",
+            "SOL/USDC:USDC",
+            "HYPE/USDC:USDC",
+            "DOGE/USDC:USDC",
+            "XRP/USDC:USDC",
+            "AVAX/USDC:USDC",
+            "LINK/USDC:USDC",
+            "SUI/USDC:USDC",
+            "ARB/USDC:USDC",
+            "OP/USDC:USDC",
+            "PEPE/USDC:USDC",
+            "WIF/USDC:USDC",
+            "ONDO/USDC:USDC",
+            "INJ/USDC:USDC",
+            "TIA/USDC:USDC"
         ],
         "pair_blacklist": []
     },
     "pairlists": [
         {
             "method": "StaticPairList"
+        },
+        {
+            "method": "AgeFilter",
+            "min_days_listed": 7
         }
     ],
     "telegram": {
@@ -67,7 +87,7 @@
         "username": "pfaa",
         "password": "pfaa2026"
     },
-    "bot_name": "pfaa-btc-bot",
+    "bot_name": "pfaa-crypto-team",
     "initial_state": "running",
     "force_entry_enable": false,
     "internals": {
