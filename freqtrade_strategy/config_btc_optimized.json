@@ -40,25 +40,25 @@
         },
         "ccxt_async_config": {
             "enableRateLimit": true,
-            "rateLimit": 200
+            "rateLimit": 500
         },
         "pair_whitelist": [
             "BTC/USDC:USDC",
             "ETH/USDC:USDC",
             "SOL/USDC:USDC",
             "HYPE/USDC:USDC",
-            "DOGE/USDC:USDC",
             "XRP/USDC:USDC",
-            "AVAX/USDC:USDC",
+            "DOGE/USDC:USDC",
             "LINK/USDC:USDC",
             "SUI/USDC:USDC",
-            "ARB/USDC:USDC",
-            "OP/USDC:USDC",
-            "PEPE/USDC:USDC",
+            "AVAX/USDC:USDC",
+            "kPEPE/USDC:USDC",
             "WIF/USDC:USDC",
-            "ONDO/USDC:USDC",
-            "INJ/USDC:USDC",
-            "TIA/USDC:USDC"
+            "ARB/USDC:USDC",
+            "APT/USDC:USDC",
+            "TIA/USDC:USDC",
+            "SEI/USDC:USDC",
+            "NEAR/USDC:USDC"
         ],
         "pair_blacklist": []
     },

@@ -108,7 +108,9 @@ class PFAABitcoinStrategy(IStrategy):
 
     # Per-pair stoploss tiers (used in custom_stoploss)
     LARGE_CAP = {"BTC/USDC:USDC", "ETH/USDC:USDC"}
-    MID_CAP = {"SOL/USDC:USDC", "XRP/USDC:USDC", "AVAX/USDC:USDC", "LINK/USDC:USDC", "SUI/USDC:USDC"}
+    MID_CAP = {"SOL/USDC:USDC", "HYPE/USDC:USDC", "XRP/USDC:USDC", "AVAX/USDC:USDC", "LINK/USDC:USDC",
+               "SUI/USDC:USDC", "APT/USDC:USDC", "TIA/USDC:USDC", "NEAR/USDC:USDC"}
+    # Small-cap/meme (everything else): DOGE, kPEPE, WIF, ARB, SEI
     # Everything else is small-cap/meme
 
     # Trailing stop — widened for altcoin volatility
