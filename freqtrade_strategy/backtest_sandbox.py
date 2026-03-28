@@ -109,7 +109,7 @@ PARAMS = {
     "min_score": 5,
     "adx_threshold": 20,
     "sell_rsi_high": 88,
-    "stoploss": -0.035,            # TIGHT hard stop — cut losses fast (risk:reward key)
+    "stoploss": -0.025,            # TIGHTER — stress test found -2.5% optimal (+32.6% return)
     "trailing_activation": 0.025,  # start trailing early
     "trailing_distance": 0.015,    # tight trail — lock profits aggressively
     "roi": {0: 0.06, 15: 0.04, 30: 0.03, 60: 0.022, 120: 0.015, 240: 0.01, 480: 0.006},
@@ -119,6 +119,9 @@ PARAMS = {
     "atr_sl_loss": 3.0,           # tight in loss — exit quickly, re-enter later
     "cooldown_candles": 48,        # 4hr cooldown — wait for conditions to change
     "profit_lock_pct": 0.015,     # lock 1.5% profit once reached
+    "max_dd_circuit": 0.25,       # pause trading if drawdown > 25%
+    "dd_recovery_pct": 0.4,       # resume when DD recovers 40%
+    "accumulation_min_score": 6,  # higher bar during accumulation regime
 }
 
 # ── Entry Signal Scoring ─────────────────────────────────────────────
@@ -185,6 +188,8 @@ def backtest(df, p=PARAMS, initial_capital=10000.0):
     position = None  # {"entry_price", "entry_idx", "size", "trailing_high"}
     trades = []
     cooldown_until = 0  # index until which we skip entries after a loss
+    equity_peak = initial_capital
+    circuit_tripped = False
 
     for i in range(200, len(df)):  # skip warmup
         row = df.iloc[i]
@@ -286,11 +291,31 @@ def backtest(df, p=PARAMS, initial_capital=10000.0):
                 position = None
 
         else:
+            # Circuit breaker — pause trading during drawdowns
+            equity = capital  # (no position = all cash)
+            if equity > equity_peak:
+                equity_peak = equity
+            current_dd = (equity_peak - equity) / equity_peak if equity_peak > 0 else 0
+
+            if circuit_tripped:
+                # Check if we've recovered enough to resume
+                if current_dd < p.get("max_dd_circuit", 0.20) * (1 - p.get("dd_recovery_pct", 0.5)):
+                    circuit_tripped = False
+                else:
+                    continue  # skip this candle
+            elif current_dd > p.get("max_dd_circuit", 0.20):
+                circuit_tripped = True
+                continue
+
             # Entry check
             score = scores.iloc[i]
             regime = row["market_regime"]
             ema_trend_val = row.get(f"ema_{p['ema_trend']}", 0)
-            if (score >= p["min_score"] and regime <= 2 and row["volume"] > 0
+
+            # Regime-adaptive min_score: higher bar in accumulation
+            required_score = p.get("accumulation_min_score", 7) if regime == 1 else p["min_score"]
+
+            if (score >= required_score and regime <= 2 and row["volume"] > 0
                     and price > ema_trend_val and i >= cooldown_until):
                 size = capital * 0.95  # 95% allocation
                 capital -= size
