@@ -10,10 +10,12 @@ import { FetchTool } from './fetch.js'
 import { CodeTool } from './code.js'
 import { MemoryTool } from './memory.js'
 import { JMemTool } from './jmem.js'
+import { DeferredToolLoader } from './deferred.js'
 import type { Tool, ToolDefinition } from './base.js'
 
 export class ToolRegistry {
   private tools: Map<string, Tool> = new Map()
+  private deferredLoader: DeferredToolLoader | null = null
 
   constructor(opts: OrchestratorOptions) {
     const available: Record<string, Tool> = {
@@ -41,5 +43,13 @@ export class ToolRegistry {
 
   getDefinitions(): ToolDefinition[] {
     return Array.from(this.tools.values()).flatMap(t => t.definitions())
+  }
+
+  getDeferredDefinitions(): ToolDefinition[] {
+    if (!this.deferredLoader) {
+      this.deferredLoader = new DeferredToolLoader(this.getDefinitions())
+      this.tools.set('tool_search', this.deferredLoader)
+    }
+    return this.deferredLoader.definitions()
   }
 }

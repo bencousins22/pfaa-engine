@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  pfaa:
+    build: .
+    ports:
+      - "8420:8420"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PFAA_PROVIDER=${PFAA_PROVIDER:-claude}
+      - PFAA_MODEL=${PFAA_MODEL:-claude-sonnet-4-6}
+      - PYTHONPATH=/app/python:/app
+      - PYTHON_GIL=0
+    volumes:
+      - pfaa_data:/root/.pfaa
+      - jmem_data:/root/.jmem
+    depends_on:
+      - qdrant
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    command: python3 -m python.dashboard.server
+    ports:
+      - "8421:8420"
+    environment:
+      - PYTHONPATH=/app/python:/app
+    volumes:
+      - jmem_data:/root/.jmem
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
+  pfaa_data:
+  jmem_data:

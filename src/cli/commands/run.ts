@@ -32,6 +32,7 @@ export function runCommand(): Command {
         tools: opts.tools,
         config,
         audit,
+        deferredTools: globals.deferred,
       })
 
       if (opts.plan) {

@@ -14,6 +14,7 @@ export interface OrchestratorOptions {
   tools: string[]
   config: PFAAConfig
   audit: AuditLogger | null
+  deferredTools?: boolean
 }
 
 export interface PFAAConfig {

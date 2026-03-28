@@ -21,7 +21,7 @@ program
   .version(pkg.version)
 
 program
-  .option('-p, --provider <provider>', 'AI provider: claude | gemini', 'claude')
+  .option('-p, --provider <provider>', 'AI provider: claude | gemini | claude-agent-sdk', 'claude')
   .option('-m, --model <model>', 'Model name (overrides provider default)')
   .option('--sandbox', 'Run code in isolated Python 3.15 sandbox', false)
   .option('--no-audit', 'Disable audit logging for this session')
@@ -30,6 +30,7 @@ program
   .option('--max-tokens <n>', 'Max output tokens', '8192')
   .option('--compact-threshold <n>', 'Auto-compact context at N tokens', '80000')
   .option('--json', 'Output structured JSON instead of streaming text', false)
+  .option('--deferred', 'Use deferred tool loading (saves tokens)', false)
 
 program.addCommand(runCommand())
 program.addCommand(chatCommand())

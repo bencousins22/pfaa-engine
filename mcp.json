@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "jmem": {
+      "command": "python3",
+      "args": ["-m", "jmem"],
+      "env": {
+        "PYTHONPATH": ".",
+        "JMEM_AGENT": "pfaa"
+      }
+    }
+  }
+}

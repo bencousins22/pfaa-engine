@@ -7,6 +7,7 @@
 import type { OrchestratorOptions, AgentEvent, ExecutionPlan } from './types.js'
 import { ClaudeProvider } from '../providers/claude.js'
 import { GeminiProvider } from '../providers/gemini.js'
+import { ClaudeAgentSDKProvider } from '../providers/claude-agent-sdk.js'
 import { ToolRegistry } from '../tools/registry.js'
 import { MemoryStore } from '../memory/store.js'
 import { ContextManager } from './context.js'
@@ -20,12 +21,17 @@ export class Orchestrator {
   private context: ContextManager
   private gate: PermissionGate
   private opts: OrchestratorOptions
+  private useDeferredTools: boolean
+  private deferredSearchDone: boolean = false
 
   constructor(opts: OrchestratorOptions) {
     this.opts = opts
+    this.useDeferredTools = opts.deferredTools ?? false
     this.provider = opts.provider === 'gemini'
       ? new GeminiProvider(opts)
-      : new ClaudeProvider(opts)
+      : opts.provider === 'claude-agent-sdk'
+        ? new ClaudeAgentSDKProvider(opts)
+        : new ClaudeProvider(opts)
     this.tools = new ToolRegistry(opts)
     this.memory = new MemoryStore(opts.config?.qdrantUrl)
     this.context = new ContextManager(opts.compactThreshold)
@@ -72,10 +78,17 @@ export class Orchestrator {
         yield { type: 'compacted', tokensAfter: this.context.tokenCount }
       }
 
+      // In deferred mode, use only tool_search on the first iteration
+      // until the agent has discovered the tools it needs
+      const useDeferred = this.useDeferredTools && !this.deferredSearchDone
+      const toolDefs = useDeferred
+        ? this.tools.getDeferredDefinitions()
+        : this.tools.getDefinitions()
+
       const response = this.provider.streamWithTools({
         system: this.context.system,
         messages: this.context.messages as any,
-        tools: this.tools.getDefinitions(),
+        tools: toolDefs,
         maxTokens: this.opts.maxTokens,
       })
 
@@ -114,6 +127,11 @@ export class Orchestrator {
             this.context.addToolResult(chunk.id!, result)
             yield { type: 'tool_result', toolName: chunk.name, result }
             this.opts.audit?.logToolCall(chunk.name!, chunk.input as Record<string, any>, result)
+
+            // After a tool_search call, switch to full definitions on next iteration
+            if (chunk.name === 'tool_search') {
+              this.deferredSearchDone = true
+            }
           } catch (err: any) {
             const errMsg = `Error: ${err.message}`
             this.context.addToolResult(chunk.id!, errMsg)
