@@ -2,21 +2,8 @@
 /**
  * PFAA CLI — run_cli.ts
  *
- * Exact replica of Agent Zero's run_cli.py terminal interface,
- * ported to Node.js with all PFAA enterprise features.
- *
- * Agent Zero color scheme:
- *   User prompt:    bg:#6C3483 font:white bold  (purple bg)
- *   Agent response: bg:#1D8348 font:white bold  (green bg)
- *   Agent stream:   font:#b3ffd9 italic         (mint green)
- *   Tool header:    bg:white font:#1B4F72 bold  (dark blue on white)
- *   Tool args:      font:#85C1E9 bold           (light blue)
- *   Tool response:  font:#85C1E9                (light blue)
- *   Errors:         font:red
- *   Warnings:       font:orange
- *   Hints:          font:#6C3483                (purple)
- *   Intervention:   bg:#6C3483 font:white bold
- *   Terminated:     bg:red font:white
+ * Exact replica of Agent Zero's run_cli.py + agent.py terminal interface.
+ * Same colors. Same flow. Same snappy feel.
  */
 
 import readline from 'readline'
@@ -26,343 +13,244 @@ import { loadConfig } from '../core/config.js'
 import { AuditLogger } from '../audit/logger.js'
 import type { PFAAConfig } from '../core/types.js'
 
-// ── Agent Zero PrintStyle equivalents ───────────────────────────────
-// These match the exact hex colors from agent-zero's PrintStyle calls
+// ── Agent Zero PrintStyle ───────────────────────────────────────────
+// Exact hex codes from python/helpers/print_style.py
 
-const style = {
-  // User prompt header — bg:#6C3483 font:white bold padding:true
-  userPrompt: (text: string) =>
-    chalk.bgHex('#6C3483').white.bold(` ${text} `),
+let lastEndline = true
 
-  // Agent response header — bg:#1D8348 font:white bold padding:true
-  agentHeader: (text: string) =>
-    chalk.bgHex('#1D8348').white.bold(` ${text} `),
-
-  // Agent streaming text — font:#b3ffd9 italic
-  agentStream: (text: string) =>
-    chalk.hex('#b3ffd9').italic(text),
-
-  // Agent "Generating" — bg:white font:green bold padding:true
-  agentGenerating: (text: string) =>
-    chalk.bgWhite.green.bold(` ${text} `),
-
-  // Tool "Using tool" header — bg:white font:#1B4F72 bold padding:true
-  toolHeader: (text: string) =>
-    chalk.bgWhite.hex('#1B4F72').bold(` ${text} `),
-
-  // Tool args key — font:#85C1E9 bold
-  toolArgKey: (text: string) =>
-    chalk.hex('#85C1E9').bold(text),
-
-  // Tool args value — font:#85C1E9
-  toolArgValue: (text: string) =>
-    chalk.hex('#85C1E9')(text),
-
-  // Tool response header — bg:white font:#1B4F72 bold padding:true
-  toolResponseHeader: (text: string) =>
-    chalk.bgWhite.hex('#1B4F72').bold(` ${text} `),
-
-  // Tool response content — font:#85C1E9
-  toolResponse: (text: string) =>
-    chalk.hex('#85C1E9')(text),
-
-  // Intervention — bg:#6C3483 font:white bold padding:true
-  intervention: (text: string) =>
-    chalk.bgHex('#6C3483').white.bold(` ${text} `),
-
-  // Errors — font:red padding:true
-  error: (text: string) =>
-    chalk.red(text),
-
-  // Warnings — font:orange padding:true
-  warning: (text: string) =>
-    chalk.hex('#FFA500')(text),
-
-  // Hints — font:#6C3483
-  hint: (text: string) =>
-    chalk.hex('#6C3483')(text),
-
-  // Context terminated — bg:red font:white padding:true
-  terminated: (text: string) =>
-    chalk.bgRed.white(` ${text} `),
-
-  // Cleanup/compaction — bg:white font:orange bold
-  cleanup: (text: string) =>
-    chalk.bgWhite.hex('#FFA500').bold(` ${text} `),
-
-  // Standard/info — font:blue
-  info: (text: string) =>
-    chalk.blue(text),
-
-  // Success — font:green
-  success: (text: string) =>
-    chalk.green(text),
-
-  // White text (plain output)
-  white: (text: string) =>
-    chalk.white(text),
+function pad() {
+  if (!lastEndline) { process.stdout.write('\n'); lastEndline = true }
+  process.stdout.write('\n')
 }
 
-// ── Session state ────────────────────────────────────────────────────
+function print(text: string, end = '\n') {
+  if (!lastEndline) { process.stdout.write('\n') }
+  process.stdout.write(text + end)
+  lastEndline = end.endsWith('\n')
+}
+
+function stream(text: string) {
+  process.stdout.write(text)
+  lastEndline = false
+}
+
+// bg:#6C3483 font:white bold
+const userPrompt = (t: string) => chalk.bgHex('#6C3483').white.bold(` ${t} `)
+// bg:#1D8348 font:white bold
+const agentHeader = (t: string) => chalk.bgHex('#1D8348').white.bold(` ${t} `)
+// bg:white font:green bold
+const agentGen = (t: string) => chalk.bgWhite.green.bold(` ${t} `)
+// font:#b3ffd9 italic
+const agentText = (t: string) => chalk.hex('#b3ffd9').italic(t)
+// bg:white font:#1B4F72 bold
+const toolHead = (t: string) => chalk.bgWhite.hex('#1B4F72').bold(` ${t} `)
+// font:#85C1E9 bold
+const toolKey = (t: string) => chalk.hex('#85C1E9').bold(t)
+// font:#85C1E9
+const toolVal = (t: string) => chalk.hex('#85C1E9')(t)
+// font:red
+const error = (t: string) => chalk.red(t)
+// font:orange
+const warn = (t: string) => chalk.hex('#FFA500')(t)
+// font:#6C3483
+const hint = (t: string) => chalk.hex('#6C3483')(t)
+// bg:red font:white
+const dead = (t: string) => chalk.bgRed.white(` ${t} `)
+// bg:white font:orange bold
+const cleanup = (t: string) => chalk.bgWhite.hex('#FFA500').bold(` ${t} `)
+// font:blue
+const info = (t: string) => chalk.blue(t)
+// font:green
+const ok = (t: string) => chalk.green(t)
+
+// ── State ────────────────────────────────────────────────────────────
 let interrupted = false
 let streaming = false
 
-// ── Keypress capture (mirrors Agent Zero's capture_keys thread) ─────
-function captureKeys(): void {
-  if (process.stdin.isTTY) {
-    readline.emitKeypressEvents(process.stdin)
-    process.stdin.setRawMode(true)
-    process.stdin.on('keypress', (_str, key) => {
-      if (streaming && key && (key.name?.match(/^[a-z]$/) || key.name === 'space')) {
-        // Any alpha key or space during streaming triggers intervention
-        // (same behavior as Agent Zero's capture_keys)
-        interrupted = true
-      }
-      if (key?.ctrl && key.name === 'c') {
-        if (streaming) {
-          interrupted = true
-        } else {
-          process.exit(0)
-        }
-      }
-    })
-  }
-}
-
-// ── User input (mirrors Agent Zero's input with optional timeout) ───
-async function getUserInput(prompt: string, timeout?: number): Promise<string> {
-  if (process.stdin.isTTY) {
-    try { process.stdin.setRawMode(false) } catch { /* ignore */ }
-  }
-
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: true,
-    })
-
-    let timer: ReturnType<typeof setTimeout> | null = null
-
-    if (timeout) {
-      timer = setTimeout(() => {
-        rl.close()
-        resolve('') // empty = auto-continue (like fw.msg_timeout)
-      }, timeout * 1000)
+// ── Key capture (Agent Zero capture_keys thread) ─────────────────────
+function captureKeys() {
+  if (!process.stdin.isTTY) return
+  readline.emitKeypressEvents(process.stdin)
+  process.stdin.setRawMode(true)
+  process.stdin.on('keypress', (_str, key) => {
+    if (streaming && key && (key.name?.match(/^[a-z]$/) || key.name === 'space')) {
+      interrupted = true
     }
-
-    rl.question(prompt, (answer) => {
-      if (timer) clearTimeout(timer)
-      rl.close()
-      resolve(answer.trim())
-    })
+    if (key?.ctrl && key.name === 'c') {
+      if (streaming) { interrupted = true } else { process.exit(0) }
+    }
   })
 }
 
-// ── Intervention handler (mirrors Agent Zero's intervention()) ──────
-async function handleIntervention(): Promise<string | null> {
-  // Exact Agent Zero style: bg:#6C3483 font:white bold
-  console.log()
-  console.log(style.intervention(`User intervention ('e' to leave, empty to continue):`))
-
-  const input = await getUserInput('> ')
-
-  if (input.toLowerCase() === 'e') {
-    process.exit(0)
-  }
-
-  return input || null
+// ── Input ────────────────────────────────────────────────────────────
+async function input(prompt: string, timeout?: number): Promise<string> {
+  if (process.stdin.isTTY) try { process.stdin.setRawMode(false) } catch {}
+  return new Promise(resolve => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true })
+    let t: ReturnType<typeof setTimeout> | null = null
+    if (timeout) t = setTimeout(() => { rl.close(); resolve('') }, timeout * 1000)
+    rl.question(prompt, a => { if (t) clearTimeout(t); rl.close(); resolve(a.trim()) })
+  })
 }
 
-// ── Main chat loop (exact Agent Zero run_cli.py chat() replica) ─────
-async function chat(orchestrator: Orchestrator, agentName: string): Promise<void> {
+// ── Intervention (Agent Zero intervention()) ─────────────────────────
+async function intervention(): Promise<string | null> {
+  streaming = false
+  pad()
+  print(userPrompt(`User intervention ('e' to leave, empty to continue):`))
+  const msg = await input('> ')
+  if (msg.toLowerCase() === 'e') process.exit(0)
+  streaming = true
+  if (process.stdin.isTTY) try { process.stdin.setRawMode(true) } catch {}
+  return msg || null
+}
+
+// ── Chat loop (Agent Zero chat()) ────────────────────────────────────
+async function chat(orc: Orchestrator, name: string) {
   while (true) {
     interrupted = false
+    streaming = false
 
-    // Get timeout from agent data (Agent Zero: context.agent0.get_data("timeout"))
-    const timeout = undefined // No timeout by default, like Agent Zero
+    // ── User prompt ──
+    // PrintStyle(background_color="#6C3483", font_color="white", bold=True, padding=True)
+    pad()
+    print(userPrompt(`User message ('e' to leave):`))
+    const msg = await input('> ')
+    if (!msg) continue
+    if (msg.toLowerCase() === 'e') break
 
-    if (!timeout) {
-      // No timeout — wait forever for user input
-      // Agent Zero: PrintStyle(background_color="#6C3483", font_color="white", bold=True, padding=True)
-      //             .print(f"User message ('e' to leave):")
-      console.log()
-      console.log(style.userPrompt(`User message ('e' to leave):`))
-      const userInput = await getUserInput('> ')
+    // ── Start streaming ──
+    if (process.stdin.isTTY) try { process.stdin.setRawMode(true) } catch {}
+    streaming = true
 
-      if (!userInput) continue
-      if (userInput.toLowerCase() === 'e') break
+    // PrintStyle(bold=True, font_color="green", background_color="white", padding=True)
+    pad()
+    print(agentGen(`${name}: Generating`))
 
-      // Re-enable raw mode for intervention capture during streaming
-      if (process.stdin.isTTY) {
-        try { process.stdin.setRawMode(true) } catch { /* ignore */ }
-      }
+    // PrintStyle(italic=True, font_color="#b3ffd9", padding=False)
+    // printer.print("Response: ")
+    print(agentText('Response: '), '')
 
-      streaming = true
-
-      // Agent Zero: PrintStyle(bold=True, font_color="green", background_color="white", padding=True)
-      //             .print(f"{agent_name}: Generating")
-      console.log()
-      console.log(style.agentGenerating(`${agentName}: Generating`))
-
-      try {
-        for await (const event of orchestrator.run(userInput)) {
-          // Check for user intervention (Agent Zero: any keypress during streaming)
-          if (interrupted) {
-            const interventionMsg = await handleIntervention()
-            interrupted = false
-            if (interventionMsg) {
-              // Feed intervention message back — Agent Zero sets
-              // context.streaming_agent.intervention_message
-              // For now we just display it
-              console.log(style.white(interventionMsg))
-            }
-            // Re-enable streaming capture
-            if (process.stdin.isTTY) {
-              try { process.stdin.setRawMode(true) } catch { /* ignore */ }
-            }
-            continue
-          }
-
-          switch (event.type) {
-            case 'start':
-              // Silent — Agent Zero doesn't print session IDs
-              break
-
-            case 'text':
-              // Agent Zero: printer = PrintStyle(italic=True, font_color="#b3ffd9", padding=False)
-              //             printer.stream(chunk)
-              process.stdout.write(style.agentStream(event.content as string))
-              break
-
-            case 'tool_call': {
-              // Agent Zero: PrintStyle(font_color="#1B4F72", padding=True, background_color="white", bold=True)
-              //             .print(f"{agent_name}: Using tool '{tool_name}':")
-              console.log()
-              console.log(style.toolHeader(`${agentName}: Using tool '${event.toolName}':`))
-
-              // Display tool args — Agent Zero shows each key:value
-              const toolInput = event.toolInput as Record<string, unknown>
-              if (toolInput && typeof toolInput === 'object') {
-                for (const [key, value] of Object.entries(toolInput)) {
-                  const valStr = typeof value === 'string' ? value : JSON.stringify(value)
-                  // Agent Zero: PrintStyle(font_color="#85C1E9", bold=True).stream(key+": ")
-                  //             PrintStyle(font_color="#85C1E9").stream(value)
-                  process.stdout.write(style.toolArgKey(`${key}: `))
-                  process.stdout.write(style.toolArgValue(valStr.slice(0, 500)))
-                  console.log()
-                }
-              }
-              break
-            }
-
-            case 'tool_result':
-              // Agent Zero: PrintStyle(font_color="#1B4F72", background_color="white", padding=True, bold=True)
-              //             .print(f"{agent_name}: Response from tool '{tool_name}':")
-              console.log()
-              console.log(style.toolResponseHeader(`${agentName}: Response from tool '${event.toolName}':`))
-              // Agent Zero: PrintStyle(font_color="#85C1E9").print(response.message)
-              console.log(style.toolResponse(String(event.result).slice(0, 1000)))
-              break
-
-            case 'tool_blocked':
-              // Agent Zero: PrintStyle(font_color="red", padding=True)
-              console.log()
-              console.log(style.error(`Blocked: ${event.toolName} — ${event.reason}`))
-              break
-
-            case 'tool_error':
-              // Agent Zero: PrintStyle(font_color="red", padding=True)
-              console.log()
-              console.log(style.error(`Error in tool '${event.toolName}': ${event.error}`))
-              break
-
-            case 'compacting':
-              // Agent Zero: PrintStyle(bold=True, font_color="orange", padding=True, background_color="white")
-              //             .print(f"{agent_name}: Mid messages cleanup summary")
-              console.log()
-              console.log(style.cleanup(`${agentName}: Mid messages cleanup summary`))
-              console.log(style.warning(`Compacting context (${(event.tokensBefore as number).toLocaleString()} tokens)...`))
-              break
-
-            case 'compacted':
-              console.log(style.success(`Compacted to ${(event.tokensAfter as number).toLocaleString()} tokens`))
-              break
-
-            case 'complete':
-              streaming = false
-              // Agent Zero: PrintStyle(font_color="white", background_color="#1D8348", bold=True, padding=True)
-              //             .print(f"{agent_name}: response:")
-              console.log()
-              console.log(style.agentHeader(`${agentName}: response complete`))
-              console.log(style.hint(
-                `${event.iterations} iterations · ~${(event.tokenCount as number).toLocaleString()} tokens`
-              ))
-              break
-
-            case 'error':
-              streaming = false
-              // Agent Zero: PrintStyle(font_color="white", background_color="red", padding=True)
-              console.log()
-              console.log(style.terminated(`${agentName}: Error`))
-              console.log(style.error(event.message as string))
-              break
-          }
+    try {
+      for await (const event of orc.run(msg)) {
+        if (interrupted) {
+          const iv = await intervention()
+          interrupted = false
+          if (iv) stream(chalk.white(iv))
+          continue
         }
-      } catch (err: any) {
-        streaming = false
-        console.log()
-        console.log(style.terminated(`${agentName}: Error`))
-        console.log(style.error(err.message))
+
+        switch (event.type) {
+          case 'start':
+            break
+
+          case 'text':
+            // printer.stream(chunk) — italic mint green, no newline
+            stream(agentText(event.content as string))
+            break
+
+          case 'tool_call': {
+            // PrintStyle(font_color="#1B4F72", padding=True, background_color="white", bold=True)
+            // .print(f"{name}: Using tool '{tool}':")
+            pad()
+            print(toolHead(`${name}: Using tool '${event.toolName}':`))
+            const ti = event.toolInput as Record<string, unknown>
+            if (ti && typeof ti === 'object') {
+              for (const [k, v] of Object.entries(ti)) {
+                const vs = typeof v === 'string' ? v : JSON.stringify(v)
+                // PrintStyle(font_color="#85C1E9", bold=True).stream(key+": ")
+                // PrintStyle(font_color="#85C1E9").stream(value)
+                stream(toolKey(`${k}: `))
+                print(toolVal(vs.length > 500 ? vs.slice(0, 497) + '...' : vs))
+              }
+            }
+            break
+          }
+
+          case 'tool_result':
+            // PrintStyle(font_color="#1B4F72", background_color="white", padding=True, bold=True)
+            // .print(f"{name}: Response from tool '{tool}':")
+            pad()
+            print(toolHead(`${name}: Response from tool '${event.toolName}':`))
+            // PrintStyle(font_color="#85C1E9").print(response.message)
+            print(toolVal(String(event.result).slice(0, 2000)))
+            // Resume streaming header
+            print(agentText('Response: '), '')
+            break
+
+          case 'tool_blocked':
+            pad()
+            print(error(`Error: Blocked: ${event.toolName} — ${event.reason}`))
+            break
+
+          case 'tool_error':
+            pad()
+            print(error(`Error: tool '${event.toolName}': ${event.error}`))
+            break
+
+          case 'compacting':
+            // PrintStyle(bold=True, font_color="orange", padding=True, background_color="white")
+            pad()
+            print(cleanup(`${name}: Mid messages cleanup summary`))
+            print(warn(`Compacting context (${(event.tokensBefore as number).toLocaleString()} tokens)...`))
+            break
+
+          case 'compacted':
+            print(ok(`Compacted to ${(event.tokensAfter as number).toLocaleString()} tokens`))
+            break
+
+          case 'complete':
+            streaming = false
+            // PrintStyle(font_color="white", background_color="#1D8348", bold=True, padding=True)
+            // .print(f"{name}: reponse:")  (yes, typo is in Agent Zero source)
+            pad()
+            print(agentHeader(`${name}: reponse:`))
+            print(hint(`${event.iterations} iterations · ~${(event.tokenCount as number).toLocaleString()} tokens`))
+            break
+
+          case 'error':
+            streaming = false
+            pad()
+            print(dead(`Context terminated`))
+            print(error(`Error: ${event.message}`))
+            break
+        }
       }
-
+    } catch (err: any) {
       streaming = false
+      pad()
+      print(dead(`Context terminated`))
+      print(error(`Error: ${err.message}`))
     }
+    streaming = false
   }
-
-  // Exit message
-  console.log()
-  console.log(style.hint('Goodbye.'))
 }
 
-// ── Bootstrap (mirrors Agent Zero's __main__ block) ──────────────────
-async function run(): Promise<void> {
+// ── Main (Agent Zero __main__) ───────────────────────────────────────
+async function main() {
   const args = process.argv.slice(2)
-  const getArg = (flag: string, def: string) => {
-    const i = args.indexOf(flag)
-    return i !== -1 ? args[i + 1] ?? def : def
-  }
-  const hasFlag = (flag: string) => args.includes(flag)
+  const arg = (f: string, d: string) => { const i = args.indexOf(f); return i !== -1 ? args[i + 1] ?? d : d }
+  const flag = (f: string) => args.includes(f)
 
-  const provider = getArg('--provider', process.env.PFAA_PROVIDER ?? 'claude')
-  const model = getArg('--model', process.env.PFAA_MODEL ?? '')
-  const sandbox = hasFlag('--sandbox')
-  const configPath = getArg('--config', './pfaa.config.json')
-  const workspace = getArg('--workspace', process.cwd())
-  const agentName = getArg('--name', 'Agent 0')
+  const provider = arg('--provider', process.env.PFAA_PROVIDER ?? 'claude')
+  const model = arg('--model', process.env.PFAA_MODEL ?? '')
+  const sandbox = flag('--sandbox')
+  const configPath = arg('--config', './pfaa.config.json')
+  const workspace = arg('--workspace', process.cwd())
+  const name = arg('--name', 'Agent 0')
 
   // Agent Zero: print("Initializing framework...")
-  console.log('Initializing framework...')
+  print('Initializing framework...')
 
-  let config: PFAAConfig = {}
-  try {
-    config = await loadConfig(configPath)
-  } catch {
-    // Silent — Agent Zero doesn't warn about missing config
-  }
+  const config = await loadConfig(configPath)
 
-  // Show initialization info (Agent Zero style — simple prints)
-  console.log(style.info(`Info: Provider: ${provider}`))
-  console.log(style.info(`Info: Model: ${model || (provider === 'gemini' ? 'gemini-2.5-pro' : 'claude-sonnet-4-6')}`))
-  if (sandbox) {
-    console.log(style.info('Info: Python 3.15 sandbox enabled (PYTHON_GIL=0)'))
-  }
-  console.log(style.info(`Info: Workspace: ${workspace}`))
-  console.log(style.success('Success: Framework initialized'))
+  // Agent Zero style: PrintStyle.info(), PrintStyle.success()
+  print(info(`Info: provider=${provider} model=${model || (provider === 'gemini' ? 'gemini-2.5-pro' : 'claude-sonnet-4-6')}`))
+  print(info(`Info: workspace=${workspace}${sandbox ? ' sandbox=python3(free-threaded)' : ''}`))
+  print(ok('Success: Framework initialized'))
 
   const audit = new AuditLogger(config.auditDir)
-
-  const orchestrator = new Orchestrator({
+  const orc = new Orchestrator({
     provider,
     model: model || undefined,
     sandbox,
@@ -374,15 +262,15 @@ async function run(): Promise<void> {
     audit,
   })
 
-  // Start key capture thread (mirrors Agent Zero's threading.Thread(target=capture_keys))
   captureKeys()
+  await chat(orc, name)
 
-  // Start the chat (mirrors Agent Zero's asyncio.run(chat(context)))
-  await chat(orchestrator, agentName)
+  pad()
+  print(hint('Goodbye.'))
 }
 
-run().catch(err => {
-  console.log(style.terminated(`Fatal error`))
-  console.error(style.error(err.message))
+main().catch(err => {
+  print(dead('Fatal error'))
+  print(error(`Error: ${err.message}`))
   process.exit(1)
 })
