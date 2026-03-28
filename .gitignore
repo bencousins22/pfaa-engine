@@ -12,5 +12,6 @@ venv/
 .env.local
 *.sqlite3
 node_modules/
+dist/
 .pfaa/
 *.ndjson

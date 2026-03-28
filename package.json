@@ -1,17 +1,29 @@
 {
   "name": "@aussie-agents/pfaa",
   "version": "0.1.0",
-  "description": "Platform for Autonomous Agents — enterprise CLI with phase-fluid execution",
+  "description": "Platform for Autonomous Agents — enterprise CLI with phase-fluid execution, 9-tier agent swarm, Python 3.15 sandbox, and dual-provider AI (Claude + Gemini)",
   "type": "module",
   "bin": {
     "pfaa": "./bin/pfaa.js",
     "pfaa-cli": "./bin/pfaa-cli.js"
   },
+  "main": "./dist/cli/index.js",
+  "types": "./dist/cli/index.d.ts",
+  "files": [
+    "bin/",
+    "dist/",
+    "python/",
+    "pfaa.config.json",
+    "mcp.json"
+  ],
   "scripts": {
-    "dev": "node --watch bin/pfaa-cli.js",
     "build": "tsc",
-    "lint": "eslint src",
-    "start": "node bin/pfaa-cli.js"
+    "dev": "node --watch bin/pfaa-cli.js",
+    "start": "node bin/pfaa-cli.js",
+    "lint": "tsc --noEmit",
+    "test": "tsc --noEmit && pytest tests/ -v",
+    "prepublishOnly": "npm run build",
+    "postinstall": "node bin/postinstall.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -26,6 +38,9 @@
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
   },
+  "optionalDependencies": {
+    "@anthropic-ai/claude-agent-sdk": ">=0.1.0"
+  },
   "devDependencies": {
     "@types/node": "^22.13.0",
     "@types/uuid": "^10.0.0",
@@ -33,5 +48,16 @@
   },
   "engines": {
     "node": ">=22.0.0"
-  }
+  },
+  "os": ["darwin", "linux"],
+  "keywords": [
+    "ai", "agents", "cli", "claude", "gemini", "autonomous",
+    "pfaa", "mcp", "enterprise", "swarm", "memory", "q-learning"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bencousins22/pfaa-engine"
+  },
+  "license": "MIT",
+  "author": "Aussie Agents <team@aussieagents.dev>"
 }
