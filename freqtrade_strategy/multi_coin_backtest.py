@@ -187,87 +187,87 @@ def compute_metrics(trades, final_capital, initial=10000.0):
 
 CATEGORY_OVERRIDES = {
     "major": {
-        # BTC/ETH/XRP — tight stops, v9 proven params
+        # BTC/ETH/XRP — optimized: tighter ATR loss, tight trail, moderate lock
         "stoploss": -0.02,
-        "trailing_distance": 0.015,
+        "trailing_distance": 0.01,
         "trailing_activation": 0.025,
         "atr_sl_high": 0.8,
         "atr_sl_mid": 1.2,
-        "atr_sl_loss": 3.0,
+        "atr_sl_loss": 2.0,
         "cooldown_candles": 48,
-        "profit_lock_pct": 0.01,
+        "profit_lock_pct": 0.012,
     },
     "L1": {
-        # SOL/AVAX/SUI/TIA — slightly wider for mid-cap vol
-        "stoploss": -0.03,
-        "trailing_distance": 0.02,
+        # SOL/AVAX/SUI/TIA — tighter stops, moderate ATR, tight trail
+        "stoploss": -0.025,
+        "trailing_distance": 0.015,
         "trailing_activation": 0.035,
         "atr_sl_high": 1.0,
         "atr_sl_mid": 1.5,
         "atr_sl_loss": 3.5,
         "cooldown_candles": 48,
-        "profit_lock_pct": 0.012,
+        "profit_lock_pct": 0.015,
         "roi": {0: 0.08, 15: 0.05, 30: 0.04, 60: 0.03, 120: 0.02, 240: 0.012, 480: 0.008},
     },
     "L2": {
-        # ARB/OP — similar to L1
-        "stoploss": -0.03,
-        "trailing_distance": 0.02,
+        # ARB/OP — wider stops, tighter ATR loss, tight trail
+        "stoploss": -0.035,
+        "trailing_distance": 0.015,
         "trailing_activation": 0.035,
         "atr_sl_high": 1.0,
         "atr_sl_mid": 1.5,
-        "atr_sl_loss": 3.5,
+        "atr_sl_loss": 2.5,
         "cooldown_candles": 48,
-        "profit_lock_pct": 0.012,
+        "profit_lock_pct": 0.01,
         "roi": {0: 0.08, 15: 0.05, 30: 0.04, 60: 0.03, 120: 0.02, 240: 0.012, 480: 0.008},
     },
     "meme": {
-        # DOGE/PEPE/WIF — wide stops, wide trails for extreme vol
-        "stoploss": -0.045,
-        "trailing_distance": 0.03,
+        # DOGE/PEPE/WIF — wide stops, moderate ATR, tight trails for meme vol
+        "stoploss": -0.055,
+        "trailing_distance": 0.025,
         "trailing_activation": 0.05,
         "atr_sl_high": 1.2,
         "atr_sl_mid": 2.0,
         "atr_sl_low": 3.5,
-        "atr_sl_loss": 4.5,
+        "atr_sl_loss": 4.0,
         "cooldown_candles": 72,
         "profit_lock_pct": 0.015,
         "profit_lock_ratio": 0.35,
         "roi": {0: 0.10, 15: 0.07, 30: 0.05, 60: 0.035, 120: 0.025, 240: 0.015, 480: 0.01},
     },
     "dex_token": {
-        # HYPE — high vol DEX native token
-        "stoploss": -0.04,
-        "trailing_distance": 0.025,
+        # HYPE — tighter stops, tighter ATR, tight trail
+        "stoploss": -0.035,
+        "trailing_distance": 0.02,
         "trailing_activation": 0.04,
         "atr_sl_high": 1.0,
         "atr_sl_mid": 1.8,
-        "atr_sl_loss": 4.0,
+        "atr_sl_loss": 3.0,
         "min_score": 6,
         "cooldown_candles": 60,
-        "profit_lock_pct": 0.015,
+        "profit_lock_pct": 0.012,
         "roi": {0: 0.10, 15: 0.06, 30: 0.045, 60: 0.03, 120: 0.02, 240: 0.012, 480: 0.008},
     },
     "defi": {
-        # LINK/INJ — moderate vol
-        "stoploss": -0.025,
-        "trailing_distance": 0.018,
+        # LINK/INJ — wider stops, same ATR, tighter trail
+        "stoploss": -0.03,
+        "trailing_distance": 0.015,
         "trailing_activation": 0.03,
         "atr_sl_high": 0.9,
         "atr_sl_mid": 1.4,
         "atr_sl_loss": 3.0,
         "cooldown_candles": 48,
-        "profit_lock_pct": 0.01,
+        "profit_lock_pct": 0.008,
         "roi": {0: 0.07, 15: 0.045, 30: 0.035, 60: 0.025, 120: 0.017, 240: 0.01, 480: 0.007},
     },
     "rwa": {
-        # ONDO — lower vol RWA token
-        "stoploss": -0.02,
-        "trailing_distance": 0.015,
+        # ONDO — wider stops, tighter ATR loss, tighter trail
+        "stoploss": -0.025,
+        "trailing_distance": 0.012,
         "trailing_activation": 0.025,
-        "atr_sl_loss": 2.5,
+        "atr_sl_loss": 2.0,
         "cooldown_candles": 48,
-        "profit_lock_pct": 0.008,
+        "profit_lock_pct": 0.01,
     },
 }
 
