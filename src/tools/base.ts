@@ -1,5 +1,5 @@
 /**
- * Base tool interface for PFAA tool system.
+ * Base tool interface for Aussie Agents tool system.
  */
 
 export interface ToolDefinition {

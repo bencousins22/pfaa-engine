@@ -243,9 +243,9 @@
         "-m",
         "jmem"
       ],
-      "cwd": "/Users/borris/Desktop/pfaa-engine/jmem-mcp-server",
+      "cwd": "/Users/borris/Desktop/pfaa-engine",
       "env": {
-        "PYTHONPATH": "/Users/borris/Desktop/pfaa-engine/jmem-mcp-server",
+        "PYTHONPATH": "/Users/borris/Desktop/pfaa-engine/python",
         "PFAA_AGENT_NAME": "claude-code"
       }
     }

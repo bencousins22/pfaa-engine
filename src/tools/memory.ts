@@ -1,7 +1,7 @@
 /**
  * Memory tools — jmem-compatible memory_recall and memory_store.
  * Uses sentence-transformers (all-mpnet-base-v2) for embeddings,
- * same model as Agent Zero's EMBEDDING_MODEL.
+ * same model as the Aussie Agents EMBEDDING_MODEL.
  *
  * Q-learning utility scoring:
  *   - Each recall increments retrieval_count

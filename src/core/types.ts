@@ -1,5 +1,5 @@
 /**
- * Core type definitions for the PFAA enterprise CLI.
+ * Core type definitions for the Aussie Agents enterprise CLI.
  */
 
 import type { AuditLogger } from '../audit/logger.js'

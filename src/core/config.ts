@@ -1,5 +1,5 @@
 /**
- * Configuration loader for PFAA.
+ * Configuration loader for Aussie Agents.
  * Reads pfaa.config.json and merges with environment variables.
  */
 

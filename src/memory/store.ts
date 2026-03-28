@@ -1,5 +1,5 @@
 /**
- * PFAA Memory Store — jmem-compatible MCP memory with Qdrant backend.
+ * Aussie Agents Memory Store — jmem-compatible MCP memory with Qdrant backend.
  *
  * Features (matching jmem-mcp-server patterns):
  *   - Semantic search via sentence-transformers embeddings
