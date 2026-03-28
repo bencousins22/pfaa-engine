@@ -1,5 +1,5 @@
-# PFAA FreqTrade — Production Dockerfile for Railway
-# Runs FreqTrade with the v9 optimized PFAABitcoinStrategy
+# PFAA FreqTrade — Production Dockerfile
+# Runs FreqTrade API server with v9 PFAABitcoinStrategy
 
 FROM freqtradeorg/freqtrade:stable
 
@@ -10,15 +10,13 @@ COPY freqtrade_strategy/config_btc_optimized.json /freqtrade/config.json
 # Create data directories
 RUN mkdir -p /freqtrade/user_data/data /freqtrade/user_data/logs
 
-# Expose API port for FreqUI
+# Render uses PORT env var (default 10000)
+ENV PORT=8080
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=30s \
-    CMD curl -f http://localhost:8080/api/v1/ping || exit 1
-
-# Run FreqTrade in trade mode
-CMD ["trade", \
+# Start in webserver mode — serves API + UI without needing exchange keys
+# Switch to "trade" mode when you have Binance API keys configured
+CMD ["webserver", \
      "--config", "/freqtrade/config.json", \
      "--strategy", "PFAABitcoinStrategy", \
      "--strategy-path", "/freqtrade/user_data/strategies"]
