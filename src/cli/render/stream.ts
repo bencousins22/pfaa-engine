@@ -1,46 +1,51 @@
 /**
- * Stream renderer — Agent Zero PrintStyle-compatible output.
- * Uses the exact same color scheme as agent-zero's terminal interface.
- *
- * Color map:
- *   Tool header:     bg:white font:#1B4F72 bold
- *   Tool args/resp:  font:#85C1E9
- *   Agent stream:    font:#b3ffd9 italic
- *   Errors:          font:red
- *   Warnings:        font:orange
- *   Cleanup:         bg:white font:orange bold
- *   Success:         font:green
- *   Hints:           font:#6C3483
+ * Stream renderer — Agent Zero PrintStyle output for pfaa run command.
+ * Same hex colors, same padding behavior, same tool display format.
  */
 
 import chalk from 'chalk'
 import type { AgentEvent } from '../../core/types.js'
 import { writeFile } from 'fs/promises'
 
-const s = {
-  agentStream:        chalk.hex('#b3ffd9').italic,
-  toolHeader:         chalk.bgWhite.hex('#1B4F72').bold,
-  toolArg:            chalk.hex('#85C1E9'),
-  toolArgBold:        chalk.hex('#85C1E9').bold,
-  toolResponse:       chalk.hex('#85C1E9'),
-  agentResponse:      chalk.bgHex('#1D8348').white.bold,
-  error:              chalk.red,
-  warning:            chalk.hex('#FFA500'),
-  cleanup:            chalk.bgWhite.hex('#FFA500').bold,
-  success:            chalk.green,
-  hint:               chalk.hex('#6C3483'),
-  terminated:         chalk.bgRed.white,
-  white:              chalk.white,
+// Agent Zero colors
+const agentText = chalk.hex('#b3ffd9').italic
+const toolHead = chalk.bgWhite.hex('#1B4F72').bold
+const toolKey = chalk.hex('#85C1E9').bold
+const toolVal = chalk.hex('#85C1E9')
+const agentHead = chalk.bgHex('#1D8348').white.bold
+const err = chalk.red
+const warn = chalk.hex('#FFA500')
+const cleanup = chalk.bgWhite.hex('#FFA500').bold
+const ok = chalk.green
+const hint = chalk.hex('#6C3483')
+const dead = chalk.bgRed.white
+
+let lastEndline = true
+
+function pad() {
+  if (!lastEndline) { process.stdout.write('\n'); lastEndline = true }
+  process.stdout.write('\n')
+}
+
+function print(text: string, end = '\n') {
+  if (!lastEndline) process.stdout.write('\n')
+  process.stdout.write(text + end)
+  lastEndline = end.endsWith('\n')
+}
+
+function stream(text: string) {
+  process.stdout.write(text)
+  lastEndline = false
 }
 
 export class StreamRenderer {
   private output: string[] = []
   private opts: { json: boolean }
-  private agentName: string
+  private name: string
 
-  constructor(opts: { json: boolean }, agentName = 'Agent 0') {
+  constructor(opts: { json: boolean }, name = 'Agent 0') {
     this.opts = opts
-    this.agentName = agentName
+    this.name = name
   }
 
   render(event: AgentEvent): void {
@@ -54,61 +59,60 @@ export class StreamRenderer {
         break
 
       case 'text':
-        process.stdout.write(s.agentStream(event.content as string))
+        stream(agentText(event.content as string))
         this.output.push(event.content as string)
         break
 
       case 'tool_call': {
-        console.log()
-        console.log(s.toolHeader(` ${this.agentName}: Using tool '${event.toolName}': `))
+        pad()
+        print(toolHead(` ${this.name}: Using tool '${event.toolName}': `))
         const input = event.toolInput as Record<string, unknown>
         if (input && typeof input === 'object') {
-          for (const [key, value] of Object.entries(input)) {
-            const valStr = typeof value === 'string' ? value : JSON.stringify(value)
-            process.stdout.write(s.toolArgBold(`${key}: `))
-            process.stdout.write(s.toolArg(valStr.slice(0, 500)))
-            console.log()
+          for (const [k, v] of Object.entries(input)) {
+            const vs = typeof v === 'string' ? v : JSON.stringify(v)
+            stream(toolKey(`${k}: `))
+            print(toolVal(vs.length > 500 ? vs.slice(0, 497) + '...' : vs))
           }
         }
         break
       }
 
       case 'tool_result':
-        console.log()
-        console.log(s.toolHeader(` ${this.agentName}: Response from tool '${event.toolName}': `))
-        console.log(s.toolResponse(String(event.result).slice(0, 1000)))
+        pad()
+        print(toolHead(` ${this.name}: Response from tool '${event.toolName}': `))
+        print(toolVal(String(event.result).slice(0, 2000)))
         break
 
       case 'tool_blocked':
-        console.log()
-        console.log(s.error(`Blocked: ${event.toolName} — ${event.reason}`))
+        pad()
+        print(err(`Error: Blocked: ${event.toolName} — ${event.reason}`))
         break
 
       case 'tool_error':
-        console.log()
-        console.log(s.error(`Error in tool '${event.toolName}': ${event.error}`))
+        pad()
+        print(err(`Error: tool '${event.toolName}': ${event.error}`))
         break
 
       case 'compacting':
-        console.log()
-        console.log(s.cleanup(` ${this.agentName}: Mid messages cleanup summary `))
-        console.log(s.warning(`Compacting (${(event.tokensBefore as number).toLocaleString()} tokens)...`))
+        pad()
+        print(cleanup(` ${this.name}: Mid messages cleanup summary `))
+        print(warn(`Compacting (${(event.tokensBefore as number).toLocaleString()} tokens)...`))
         break
 
       case 'compacted':
-        console.log(s.success(`Compacted to ${(event.tokensAfter as number).toLocaleString()} tokens`))
+        print(ok(`Compacted to ${(event.tokensAfter as number).toLocaleString()} tokens`))
         break
 
       case 'complete':
-        console.log()
-        console.log(s.agentResponse(` ${this.agentName}: response complete `))
-        console.log(s.hint(`${event.iterations} iterations · ~${(event.tokenCount as number).toLocaleString()} tokens`))
+        pad()
+        print(agentHead(` ${this.name}: reponse: `))
+        print(hint(`${event.iterations} iterations · ~${(event.tokenCount as number).toLocaleString()} tokens`))
         break
 
       case 'error':
-        console.log()
-        console.log(s.terminated(` ${this.agentName}: Error `))
-        console.log(s.error(event.message as string))
+        pad()
+        print(dead(` ${this.name}: Error `))
+        print(err(`Error: ${event.message}`))
         break
     }
   }
