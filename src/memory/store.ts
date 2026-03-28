@@ -1,17 +1,56 @@
 /**
- * Memory store — sentence-transformers embeddings via Python subprocess -> Qdrant.
- * Mirrors Agent Zero's QdrantMemoryStore with utility scoring.
+ * PFAA Memory Store — jmem-compatible MCP memory with Qdrant backend.
+ *
+ * Features (matching jmem-mcp-server patterns):
+ *   - Semantic search via sentence-transformers embeddings
+ *   - Memory areas (main, solutions, fragments, per-project)
+ *   - Fact types (episodic, semantic, procedural, foresight, profile, reflexion)
+ *   - Utility scoring with Q-learning decay
+ *   - Soft delete via valid_to timestamps
+ *   - Trust scoring for multi-agent memory sharing
+ *   - Full CRUD: store, recall, list, forget, stats
+ *
  * Degrades gracefully when Qdrant is unavailable.
  */
 
 import { randomUUID } from 'crypto'
-import { EmbedderProcess, embedder } from './embedder-process.js'
+import { embedder } from './embedder-process.js'
+
+export type FactType = 'episodic' | 'semantic' | 'procedural' | 'foresight' | 'profile' | 'reflexion'
+export type Visibility = 'private' | 'project' | 'shared' | 'broadcast'
+
+export interface MemoryMetadata {
+  id: string
+  area: string
+  content: string
+  query: string
+  timestamp: number
+  valid_from: number
+  valid_to: number | null
+  fact_type: FactType
+  confidence: number
+  utility_score: number
+  retrieval_count: number
+  success_count: number
+  failure_count: number
+  source_agent: string
+  trust_score: number
+  visibility: Visibility
+  tags: string[]
+}
 
 export interface MemoryPoint {
   id: string
   content: string
-  metadata: Record<string, unknown>
+  metadata: Partial<MemoryMetadata>
   score?: number
+}
+
+export interface MemoryStats {
+  total: number
+  byArea: Record<string, number>
+  byType: Record<string, number>
+  available: boolean
 }
 
 const COLLECTION = 'pfaa_memory'
@@ -25,11 +64,16 @@ export class MemoryStore {
     this.qdrantUrl = qdrantUrl ?? 'http://localhost:6333'
   }
 
-  async store(content: string, response: string): Promise<string | null> {
+  // ── Store a memory ──────────────────────────────────────────────
+  async store(
+    content: string,
+    response: string,
+    opts: Partial<MemoryMetadata> = {},
+  ): Promise<string | null> {
     if (!await this.checkAvailable()) return null
 
     try {
-      const id = randomUUID()
+      const id = opts.id ?? randomUUID()
       const [vector] = await this.embed([content])
       const now = Date.now() / 1000
 
@@ -38,14 +82,24 @@ export class MemoryStore {
           id,
           vector,
           payload: {
+            id,
             content: response.slice(0, 2000),
             query: content.slice(0, 500),
             timestamp: now,
-            area: 'main',
-            fact_type: 'episodic',
+            valid_from: now,
+            valid_to: null,
+            area: opts.area ?? 'main',
+            fact_type: opts.fact_type ?? 'episodic',
+            confidence: opts.confidence ?? 1.0,
             utility_score: 0.5,
             retrieval_count: 0,
-          },
+            success_count: 0,
+            failure_count: 0,
+            source_agent: opts.source_agent ?? 'pfaa',
+            trust_score: 1.0,
+            visibility: opts.visibility ?? 'private',
+            tags: opts.tags ?? [],
+          } satisfies MemoryMetadata,
         }],
       })
 
@@ -55,20 +109,37 @@ export class MemoryStore {
     }
   }
 
-  async recall(query: string, limit = 5): Promise<MemoryPoint[]> {
+  // ── Recall (semantic search) ────────────────────────────────────
+  async recall(
+    query: string,
+    limit = 5,
+    opts: { area?: string; fact_type?: FactType; threshold?: number } = {},
+  ): Promise<MemoryPoint[]> {
     if (!await this.checkAvailable()) return []
 
     try {
       const [vector] = await this.embed([query])
 
+      const filter: any = { must: [] }
+      if (opts.area) filter.must.push({ key: 'area', match: { value: opts.area } })
+      if (opts.fact_type) filter.must.push({ key: 'fact_type', match: { value: opts.fact_type } })
+      // Only current memories (valid_to is null)
+      filter.must.push({ key: 'valid_to', match: { value: null } })
+
       const resp = await this.qdrantRequest('POST', `/collections/${COLLECTION}/points/search`, {
         vector,
         limit,
-        score_threshold: 0.4,
+        score_threshold: opts.threshold ?? 0.4,
         with_payload: true,
+        filter: filter.must.length ? filter : undefined,
       })
 
       const results = (resp as any).result ?? []
+
+      // Update retrieval counts (Q-learning style)
+      const ids = results.map((r: any) => String(r.id))
+      if (ids.length) this.updateUtility(ids, 'retrieval').catch(() => {})
+
       return results.map((r: any) => ({
         id: String(r.id),
         content: String(r.payload?.content ?? ''),
@@ -80,6 +151,120 @@ export class MemoryStore {
     }
   }
 
+  // ── List all memories (paginated) ──────────────────────────────
+  async list(
+    opts: { area?: string; fact_type?: FactType; limit?: number; offset?: number } = {},
+  ): Promise<MemoryPoint[]> {
+    if (!await this.checkAvailable()) return []
+
+    try {
+      const filter: any = { must: [] }
+      if (opts.area) filter.must.push({ key: 'area', match: { value: opts.area } })
+      if (opts.fact_type) filter.must.push({ key: 'fact_type', match: { value: opts.fact_type } })
+      filter.must.push({ key: 'valid_to', match: { value: null } })
+
+      const resp = await this.qdrantRequest('POST', `/collections/${COLLECTION}/points/scroll`, {
+        limit: opts.limit ?? 20,
+        offset: opts.offset ?? null,
+        with_payload: true,
+        filter: filter.must.length ? filter : undefined,
+      })
+
+      const points = (resp as any).result?.points ?? []
+      return points.map((r: any) => ({
+        id: String(r.id),
+        content: String(r.payload?.content ?? ''),
+        metadata: r.payload ?? {},
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  // ── Forget (soft delete — sets valid_to) ───────────────────────
+  async forget(id: string): Promise<boolean> {
+    if (!await this.checkAvailable()) return false
+    try {
+      await this.qdrantRequest('POST', `/collections/${COLLECTION}/points/payload`, {
+        payload: { valid_to: Date.now() / 1000 },
+        points: [id],
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // ── Hard delete ────────────────────────────────────────────────
+  async forgetHard(id: string): Promise<boolean> {
+    if (!await this.checkAvailable()) return false
+    try {
+      await this.qdrantRequest('POST', `/collections/${COLLECTION}/points/delete`, {
+        points: [id],
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // ── Stats ──────────────────────────────────────────────────────
+  async stats(): Promise<MemoryStats> {
+    if (!await this.checkAvailable()) {
+      return { total: 0, byArea: {}, byType: {}, available: false }
+    }
+    try {
+      const resp = await this.qdrantRequest('GET', `/collections/${COLLECTION}`)
+      const total = (resp as any).result?.points_count ?? 0
+
+      // Get area/type breakdown from a sample
+      const sample = await this.list({ limit: 1000 })
+      const byArea: Record<string, number> = {}
+      const byType: Record<string, number> = {}
+      for (const m of sample) {
+        const area = (m.metadata.area as string) ?? 'unknown'
+        const type = (m.metadata.fact_type as string) ?? 'unknown'
+        byArea[area] = (byArea[area] ?? 0) + 1
+        byType[type] = (byType[type] ?? 0) + 1
+      }
+
+      return { total, byArea, byType, available: true }
+    } catch {
+      return { total: 0, byArea: {}, byType: {}, available: false }
+    }
+  }
+
+  // ── Utility scoring (Q-learning) ───────────────────────────────
+  async updateUtility(
+    ids: string[],
+    event: 'retrieval' | 'success' | 'failure',
+  ): Promise<void> {
+    if (!await this.checkAvailable()) return
+    try {
+      // Fetch current payloads
+      const resp = await this.qdrantRequest('POST', `/collections/${COLLECTION}/points`, {
+        ids,
+        with_payload: true,
+      })
+      const points = (resp as any).result ?? []
+
+      for (const point of points) {
+        const p = point.payload ?? {}
+        const rc = (p.retrieval_count ?? 0) + (event === 'retrieval' ? 1 : 0)
+        const sc = (p.success_count ?? 0) + (event === 'success' ? 1 : 0)
+        const fc = (p.failure_count ?? 0) + (event === 'failure' ? 1 : 0)
+        const total = sc + fc
+        const utility = total > 0 ? (sc / total) * 0.8 + 0.5 * 0.2 : 0.5
+
+        await this.qdrantRequest('POST', `/collections/${COLLECTION}/points/payload`, {
+          payload: { retrieval_count: rc, success_count: sc, failure_count: fc, utility_score: utility },
+          points: [String(point.id)],
+        })
+      }
+    } catch { /* silent */ }
+  }
+
+  // ── Embedding ──────────────────────────────────────────────────
   private async embed(texts: string[]): Promise<number[][]> {
     try {
       if (!embedder.ready) {
@@ -87,17 +272,15 @@ export class MemoryStore {
       }
       return await embedder.embed(texts)
     } catch {
-      // Fallback: zero vectors (memory will still work, just no semantic search)
       return texts.map(() => new Array(EMBED_DIM).fill(0))
     }
   }
 
+  // ── Qdrant availability ────────────────────────────────────────
   private async checkAvailable(): Promise<boolean> {
     if (this.available !== null) return this.available
-
     try {
       await this.qdrantRequest('GET', '/collections')
-      // Ensure collection exists
       try {
         await this.qdrantRequest('GET', `/collections/${COLLECTION}`)
       } catch {
@@ -109,13 +292,11 @@ export class MemoryStore {
     } catch {
       this.available = false
     }
-
     return this.available
   }
 
   private async qdrantRequest(method: string, path: string, body?: unknown): Promise<unknown> {
-    const url = `${this.qdrantUrl}${path}`
-    const resp = await fetch(url, {
+    const resp = await fetch(`${this.qdrantUrl}${path}`, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : {},
       body: body ? JSON.stringify(body) : undefined,

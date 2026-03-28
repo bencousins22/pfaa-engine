@@ -9,6 +9,7 @@ import { runCommand } from './commands/run.js'
 import { chatCommand } from './commands/chat.js'
 import { execCommand } from './commands/exec.js'
 import { swarmCommand } from './commands/swarm.js'
+import { memoryCommand } from './commands/memory.js'
 
 const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'))
 
@@ -34,5 +35,6 @@ program.addCommand(runCommand())
 program.addCommand(chatCommand())
 program.addCommand(execCommand())
 program.addCommand(swarmCommand())
+program.addCommand(memoryCommand())
 
 program.parse()
