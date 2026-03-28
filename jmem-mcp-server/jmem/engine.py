@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any
 
-from jmem_mcp_server.jmem.vector_store import PureVectorStore
+from jmem.vector_store import PureVectorStore
 
 logger = logging.getLogger("jmem.engine")
 
@@ -359,7 +359,7 @@ class JMemEngine:
     @staticmethod
     def _extract_keywords(text: str, max_keywords: int = 8) -> list[str]:
         """Simple keyword extraction based on word frequency."""
-        from jmem_mcp_server.jmem.vector_store import _tokenize
+        from jmem.vector_store import _tokenize
         tokens = _tokenize(text)
         from collections import Counter
         freq = Counter(tokens)

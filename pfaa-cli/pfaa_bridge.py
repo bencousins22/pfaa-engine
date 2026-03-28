@@ -188,6 +188,112 @@ async def handle_command(cmd: dict) -> dict:
                 "file": args.get("output_file"),
             }, start_ns)
 
+        elif action == "list_checkpoints":
+            from agent_setup_cli.core.autonomous import AutonomousAgent
+            agent = AutonomousAgent()
+            checkpoints = agent.checkpoints()
+            return _ok(cmd_id, checkpoints, start_ns)
+
+        elif action == "resume_goal":
+            from agent_setup_cli.core.autonomous import AutonomousAgent
+            agent = AutonomousAgent()
+            goal_id = args.get("goal_id", "")
+            state = await agent.resume(goal_id)
+            return _ok(cmd_id, {
+                "goal_id": state.goal_id,
+                "status": state.status.value,
+                "completed": sum(1 for st in state.subtasks if st.status == "completed"),
+            }, start_ns)
+
+        elif action == "get_memory":
+            from agent_setup_cli.core.persistence import PersistentMemory
+            mem = PersistentMemory()
+            dump = mem.dump()
+            mem.close()
+            return _ok(cmd_id, dump, start_ns)
+
+        elif action == "pipeline":
+            from agent_setup_cli.core.tools import ToolRegistry
+            import agent_setup_cli.core.tools_extended  # noqa: F401
+
+            registry = ToolRegistry.get()
+            steps = args.get("steps", [])
+            results = []
+            for step in steps:
+                tool_name = step.get("tool", "")
+                tool_args = tuple(step.get("args", []))
+                try:
+                    result = await registry.execute(tool_name, *tool_args)
+                    results.append({
+                        "tool": tool_name,
+                        "success": True,
+                        "result": result.result,
+                        "phase": result.phase_used.name,
+                        "elapsed_us": result.elapsed_us,
+                    })
+                except Exception as e:
+                    results.append({
+                        "tool": tool_name,
+                        "success": False,
+                        "result": str(e),
+                        "phase": "ERROR",
+                        "elapsed_us": 0,
+                    })
+            return _ok(cmd_id, results, start_ns)
+
+        elif action == "explore":
+            from agent_setup_cli.core.framework import Framework
+            fw = Framework()
+            rounds = args.get("rounds", 200)
+            epsilon = args.get("epsilon", 0.3)
+            # Run exploration
+            results = {}
+            for i in range(rounds):
+                for tool_name in ["compute", "hash_data", "json_parse", "regex_extract", "line_count"]:
+                    try:
+                        result = await fw.tool(tool_name, "test")
+                        results.setdefault(tool_name, []).append({
+                            "phase": result.phase_used.name,
+                            "elapsed_us": result.elapsed_us,
+                        })
+                    except Exception:
+                        pass
+            # Summarize
+            summary = {}
+            for tool_name, runs in results.items():
+                by_phase = {}
+                for r in runs:
+                    by_phase.setdefault(r["phase"], []).append(r["elapsed_us"])
+                summary[tool_name] = {
+                    phase: {"avg_us": sum(times) // len(times), "count": len(times)}
+                    for phase, times in by_phase.items()
+                }
+            await fw.shutdown()
+            return _ok(cmd_id, {"rounds": rounds, "epsilon": epsilon, "tools": summary}, start_ns)
+
+        elif action == "spawn_team":
+            import subprocess as sp
+            goal = args.get("goal", "")
+            mode = args.get("mode", "basic")
+            script = "agents/team/remix_spawn.py" if mode == "remix" else "agents/team/spawn.py"
+            script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), script)
+
+            if not os.path.exists(script_path):
+                return _err(cmd_id, f"Team script not found: {script_path}", start_ns)
+
+            proc = sp.run(
+                [sys.executable, script_path, goal],
+                capture_output=True, text=True, timeout=600,
+                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            )
+            return _ok(cmd_id, {
+                "mode": mode,
+                "goal": goal,
+                "exit_code": proc.returncode,
+                "stdout": proc.stdout[-2000:] if proc.stdout else "",
+                "stderr": proc.stderr[-1000:] if proc.stderr else "",
+            }, start_ns)
+
         elif action == "self_build":
             from agent_setup_cli.core.self_build import SelfBuilder
             builder = SelfBuilder()

@@ -376,6 +376,19 @@ class PureVectorStore:
                 self._embedding_cache.pop(doc_id, None)
             await asyncio.to_thread(_delete_sync)
 
+    async def get_all(self, limit: int = 1000) -> list[dict[str, Any]]:
+        """Return all documents up to limit."""
+        await self._ensure_initialized()
+        def _get_all_sync() -> list[dict[str, Any]]:
+            rows = self._conn.execute(
+                "SELECT id, text, metadata, created_at FROM documents LIMIT ?", (limit,),
+            ).fetchall()
+            return [
+                {"id": r[0], "text": r[1], "metadata": json.loads(r[2]) if r[2] else {}, "created_at": r[3]}
+                for r in rows
+            ]
+        return await asyncio.to_thread(_get_all_sync)
+
     async def count(self) -> int:
         await self._ensure_initialized()
         row = await asyncio.to_thread(lambda: self._conn.execute("SELECT COUNT(*) FROM documents").fetchone())

@@ -5,7 +5,6 @@
  * Supports audit mode for enterprise compliance requirements.
  */
 
-import { createRequire } from 'node:module';
 import { mkdirSync, existsSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -175,7 +174,7 @@ export function getLogger(context?: string): Logger {
     const auditDir = join(homedir(), '.pfaa', 'audit');
     _logger = new Logger(
       'pfaa',
-      LogLevel.INFO,
+      LogLevel.WARN,
       join(auditDir, 'pfaa-audit.jsonl'),
     );
   }

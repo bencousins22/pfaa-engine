@@ -13,4 +13,4 @@ Features:
 
 __version__ = "1.0.0"
 
-from jmem_mcp_server.jmem.engine import JMemEngine, MemoryLevel, MemoryNote  # noqa: F401
+from jmem.engine import JMemEngine, MemoryLevel, MemoryNote  # noqa: F401

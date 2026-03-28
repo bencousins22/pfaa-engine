@@ -172,15 +172,6 @@ export class PFAABridge extends EventEmitter {
     return resp.data as ToolResult[];
   }
 
-  async memoryStatus(): Promise<MemoryStatus> {
-    const resp = await this.send('memory_status', {});
-    return resp.data as MemoryStatus;
-  }
-
-  async forceLearn(): Promise<void> {
-    await this.send('force_learn', {});
-  }
-
   async selfBuild(autoApply: boolean = false): Promise<Record<string, unknown>> {
     const resp = await this.send('self_build', { auto_apply: autoApply }, 300_000);
     return resp.data as Record<string, unknown>;
@@ -188,6 +179,68 @@ export class PFAABridge extends EventEmitter {
 
   async benchmark(): Promise<Record<string, unknown>> {
     const resp = await this.send('benchmark', {}, 600_000);
+    return resp.data as Record<string, unknown>;
+  }
+
+  // ── Goal & Task Management ──────────────────────────────────────
+
+  async listCheckpoints(): Promise<Array<{
+    goal_id: string;
+    goal: string;
+    status: string;
+    subtasks: number;
+    completed: number;
+  }>> {
+    const resp = await this.send('list_checkpoints', {});
+    return resp.data as any;
+  }
+
+  async resumeGoal(goalId: string): Promise<AgentResult> {
+    const resp = await this.send('resume_goal', { goal_id: goalId }, this.config.timeoutMs);
+    return resp.data as AgentResult;
+  }
+
+  // ── Memory Operations ─────────────────────────────────────────
+
+  async getMemory(): Promise<{
+    patterns: Array<{ tool: string; best_phase: string; avg_latency_us: number; confidence: number }>;
+    strategies: Array<{ tool: string; from_phase: string; to_phase: string; speedup: string }>;
+    episodes: number;
+    knowledge: Array<{ pattern: string; frequency: number }>;
+  }> {
+    const resp = await this.send('get_memory', {});
+    return resp.data as any;
+  }
+
+  async forceLearn(): Promise<{ learned: boolean }> {
+    const resp = await this.send('force_learn', {});
+    return resp.data as any;
+  }
+
+  // ── Scatter / Pipeline ────────────────────────────────────────
+
+  async pipeline(steps: Array<{ tool: string; args: unknown[] }>): Promise<Array<{
+    tool: string;
+    success: boolean;
+    result: unknown;
+    phase: string;
+    elapsed_us: number;
+  }>> {
+    const resp = await this.send('pipeline', { steps }, this.config.timeoutMs);
+    return resp.data as any;
+  }
+
+  // ── Exploration ───────────────────────────────────────────────
+
+  async explore(rounds: number = 200, epsilon: number = 0.3): Promise<Record<string, unknown>> {
+    const resp = await this.send('explore', { rounds, epsilon }, 300_000);
+    return resp.data as Record<string, unknown>;
+  }
+
+  // ── Team Spawning ─────────────────────────────────────────────
+
+  async spawnTeam(goal: string, mode: 'basic' | 'remix' = 'basic'): Promise<Record<string, unknown>> {
+    const resp = await this.send('spawn_team', { goal, mode }, 600_000);
     return resp.data as Record<string, unknown>;
   }
 

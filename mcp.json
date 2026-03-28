@@ -3,9 +3,10 @@
     "jmem": {
       "command": "python3",
       "args": ["-m", "jmem"],
+      "cwd": "jmem-mcp-server",
       "env": {
-        "PYTHONPATH": ".",
-        "JMEM_AGENT": "pfaa"
+        "PYTHONPATH": "jmem-mcp-server",
+        "PFAA_AGENT_NAME": "pfaa"
       }
     }
   }

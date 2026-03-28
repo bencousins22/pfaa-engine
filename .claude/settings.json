@@ -22,8 +22,10 @@
   "mcpServers": {
     "jmem": {
       "command": "python3",
-      "args": ["-m", "jmem_mcp_server.jmem.server"],
+      "args": ["-m", "jmem"],
+      "cwd": "/Users/borris/Desktop/pfaa-engine/jmem-mcp-server",
       "env": {
+        "PYTHONPATH": "/Users/borris/Desktop/pfaa-engine/jmem-mcp-server",
         "PFAA_AGENT_NAME": "claude-code"
       }
     }

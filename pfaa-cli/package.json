@@ -1,15 +1,23 @@
 {
-  "name": "@pfaa/cli",
+  "name": "@aussie-agents/pfaa",
   "version": "1.0.0",
-  "description": "Enterprise AI CLI — Phase-Fluid Agent Architecture for Python 3.15",
+  "description": "Phase-Fluid Agent Architecture — AI agent CLI with 48 tools, 5-layer memory, multi-agent swarms, Python 3.15",
   "type": "module",
   "bin": {
     "pfaa": "./dist/cli.js"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/",
+    "pfaa_bridge.py",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
+    "prepare": "tsc",
     "lint": "eslint src/",
     "test": "vitest run"
   },
@@ -17,33 +25,12 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.0",
-    "@anthropic-ai/claude-agent-sdk": "^0.2.85",
     "@anthropic-ai/sdk": "^0.40.1",
-    "ai": "^6.0.0",
-    "boxen": "^8.0.0",
-    "chalk": "^5.3.0",
     "commander": "^12.0.0",
-    "conf": "^13.0.0",
-    "eventemitter3": "^5.0.0",
-    "figures": "^6.0.0",
-    "inquirer": "^10.0.0",
-    "nanoid": "^5.0.0",
-    "ora": "^8.0.0",
-    "p-queue": "^8.0.0",
-    "p-retry": "^6.2.0",
-    "pino": "^9.0.0",
-    "pino-pretty": "^11.0.0",
-    "table": "^6.8.0",
-    "ws": "^8.18.0",
-    "yaml": "^2.4.0",
-    "zod": "^3.23.0"
+    "nanoid": "^5.0.0"
   },
   "devDependencies": {
-    "@types/inquirer": "^9.0.0",
     "@types/node": "^22.0.0",
-    "@types/ws": "^8.5.0",
-    "eslint": "^9.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
@@ -52,13 +39,21 @@
     "pfaa",
     "ai-cli",
     "agent",
+    "agent-zero",
     "phase-fluid",
     "python-3.15",
-    "enterprise",
+    "swarm",
+    "multi-agent",
     "mcp",
     "jmem",
-    "claude"
+    "claude",
+    "enterprise"
   ],
   "license": "MIT",
-  "author": "Jamie (@bencousins22)"
+  "author": "Aussie Agents <team@aussieagents.dev>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aussie-Agents/pfaa-engine"
+  },
+  "homepage": "https://github.com/Aussie-Agents/pfaa-engine#readme"
 }

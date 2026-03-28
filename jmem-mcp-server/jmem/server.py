@@ -24,7 +24,7 @@ import os
 import sys
 from typing import Any
 
-from jmem_mcp_server.jmem.engine import JMemEngine, MemoryLevel
+from jmem.engine import JMemEngine, MemoryLevel
 
 logger = logging.getLogger("jmem.server")
 

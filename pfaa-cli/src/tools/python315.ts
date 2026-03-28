@@ -115,8 +115,6 @@ export class Python315Tools {
    * Analyze an entire directory of Python files.
    */
   analyzeDirectory(dirPath: string): CodeAnalysis[] {
-    const { globSync } = require('node:fs');
-    // Fall back to manual glob
     const files = this.findPythonFiles(dirPath);
     return files.map((f) => this.analyzeFile(f));
   }
