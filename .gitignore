@@ -15,3 +15,4 @@ node_modules/
 dist/
 .pfaa/
 *.ndjson
+user_data/
