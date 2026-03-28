@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jmem-mcp-server"
+version = "1.0.0"
+description = "Persistent semantic memory for AI agents — 7 MCP tools, 5 cognitive layers, Q-learning reinforcement"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{ name = "Aussie Agents", email = "team@aussieagents.dev" }]
+keywords = ["mcp", "memory", "semantic", "ai-agent", "jmem", "q-learning"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Intended Audience :: Developers",
+]
+
+[project.scripts]
+jmem-server = "jmem.server:main"
+
+[project.urls]
+Homepage = "https://github.com/Aussie-Agents/jmem-mcp-server"
+Repository = "https://github.com/Aussie-Agents/jmem-mcp-server"
