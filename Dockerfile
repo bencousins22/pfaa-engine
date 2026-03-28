@@ -1,16 +1,6 @@
-# PFAA FreqTrade — Production Dockerfile
 FROM freqtradeorg/freqtrade:stable
-
-# Copy strategy, config, and start script
-COPY freqtrade_strategy/ /freqtrade/user_data/strategies/
 COPY freqtrade_strategy/config_btc_optimized.json /freqtrade/config.json
-COPY start.sh /freqtrade/start.sh
-
-RUN mkdir -p /freqtrade/user_data/data /freqtrade/user_data/logs && \
-    chmod +x /freqtrade/start.sh
-
+COPY freqtrade_strategy/pfaa_btc_strategy.py /freqtrade/user_data/strategies/pfaa_btc_strategy.py
+RUN mkdir -p /freqtrade/user_data/data /freqtrade/user_data/logs
 EXPOSE 8080
-
-# Smart start: trade mode if exchange loads, webserver fallback
-ENTRYPOINT ["/bin/bash"]
-CMD ["/freqtrade/start.sh"]
+CMD ["webserver", "--config", "/freqtrade/config.json"]
