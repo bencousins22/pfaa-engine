@@ -90,7 +90,8 @@ export class AgentTeam extends EventEmitter {
     })
 
     const result = await this.proc
-    const finalLines = result.stdout.split('\n').filter(l => {
+    const stdout = String(result.stdout ?? '')
+    const finalLines = stdout.split('\n').filter((l: string) => {
       try { return JSON.parse(l)?.type === 'final_result' } catch { return false }
     })
     return JSON.parse(finalLines.at(-1) ?? '{}')
