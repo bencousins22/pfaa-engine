@@ -1,38 +1,46 @@
 /**
- * Stream renderer — formats agent events for terminal output.
- * Rich colorful display with gradient accents and icon decorations.
+ * Stream renderer — Agent Zero PrintStyle-compatible output.
+ * Uses the exact same color scheme as agent-zero's terminal interface.
+ *
+ * Color map:
+ *   Tool header:     bg:white font:#1B4F72 bold
+ *   Tool args/resp:  font:#85C1E9
+ *   Agent stream:    font:#b3ffd9 italic
+ *   Errors:          font:red
+ *   Warnings:        font:orange
+ *   Cleanup:         bg:white font:orange bold
+ *   Success:         font:green
+ *   Hints:           font:#6C3483
  */
 
 import chalk from 'chalk'
 import type { AgentEvent } from '../../core/types.js'
 import { writeFile } from 'fs/promises'
 
-// ── Color palette (shared with run_cli) ──────────────────────────────
-const C = {
-  purple:      chalk.hex('#8B5CF6'),
-  emerald:     chalk.hex('#34D399'),
-  emeraldBold: chalk.hex('#10B981').bold,
-  emeraldDim:  chalk.hex('#047857'),
-  cyan:        chalk.hex('#22D3EE'),
-  cyanBold:    chalk.hex('#06B6D4').bold,
-  amber:       chalk.hex('#FBBF24'),
-  amberDim:    chalk.hex('#D97706'),
-  rose:        chalk.hex('#FB7185'),
-  roseBold:    chalk.hex('#F43F5E').bold,
-  sky:         chalk.hex('#38BDF8'),
-  bright:      chalk.hex('#F8FAFC'),
-  dim:         chalk.hex('#94A3B8'),
-  muted:       chalk.hex('#64748B'),
-  lime:        chalk.hex('#A3E635'),
-  indigo:      chalk.hex('#818CF8'),
+const s = {
+  agentStream:        chalk.hex('#b3ffd9').italic,
+  toolHeader:         chalk.bgWhite.hex('#1B4F72').bold,
+  toolArg:            chalk.hex('#85C1E9'),
+  toolArgBold:        chalk.hex('#85C1E9').bold,
+  toolResponse:       chalk.hex('#85C1E9'),
+  agentResponse:      chalk.bgHex('#1D8348').white.bold,
+  error:              chalk.red,
+  warning:            chalk.hex('#FFA500'),
+  cleanup:            chalk.bgWhite.hex('#FFA500').bold,
+  success:            chalk.green,
+  hint:               chalk.hex('#6C3483'),
+  terminated:         chalk.bgRed.white,
+  white:              chalk.white,
 }
 
 export class StreamRenderer {
   private output: string[] = []
   private opts: { json: boolean }
+  private agentName: string
 
-  constructor(opts: { json: boolean }) {
+  constructor(opts: { json: boolean }, agentName = 'Agent 0') {
     this.opts = opts
+    this.agentName = agentName
   }
 
   render(event: AgentEvent): void {
@@ -43,72 +51,64 @@ export class StreamRenderer {
 
     switch (event.type) {
       case 'start':
-        process.stdout.write(
-          '\n  ' + C.purple('●') + C.dim(` session: `) + C.indigo(event.sessionId as string) + '\n\n'
-        )
         break
 
       case 'text':
-        process.stdout.write(C.bright(event.content as string))
+        process.stdout.write(s.agentStream(event.content as string))
         this.output.push(event.content as string)
         break
 
-      case 'tool_call':
-        process.stdout.write(
-          '\n    ' + C.cyanBold(`⚙ ${event.toolName}`) +
-          C.muted(` ${JSON.stringify(event.toolInput)}`) + '\n'
-        )
+      case 'tool_call': {
+        console.log()
+        console.log(s.toolHeader(` ${this.agentName}: Using tool '${event.toolName}': `))
+        const input = event.toolInput as Record<string, unknown>
+        if (input && typeof input === 'object') {
+          for (const [key, value] of Object.entries(input)) {
+            const valStr = typeof value === 'string' ? value : JSON.stringify(value)
+            process.stdout.write(s.toolArgBold(`${key}: `))
+            process.stdout.write(s.toolArg(valStr.slice(0, 500)))
+            console.log()
+          }
+        }
         break
+      }
 
       case 'tool_result':
-        process.stdout.write(
-          '    ' + C.emeraldDim('  ↳ ') +
-          C.dim(String(event.result).slice(0, 200)) + '\n\n'
-        )
+        console.log()
+        console.log(s.toolHeader(` ${this.agentName}: Response from tool '${event.toolName}': `))
+        console.log(s.toolResponse(String(event.result).slice(0, 1000)))
         break
 
       case 'tool_blocked':
-        process.stdout.write(
-          '\n    ' + C.roseBold(`🚫 blocked: ${event.toolName}`) +
-          C.rose(` — ${event.reason}`) + '\n'
-        )
+        console.log()
+        console.log(s.error(`Blocked: ${event.toolName} — ${event.reason}`))
         break
 
       case 'tool_error':
-        process.stdout.write(
-          '\n    ' + C.roseBold(`✗ ${event.toolName}`) +
-          C.rose(`: ${event.error}`) + '\n'
-        )
+        console.log()
+        console.log(s.error(`Error in tool '${event.toolName}': ${event.error}`))
         break
 
       case 'compacting':
-        process.stdout.write(
-          '\n    ' + C.amber(`📦 compacting context`) +
-          C.amberDim(` (${(event.tokensBefore as number).toLocaleString()} tokens)`) + '\n'
-        )
+        console.log()
+        console.log(s.cleanup(` ${this.agentName}: Mid messages cleanup summary `))
+        console.log(s.warning(`Compacting (${(event.tokensBefore as number).toLocaleString()} tokens)...`))
         break
 
       case 'compacted':
-        process.stdout.write(
-          '    ' + C.lime(`✓ compacted to ${(event.tokensAfter as number).toLocaleString()} tokens`) + '\n\n'
-        )
+        console.log(s.success(`Compacted to ${(event.tokensAfter as number).toLocaleString()} tokens`))
         break
 
       case 'complete':
-        process.stdout.write(
-          '\n  ' + C.muted('─'.repeat(56)) + '\n' +
-          '    ' + C.emeraldBold('✓ done') +
-          C.dim('  ·  ') +
-          C.indigo(`${event.iterations} iterations`) +
-          C.dim('  ·  ') +
-          C.amber(`~${(event.tokenCount as number).toLocaleString()} tokens`) + '\n'
-        )
+        console.log()
+        console.log(s.agentResponse(` ${this.agentName}: response complete `))
+        console.log(s.hint(`${event.iterations} iterations · ~${(event.tokenCount as number).toLocaleString()} tokens`))
         break
 
       case 'error':
-        process.stdout.write(
-          '\n    ' + C.roseBold(`✗ ${event.message}`) + '\n'
-        )
+        console.log()
+        console.log(s.terminated(` ${this.agentName}: Error `))
+        console.log(s.error(event.message as string))
         break
     }
   }

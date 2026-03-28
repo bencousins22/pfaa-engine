@@ -1,8 +1,22 @@
 #!/usr/bin/env node
 /**
  * PFAA CLI — run_cli.ts
- * Agent Zero-style terminal loop with rich colorful output.
- * Gradient banners, animated spinners, tier-colored tool calls.
+ *
+ * Exact replica of Agent Zero's run_cli.py terminal interface,
+ * ported to Node.js with all PFAA enterprise features.
+ *
+ * Agent Zero color scheme:
+ *   User prompt:    bg:#6C3483 font:white bold  (purple bg)
+ *   Agent response: bg:#1D8348 font:white bold  (green bg)
+ *   Agent stream:   font:#b3ffd9 italic         (mint green)
+ *   Tool header:    bg:white font:#1B4F72 bold  (dark blue on white)
+ *   Tool args:      font:#85C1E9 bold           (light blue)
+ *   Tool response:  font:#85C1E9                (light blue)
+ *   Errors:         font:red
+ *   Warnings:       font:orange
+ *   Hints:          font:#6C3483                (purple)
+ *   Intervention:   bg:#6C3483 font:white bold
+ *   Terminated:     bg:red font:white
  */
 
 import readline from 'readline'
@@ -12,360 +26,306 @@ import { loadConfig } from '../core/config.js'
 import { AuditLogger } from '../audit/logger.js'
 import type { PFAAConfig } from '../core/types.js'
 
-// ── Color Palette ───────────────────────────────────────────────────
-const C = {
-  // Primary brand — deep purple gradient
-  purple:      chalk.hex('#8B5CF6'),
-  purpleBold:  chalk.hex('#A78BFA').bold,
-  purpleDim:   chalk.hex('#6D28D9'),
-  purpleBg:    chalk.bgHex('#7C3AED').white.bold,
+// ── Agent Zero PrintStyle equivalents ───────────────────────────────
+// These match the exact hex colors from agent-zero's PrintStyle calls
 
-  // Agent response — emerald green gradient
-  emerald:     chalk.hex('#34D399'),
-  emeraldBold: chalk.hex('#10B981').bold,
-  emeraldBg:   chalk.bgHex('#059669').white.bold,
-  emeraldDim:  chalk.hex('#047857'),
+const style = {
+  // User prompt header — bg:#6C3483 font:white bold padding:true
+  userPrompt: (text: string) =>
+    chalk.bgHex('#6C3483').white.bold(` ${text} `),
 
-  // Tool calls — electric cyan
-  cyan:        chalk.hex('#22D3EE'),
-  cyanBold:    chalk.hex('#06B6D4').bold,
-  cyanDim:     chalk.hex('#0891B2'),
+  // Agent response header — bg:#1D8348 font:white bold padding:true
+  agentHeader: (text: string) =>
+    chalk.bgHex('#1D8348').white.bold(` ${text} `),
 
-  // Results — warm amber
-  amber:       chalk.hex('#FBBF24'),
-  amberDim:    chalk.hex('#D97706'),
+  // Agent streaming text — font:#b3ffd9 italic
+  agentStream: (text: string) =>
+    chalk.hex('#b3ffd9').italic(text),
 
-  // Errors — vivid rose
-  rose:        chalk.hex('#FB7185'),
-  roseBold:    chalk.hex('#F43F5E').bold,
-  roseBg:      chalk.bgHex('#E11D48').white.bold,
+  // Agent "Generating" — bg:white font:green bold padding:true
+  agentGenerating: (text: string) =>
+    chalk.bgWhite.green.bold(` ${text} `),
 
-  // Status — soft sky blue
-  sky:         chalk.hex('#38BDF8'),
-  skyDim:      chalk.hex('#0284C7'),
+  // Tool "Using tool" header — bg:white font:#1B4F72 bold padding:true
+  toolHeader: (text: string) =>
+    chalk.bgWhite.hex('#1B4F72').bold(` ${text} `),
 
-  // Text
-  bright:      chalk.hex('#F8FAFC'),
-  dim:         chalk.hex('#94A3B8'),
-  muted:       chalk.hex('#64748B'),
+  // Tool args key — font:#85C1E9 bold
+  toolArgKey: (text: string) =>
+    chalk.hex('#85C1E9').bold(text),
 
-  // Accents
-  gold:        chalk.hex('#F59E0B'),
-  pink:        chalk.hex('#EC4899'),
-  indigo:      chalk.hex('#818CF8'),
-  lime:        chalk.hex('#A3E635'),
-  orange:      chalk.hex('#FB923C'),
-}
+  // Tool args value — font:#85C1E9
+  toolArgValue: (text: string) =>
+    chalk.hex('#85C1E9')(text),
 
-// ── Decorative characters ───────────────────────────────────────────
-const ICONS = {
-  gear:     '⚙',
-  arrow:    '↳',
-  check:    '✓',
-  cross:    '✗',
-  bolt:     '⚡',
-  brain:    '🧠',
-  rocket:   '🚀',
-  shield:   '🛡',
-  chain:    '🔗',
-  compress: '📦',
-  sparkle:  '✨',
-  wave:     '👋',
-  block:    '🚫',
-  warning:  '⚠',
-  dot:      '●',
-  ring:     '○',
-}
+  // Tool response header — bg:white font:#1B4F72 bold padding:true
+  toolResponseHeader: (text: string) =>
+    chalk.bgWhite.hex('#1B4F72').bold(` ${text} `),
 
-// ── Print functions with rich colors ────────────────────────────────
-const print = {
-  userHeader: (msg: string) => {
-    console.log()
-    console.log(C.purpleBg(` ${ICONS.sparkle} ${msg} `))
-  },
+  // Tool response content — font:#85C1E9
+  toolResponse: (text: string) =>
+    chalk.hex('#85C1E9')(text),
 
-  agentHeader: (agentName: string) => {
-    process.stdout.write('\n' + C.emeraldBg(` ${ICONS.brain} ${agentName} `) + '\n')
-  },
+  // Intervention — bg:#6C3483 font:white bold padding:true
+  intervention: (text: string) =>
+    chalk.bgHex('#6C3483').white.bold(` ${text} `),
 
-  toolCall: (name: string, input: string) => {
-    const truncated = input.length > 120 ? input.slice(0, 117) + '...' : input
-    process.stdout.write(
-      '\n    ' + C.cyanBold(`${ICONS.gear} ${name}`) +
-      C.muted(` ${truncated}`) + '\n'
-    )
-  },
+  // Errors — font:red padding:true
+  error: (text: string) =>
+    chalk.red(text),
 
-  toolResult: (result: string) => {
-    const truncated = result.slice(0, 300).replace(/\n/g, ' ')
-    process.stdout.write(
-      '    ' + C.emeraldDim(`  ${ICONS.arrow} `) +
-      C.dim(truncated) + '\n'
-    )
-  },
+  // Warnings — font:orange padding:true
+  warning: (text: string) =>
+    chalk.hex('#FFA500')(text),
 
-  toolBlocked: (name: string, reason: string) => {
-    process.stdout.write(
-      '\n    ' + C.roseBold(`${ICONS.block} blocked: ${name}`) +
-      C.rose(` — ${reason}`) + '\n'
-    )
-  },
+  // Hints — font:#6C3483
+  hint: (text: string) =>
+    chalk.hex('#6C3483')(text),
 
-  error: (msg: string) => {
-    console.log('    ' + C.roseBold(`${ICONS.cross} ${msg}`))
-  },
+  // Context terminated — bg:red font:white padding:true
+  terminated: (text: string) =>
+    chalk.bgRed.white(` ${text} `),
 
-  status: (msg: string) => {
-    process.stdout.write('    ' + C.sky(`${ICONS.dot} ${msg}`) + '\n')
-  },
+  // Cleanup/compaction — bg:white font:orange bold
+  cleanup: (text: string) =>
+    chalk.bgWhite.hex('#FFA500').bold(` ${text} `),
 
-  stream: (text: string) => {
-    process.stdout.write(C.bright(text))
-  },
+  // Standard/info — font:blue
+  info: (text: string) =>
+    chalk.blue(text),
 
-  standard: (msg: string) => {
-    console.log(C.dim(msg))
-  },
+  // Success — font:green
+  success: (text: string) =>
+    chalk.green(text),
 
-  divider: () => {
-    const gradient = '─'.repeat(60)
-    console.log(C.muted(gradient))
-  },
-
-  success: (msg: string) => {
-    console.log('    ' + C.emeraldBold(`${ICONS.check} ${msg}`))
-  },
-
-  compacting: (tokens: number) => {
-    process.stdout.write(
-      '    ' + C.amber(`${ICONS.compress} compacting context`) +
-      C.amberDim(` (${tokens.toLocaleString()} tokens)...`) + '\n'
-    )
-  },
-
-  compacted: (tokens: number) => {
-    process.stdout.write(
-      '    ' + C.lime(`${ICONS.check} compacted to ${tokens.toLocaleString()} tokens`) + '\n\n'
-    )
-  },
+  // White text (plain output)
+  white: (text: string) =>
+    chalk.white(text),
 }
 
 // ── Session state ────────────────────────────────────────────────────
 let interrupted = false
+let streaming = false
 
-// ── Keypress intervention ────────────────────────────────────────────
+// ── Keypress capture (mirrors Agent Zero's capture_keys thread) ─────
 function captureKeys(): void {
   if (process.stdin.isTTY) {
     readline.emitKeypressEvents(process.stdin)
     process.stdin.setRawMode(true)
     process.stdin.on('keypress', (_str, key) => {
-      if (key?.ctrl && key.name === 'c') {
-        console.log('\n\n    ' + C.amber(`${ICONS.warning} Interrupted.`) + C.dim(` Type 'e' to exit or press Enter to continue.`))
+      if (streaming && key && (key.name?.match(/^[a-z]$/) || key.name === 'space')) {
+        // Any alpha key or space during streaming triggers intervention
+        // (same behavior as Agent Zero's capture_keys)
         interrupted = true
+      }
+      if (key?.ctrl && key.name === 'c') {
+        if (streaming) {
+          interrupted = true
+        } else {
+          process.exit(0)
+        }
       }
     })
   }
 }
 
-// ── User input ──────────────────────────────────────────────────────
-async function getUserInput(prompt: string): Promise<string> {
+// ── User input (mirrors Agent Zero's input with optional timeout) ───
+async function getUserInput(prompt: string, timeout?: number): Promise<string> {
   if (process.stdin.isTTY) {
     try { process.stdin.setRawMode(false) } catch { /* ignore */ }
   }
 
   return new Promise((resolve) => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true })
-    rl.question(C.purpleBold(prompt), (answer) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: true,
+    })
+
+    let timer: ReturnType<typeof setTimeout> | null = null
+
+    if (timeout) {
+      timer = setTimeout(() => {
+        rl.close()
+        resolve('') // empty = auto-continue (like fw.msg_timeout)
+      }, timeout * 1000)
+    }
+
+    rl.question(prompt, (answer) => {
+      if (timer) clearTimeout(timer)
       rl.close()
       resolve(answer.trim())
     })
   })
 }
 
-// ── Gradient text helper ────────────────────────────────────────────
-function gradient(text: string, colors: string[]): string {
-  const chars = [...text]
-  return chars.map((c, i) => {
-    const colorIdx = Math.floor((i / chars.length) * colors.length)
-    return chalk.hex(colors[Math.min(colorIdx, colors.length - 1)])(c)
-  }).join('')
+// ── Intervention handler (mirrors Agent Zero's intervention()) ──────
+async function handleIntervention(): Promise<string | null> {
+  // Exact Agent Zero style: bg:#6C3483 font:white bold
+  console.log()
+  console.log(style.intervention(`User intervention ('e' to leave, empty to continue):`))
+
+  const input = await getUserInput('> ')
+
+  if (input.toLowerCase() === 'e') {
+    process.exit(0)
+  }
+
+  return input || null
 }
 
-// ── Banner ───────────────────────────────────────────────────────────
-function printBanner(provider: string, model: string, sandbox: boolean): void {
-  const gradColors = ['#8B5CF6', '#7C3AED', '#6D28D9', '#5B21B6', '#4C1D95']
-  const w = 54
-
-  console.log()
-  console.log(gradient('╔' + '═'.repeat(w) + '╗', gradColors))
-  console.log(
-    C.purpleDim('║') +
-    '                                                      ' +
-    C.purpleDim('║')
-  )
-  console.log(
-    C.purpleDim('║') +
-    gradient('     ██████  ███████  █████   █████               ', ['#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9']) +
-    '    ' +
-    C.purpleDim('║')
-  )
-  console.log(
-    C.purpleDim('║') +
-    gradient('     ██   ██ ██      ██   ██ ██   ██              ', ['#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9']) +
-    '    ' +
-    C.purpleDim('║')
-  )
-  console.log(
-    C.purpleDim('║') +
-    gradient('     ██████  █████   ███████ ███████              ', ['#C4B5FD', '#A78BFA', '#8B5CF6', '#7C3AED']) +
-    '    ' +
-    C.purpleDim('║')
-  )
-  console.log(
-    C.purpleDim('║') +
-    gradient('     ██      ██      ██   ██ ██   ██              ', ['#8B5CF6', '#7C3AED', '#6D28D9', '#5B21B6']) +
-    '    ' +
-    C.purpleDim('║')
-  )
-  console.log(
-    C.purpleDim('║') +
-    gradient('     ██      ██      ██   ██ ██   ██              ', ['#7C3AED', '#6D28D9', '#5B21B6', '#4C1D95']) +
-    '    ' +
-    C.purpleDim('║')
-  )
-  console.log(
-    C.purpleDim('║') +
-    '                                                      ' +
-    C.purpleDim('║')
-  )
-  console.log(
-    C.purpleDim('║') +
-    C.dim('   Platform for Autonomous Agents') +
-    C.muted(' · enterprise') +
-    '      ' +
-    C.purpleDim('║')
-  )
-  console.log(
-    C.purpleDim('║') +
-    '                                                      ' +
-    C.purpleDim('║')
-  )
-  console.log(gradient('╚' + '═'.repeat(w) + '╝', gradColors))
-  console.log()
-
-  // Status line with colored badges
-  const providerBadge = provider === 'claude'
-    ? C.orange(`${ICONS.bolt} Claude`)
-    : C.sky(`${ICONS.bolt} Gemini`)
-
-  const sandboxBadge = sandbox
-    ? C.lime(`${ICONS.shield} python3 free-threaded`)
-    : C.muted(`${ICONS.ring} sandbox off`)
-
-  console.log(
-    C.dim('  ') +
-    C.purple(`${ICONS.dot} provider`) + C.bright(` ${provider}`) +
-    C.muted('  ·  ') +
-    C.purple(`${ICONS.dot} model`) + C.bright(` ${model}`) +
-    C.muted('  ·  ') +
-    sandboxBadge
-  )
-  console.log(
-    C.dim('  ') +
-    C.pink(`${ICONS.dot} exit`) + C.muted(` type 'e'`) +
-    C.muted('  ·  ') +
-    C.amber(`${ICONS.dot} interrupt`) + C.muted(` ctrl+c`)
-  )
-  console.log()
-  print.divider()
-  console.log()
-}
-
-// ── Stats display after completion ──────────────────────────────────
-function printCompletionStats(iterations: number, tokenCount: number): void {
-  console.log()
-  print.divider()
-  console.log(
-    '    ' +
-    C.emeraldBold(`${ICONS.check} done`) +
-    C.dim('  ·  ') +
-    C.indigo(`${iterations} iterations`) +
-    C.dim('  ·  ') +
-    C.amber(`~${tokenCount.toLocaleString()} tokens`)
-  )
-}
-
-// ── Main chat loop ──────────────────────────────────────────────────
+// ── Main chat loop (exact Agent Zero run_cli.py chat() replica) ─────
 async function chat(orchestrator: Orchestrator, agentName: string): Promise<void> {
   while (true) {
     interrupted = false
 
-    print.userHeader(`User message ('e' to exit):`)
-    const userInput = await getUserInput(`  ${ICONS.sparkle} `)
+    // Get timeout from agent data (Agent Zero: context.agent0.get_data("timeout"))
+    const timeout = undefined // No timeout by default, like Agent Zero
 
-    if (!userInput) continue
-    if (userInput.toLowerCase() === 'e') {
+    if (!timeout) {
+      // No timeout — wait forever for user input
+      // Agent Zero: PrintStyle(background_color="#6C3483", font_color="white", bold=True, padding=True)
+      //             .print(f"User message ('e' to leave):")
       console.log()
-      console.log(C.dim(`  ${ICONS.wave} `) + gradient('Goodbye!', ['#8B5CF6', '#EC4899', '#F59E0B']))
-      console.log()
-      process.exit(0)
-    }
+      console.log(style.userPrompt(`User message ('e' to leave):`))
+      const userInput = await getUserInput('> ')
 
-    if (process.stdin.isTTY) {
-      try { process.stdin.setRawMode(true) } catch { /* ignore */ }
-    }
+      if (!userInput) continue
+      if (userInput.toLowerCase() === 'e') break
 
-    print.agentHeader(agentName)
-
-    try {
-      for await (const event of orchestrator.run(userInput)) {
-        if (interrupted) {
-          print.status('Agent paused by user')
-          break
-        }
-
-        switch (event.type) {
-          case 'start':
-            print.standard(`    ${ICONS.chain} session: ${C.indigo(event.sessionId as string)}\n`)
-            break
-          case 'text':
-            print.stream(event.content as string)
-            break
-          case 'tool_call':
-            print.toolCall(event.toolName as string, JSON.stringify(event.toolInput))
-            break
-          case 'tool_result':
-            print.toolResult(String(event.result))
-            break
-          case 'tool_blocked':
-            print.toolBlocked(event.toolName as string, event.reason as string)
-            break
-          case 'tool_error':
-            print.error(`${event.toolName}: ${event.error}`)
-            break
-          case 'compacting':
-            print.compacting(event.tokensBefore as number)
-            break
-          case 'compacted':
-            print.compacted(event.tokensAfter as number)
-            break
-          case 'complete':
-            printCompletionStats(event.iterations as number, event.tokenCount as number)
-            break
-          case 'error':
-            print.error(event.message as string)
-            break
-        }
+      // Re-enable raw mode for intervention capture during streaming
+      if (process.stdin.isTTY) {
+        try { process.stdin.setRawMode(true) } catch { /* ignore */ }
       }
-    } catch (err: any) {
-      print.error(err.message)
-    }
 
-    console.log()
+      streaming = true
+
+      // Agent Zero: PrintStyle(bold=True, font_color="green", background_color="white", padding=True)
+      //             .print(f"{agent_name}: Generating")
+      console.log()
+      console.log(style.agentGenerating(`${agentName}: Generating`))
+
+      try {
+        for await (const event of orchestrator.run(userInput)) {
+          // Check for user intervention (Agent Zero: any keypress during streaming)
+          if (interrupted) {
+            const interventionMsg = await handleIntervention()
+            interrupted = false
+            if (interventionMsg) {
+              // Feed intervention message back — Agent Zero sets
+              // context.streaming_agent.intervention_message
+              // For now we just display it
+              console.log(style.white(interventionMsg))
+            }
+            // Re-enable streaming capture
+            if (process.stdin.isTTY) {
+              try { process.stdin.setRawMode(true) } catch { /* ignore */ }
+            }
+            continue
+          }
+
+          switch (event.type) {
+            case 'start':
+              // Silent — Agent Zero doesn't print session IDs
+              break
+
+            case 'text':
+              // Agent Zero: printer = PrintStyle(italic=True, font_color="#b3ffd9", padding=False)
+              //             printer.stream(chunk)
+              process.stdout.write(style.agentStream(event.content as string))
+              break
+
+            case 'tool_call': {
+              // Agent Zero: PrintStyle(font_color="#1B4F72", padding=True, background_color="white", bold=True)
+              //             .print(f"{agent_name}: Using tool '{tool_name}':")
+              console.log()
+              console.log(style.toolHeader(`${agentName}: Using tool '${event.toolName}':`))
+
+              // Display tool args — Agent Zero shows each key:value
+              const toolInput = event.toolInput as Record<string, unknown>
+              if (toolInput && typeof toolInput === 'object') {
+                for (const [key, value] of Object.entries(toolInput)) {
+                  const valStr = typeof value === 'string' ? value : JSON.stringify(value)
+                  // Agent Zero: PrintStyle(font_color="#85C1E9", bold=True).stream(key+": ")
+                  //             PrintStyle(font_color="#85C1E9").stream(value)
+                  process.stdout.write(style.toolArgKey(`${key}: `))
+                  process.stdout.write(style.toolArgValue(valStr.slice(0, 500)))
+                  console.log()
+                }
+              }
+              break
+            }
+
+            case 'tool_result':
+              // Agent Zero: PrintStyle(font_color="#1B4F72", background_color="white", padding=True, bold=True)
+              //             .print(f"{agent_name}: Response from tool '{tool_name}':")
+              console.log()
+              console.log(style.toolResponseHeader(`${agentName}: Response from tool '${event.toolName}':`))
+              // Agent Zero: PrintStyle(font_color="#85C1E9").print(response.message)
+              console.log(style.toolResponse(String(event.result).slice(0, 1000)))
+              break
+
+            case 'tool_blocked':
+              // Agent Zero: PrintStyle(font_color="red", padding=True)
+              console.log()
+              console.log(style.error(`Blocked: ${event.toolName} — ${event.reason}`))
+              break
+
+            case 'tool_error':
+              // Agent Zero: PrintStyle(font_color="red", padding=True)
+              console.log()
+              console.log(style.error(`Error in tool '${event.toolName}': ${event.error}`))
+              break
+
+            case 'compacting':
+              // Agent Zero: PrintStyle(bold=True, font_color="orange", padding=True, background_color="white")
+              //             .print(f"{agent_name}: Mid messages cleanup summary")
+              console.log()
+              console.log(style.cleanup(`${agentName}: Mid messages cleanup summary`))
+              console.log(style.warning(`Compacting context (${(event.tokensBefore as number).toLocaleString()} tokens)...`))
+              break
+
+            case 'compacted':
+              console.log(style.success(`Compacted to ${(event.tokensAfter as number).toLocaleString()} tokens`))
+              break
+
+            case 'complete':
+              streaming = false
+              // Agent Zero: PrintStyle(font_color="white", background_color="#1D8348", bold=True, padding=True)
+              //             .print(f"{agent_name}: response:")
+              console.log()
+              console.log(style.agentHeader(`${agentName}: response complete`))
+              console.log(style.hint(
+                `${event.iterations} iterations · ~${(event.tokenCount as number).toLocaleString()} tokens`
+              ))
+              break
+
+            case 'error':
+              streaming = false
+              // Agent Zero: PrintStyle(font_color="white", background_color="red", padding=True)
+              console.log()
+              console.log(style.terminated(`${agentName}: Error`))
+              console.log(style.error(event.message as string))
+              break
+          }
+        }
+      } catch (err: any) {
+        streaming = false
+        console.log()
+        console.log(style.terminated(`${agentName}: Error`))
+        console.log(style.error(err.message))
+      }
+
+      streaming = false
+    }
   }
+
+  // Exit message
+  console.log()
+  console.log(style.hint('Goodbye.'))
 }
 
-// ── Bootstrap ────────────────────────────────────────────────────────
+// ── Bootstrap (mirrors Agent Zero's __main__ block) ──────────────────
 async function run(): Promise<void> {
   const args = process.argv.slice(2)
   const getArg = (flag: string, def: string) => {
@@ -379,23 +339,26 @@ async function run(): Promise<void> {
   const sandbox = hasFlag('--sandbox')
   const configPath = getArg('--config', './pfaa.config.json')
   const workspace = getArg('--workspace', process.cwd())
-  const agentName = getArg('--name', 'PFAA')
+  const agentName = getArg('--name', 'Agent 0')
 
-  console.log()
-  console.log(C.dim('  ') + gradient('Initializing PFAA...', ['#8B5CF6', '#7C3AED', '#6D28D9']))
+  // Agent Zero: print("Initializing framework...")
+  console.log('Initializing framework...')
 
   let config: PFAAConfig = {}
   try {
     config = await loadConfig(configPath)
   } catch {
-    print.standard('  No pfaa.config.json found, using defaults.')
+    // Silent — Agent Zero doesn't warn about missing config
   }
 
-  printBanner(
-    provider,
-    model || (provider === 'gemini' ? 'gemini-2.5-pro' : 'claude-sonnet-4-6'),
-    sandbox,
-  )
+  // Show initialization info (Agent Zero style — simple prints)
+  console.log(style.info(`Info: Provider: ${provider}`))
+  console.log(style.info(`Info: Model: ${model || (provider === 'gemini' ? 'gemini-2.5-pro' : 'claude-sonnet-4-6')}`))
+  if (sandbox) {
+    console.log(style.info('Info: Python 3.15 sandbox enabled (PYTHON_GIL=0)'))
+  }
+  console.log(style.info(`Info: Workspace: ${workspace}`))
+  console.log(style.success('Success: Framework initialized'))
 
   const audit = new AuditLogger(config.auditDir)
 
@@ -411,11 +374,15 @@ async function run(): Promise<void> {
     audit,
   })
 
+  // Start key capture thread (mirrors Agent Zero's threading.Thread(target=capture_keys))
   captureKeys()
+
+  // Start the chat (mirrors Agent Zero's asyncio.run(chat(context)))
   await chat(orchestrator, agentName)
 }
 
 run().catch(err => {
-  console.error(C.roseBold(`  ${ICONS.cross} Fatal: ${err.message}`))
+  console.log(style.terminated(`Fatal error`))
+  console.error(style.error(err.message))
   process.exit(1)
 })
