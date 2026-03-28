@@ -9,6 +9,7 @@ import { ShellTool } from './shell.js'
 import { FetchTool } from './fetch.js'
 import { CodeTool } from './code.js'
 import { MemoryTool } from './memory.js'
+import { JMemTool } from './jmem.js'
 import type { Tool, ToolDefinition } from './base.js'
 
 export class ToolRegistry {
@@ -21,6 +22,7 @@ export class ToolRegistry {
       fetch: new FetchTool(),
       code: new CodeTool(opts),
       memory: new MemoryTool(opts.config?.qdrantUrl),
+      jmem: new JMemTool(opts.config?.pythonBin ?? 'python3'),
     }
 
     // Memory tools always enabled — they degrade gracefully if Qdrant is down
@@ -28,10 +30,9 @@ export class ToolRegistry {
     for (const name of enabled) {
       if (available[name]) this.tools.set(name, available[name])
     }
-    // Always register memory even if not in explicit tools list
-    if (!this.tools.has('memory')) {
-      this.tools.set('memory', available.memory)
-    }
+    // Always register memory tools — they degrade gracefully
+    if (!this.tools.has('memory')) this.tools.set('memory', available.memory)
+    if (!this.tools.has('jmem')) this.tools.set('jmem', available.jmem)
   }
 
   get(name: string): Tool | undefined {
