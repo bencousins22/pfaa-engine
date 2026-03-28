@@ -1,5 +1,5 @@
 # PFAA FreqTrade — Production Dockerfile (Hyperliquid)
-FROM freqtradeorg/freqtrade:stable
+FROM freqtradeorg/freqtrade:develop
 
 # Copy strategy and config
 COPY freqtrade_strategy/ /freqtrade/user_data/strategies/
