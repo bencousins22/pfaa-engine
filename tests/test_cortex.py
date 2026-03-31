@@ -1,5 +1,6 @@
-"""Tests for CortexState — atomic JSON persistence for the Aussie Cortex hook system."""
+"""Tests for CortexState, Decision, and Event types — Aussie Cortex hook system."""
 
+import json
 import os
 import sys
 
@@ -15,7 +16,20 @@ for mod_name in list(sys.modules):
 
 import pytest
 
-from cortex import CortexState, STATE_PATH
+from cortex import (
+    CortexState,
+    STATE_PATH,
+    Decision,
+    HookEvent,
+    AgentStartEvent,
+    AgentStopEvent,
+    ToolFailureEvent,
+    FileChangedEvent,
+    TaskCompletedEvent,
+    PromptSubmitEvent,
+    parse_event,
+    classify_error,
+)
 
 
 # ── Default values ──────────────────────────────────────────────────
@@ -136,3 +150,175 @@ def test_cortex_state_load_corrupt(tmp_path):
     loaded = CortexState.load(fp)
     assert loaded.phase == "idle"
     assert loaded.pressure == 0.0
+
+
+# ── Decision tests ─────────────────────────────────────────────────
+
+
+def test_decision_observe():
+    """Default Decision (observe) produces empty JSON string."""
+    d = Decision()
+    assert d.action == "observe"
+    assert d.to_json() == ""
+
+
+def test_decision_advise():
+    """Decision with system_message produces output with systemMessage."""
+    d = Decision(action="advise", system_message="Check types before commit")
+    out = json.loads(d.to_json())
+    assert out["systemMessage"] == "Check types before commit"
+
+
+def test_decision_block():
+    """Decision with block action has decision:'block' and reason."""
+    d = Decision(action="block", block_reason="Secret detected in .env")
+    out = json.loads(d.to_json())
+    assert out["decision"] == "block"
+    assert out["reason"] == "Secret detected in .env"
+
+
+def test_decision_with_context():
+    """Decision with additional_context includes hookSpecificOutput."""
+    d = Decision(
+        action="advise",
+        system_message="Heads up",
+        additional_context="File changed: src/main.ts",
+    )
+    out = json.loads(d.to_json())
+    assert out["systemMessage"] == "Heads up"
+    assert out["hookSpecificOutput"]["additionalContext"] == "File changed: src/main.ts"
+
+
+# ── Event type tests ───────────────────────────────────────────────
+
+
+def test_parse_agent_start():
+    """parse_event('agent_start', ...) returns AgentStartEvent with correct fields."""
+    ev = parse_event("agent_start", {"agent": "pfaa-lead", "task": "deploy v2"})
+    assert isinstance(ev, AgentStartEvent)
+    assert ev.type == "agent_start"
+    assert ev.agent == "pfaa-lead"
+    assert ev.task == "deploy v2"
+    assert ev.timestamp > 0
+    episode = ev.to_episode()
+    assert "pfaa-lead" in episode
+    assert "deploy v2" in episode
+    assert "agent" in ev.tags()
+
+
+def test_parse_agent_stop_success():
+    """AgentStopEvent with success=True and no error."""
+    ev = parse_event("agent_stop", {"agent": "aussie-tdd", "success": True})
+    assert isinstance(ev, AgentStopEvent)
+    assert ev.success is True
+    assert ev.error is None
+    assert "success" in ev.to_episode().lower() or "completed" in ev.to_episode().lower()
+
+
+def test_parse_agent_stop_failure():
+    """AgentStopEvent with success=False and error populated."""
+    ev = parse_event(
+        "agent_stop",
+        {"agent": "aussie-tdd", "success": False, "error": "Timeout exceeded"},
+    )
+    assert isinstance(ev, AgentStopEvent)
+    assert ev.success is False
+    assert ev.error == "Timeout exceeded"
+    assert "fail" in ev.to_episode().lower() or "error" in ev.to_episode().lower()
+
+
+def test_parse_file_changed():
+    """FileChangedEvent extracts path and extension."""
+    ev = parse_event("file_changed", {"path": "src/core/engine.ts"})
+    assert isinstance(ev, FileChangedEvent)
+    assert ev.path == "src/core/engine.ts"
+    assert ev.ext == ".ts"
+    assert "file" in ev.tags()
+
+
+def test_parse_tool_failure():
+    """ToolFailureEvent classifies error correctly."""
+    ev = parse_event(
+        "tool_failure",
+        {"tool": "Bash", "error": "Permission denied: /etc/shadow"},
+    )
+    assert isinstance(ev, ToolFailureEvent)
+    assert ev.tool == "Bash"
+    assert ev.error_class == "permission"
+    assert "tool" in ev.tags()
+
+
+def test_parse_prompt_submit():
+    """PromptSubmitEvent extracts prompt text."""
+    ev = parse_event("prompt_submit", {"prompt": "refactor the memory store"})
+    assert isinstance(ev, PromptSubmitEvent)
+    assert ev.prompt == "refactor the memory store"
+    assert "prompt" in ev.tags()
+
+
+def test_parse_task_completed():
+    """TaskCompletedEvent extracts subject."""
+    ev = parse_event(
+        "task_completed",
+        {"subject": "deploy", "description": "Deployed v2.1 to prod"},
+    )
+    assert isinstance(ev, TaskCompletedEvent)
+    assert ev.subject == "deploy"
+    assert ev.description == "Deployed v2.1 to prod"
+    assert "task" in ev.tags()
+
+
+def test_parse_unknown_event():
+    """Unknown event type returns base HookEvent, never crashes."""
+    ev = parse_event("totally_new_event", {"foo": "bar"})
+    assert isinstance(ev, HookEvent)
+    assert ev.type == "totally_new_event"
+
+
+def test_parse_missing_fields():
+    """Empty payload produces defaults, never crashes."""
+    for event_type in [
+        "agent_start",
+        "agent_stop",
+        "tool_failure",
+        "file_changed",
+        "task_completed",
+        "prompt_submit",
+    ]:
+        ev = parse_event(event_type, {})
+        assert ev.type == event_type
+        assert ev.timestamp > 0
+        # Should not raise — just produce defaults
+        _ = ev.to_episode()
+        _ = ev.tags()
+
+
+# ── Error classifier tests ─────────────────────────────────────────
+
+
+def test_classify_error_permission():
+    assert classify_error("Permission denied: /etc/shadow") == "permission"
+
+
+def test_classify_error_timeout():
+    assert classify_error("Request timed out after 30s") == "timeout"
+
+
+def test_classify_error_not_found():
+    assert classify_error("ENOENT: no such file or directory") == "not_found"
+
+
+def test_classify_error_syntax():
+    assert classify_error("SyntaxError: unexpected token '}'") == "syntax"
+
+
+def test_classify_error_network():
+    assert classify_error("ECONNREFUSED: connection refused") == "network"
+
+
+def test_classify_error_resource():
+    assert classify_error("Fatal: out of memory") == "resource"
+
+
+def test_classify_error_unknown():
+    assert classify_error("Something completely unexpected") == "unknown"
