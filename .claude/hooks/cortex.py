@@ -532,6 +532,48 @@ def detect_project_profile() -> dict[str, str | bool | float]:
         }
 
 
+# ── Pre-computed agent context (saves agent turns) ──────────────
+
+AGENT_FILE_HINTS = {
+    "aussie-security": "Key security files: .claude/hooks/cortex.py, .claude/settings.json",
+    "aussie-tdd": "Test files: tests/test_cortex.py, tests/test_jmem_engine.py",
+    "pfaa-rewriter": "Python files needing Py3.15: .claude/hooks/cortex.py, agent_setup_cli/core/",
+    "pfaa-validator": "Validation targets: .claude/hooks/cortex.py, .claude/hooks/analyzers/py315_ast.py",
+    "aussie-docs": "Doc files: CLAUDE.md, README.md, ARCHITECTURE.md, docs/superpowers/specs/",
+}
+
+
+def _build_agent_context(agent: str, task: str, state: CortexState) -> list[str]:
+    """Pre-compute context for agent injection -- saves agent turns."""
+    context: list[str] = []
+
+    # Project profile summary
+    profile = state.project_profile
+    if profile:
+        context.append(
+            f"Project: {profile.get('py_count', 0)} Python files, "
+            f"{profile.get('ts_count', 0)} TypeScript files, "
+            f"{profile.get('test_count', 0)} test files. "
+            f"Primary language: {profile.get('primary_language', 'unknown')}. "
+            f"Py3.15 enforcement: {profile.get('py315_enforcement', 'moderate')}."
+        )
+
+    # Recent cortex decisions (what the system has been doing)
+    if state.total_decisions > 0:
+        context.append(
+            f"Cortex stats: {state.total_decisions} decisions, "
+            f"{state.correct_blocks} correct blocks, "
+            f"pressure={state.pressure:.1f}, phase={state.phase}."
+        )
+
+    # Agent-specific file hints
+    hint = AGENT_FILE_HINTS.get(agent)
+    if hint:
+        context.append(hint)
+
+    return context
+
+
 # ── Agent handlers ───────────────────────────────────────────────
 
 
@@ -577,6 +619,10 @@ async def handle_agent_start(engine, event: AgentStartEvent, state: CortexState)
     ]
     for finding in cross_findings[:3]:
         parts.append(f"[cross-agent] {finding.content[:120]}")
+
+    # Pre-computed project context (saves agent turns)
+    pre_context = _build_agent_context(event.agent, event.task, state)
+    parts.extend(pre_context)
 
     # Block if 3+ failures AND avg Q < 0.4
     # Adjust blocking confidence from project profile
@@ -1004,7 +1050,8 @@ async def _run(event_type: str, raw_input: str) -> Decision | None:
         # Dream Phase B: deferred from prior Stop
         if state.dream_pending:
             try:
-                sys.path.insert(0, str(JMEM_PATH))
+                if str(JMEM_PATH) not in sys.path:
+                    sys.path.append(str(JMEM_PATH))
                 from jmem.engine import JMemEngine
                 engine = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))
                 await run_dream_phase_b(engine, state)
@@ -1021,7 +1068,8 @@ async def _run(event_type: str, raw_input: str) -> Decision | None:
         handler_start = _time.monotonic()
 
         try:
-            sys.path.insert(0, str(JMEM_PATH))
+            if str(JMEM_PATH) not in sys.path:
+                sys.path.append(str(JMEM_PATH))
             from jmem.engine import JMemEngine
 
             engine = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))

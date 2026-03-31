@@ -24,4 +24,4 @@ async def main():
 try:
     asyncio.run(main())
 except Exception as ex:
-    print(json.dumps({"systemMessage": f"JMEM auto-recall unavailable ({ex})"}))
+    print(json.dumps({"systemMessage": f"JMEM auto-recall unavailable ({type(ex).__name__})"}))

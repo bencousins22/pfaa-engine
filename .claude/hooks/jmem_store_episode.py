@@ -14,7 +14,7 @@ from jmem.engine import JMemEngine, MemoryLevel
 async def main():
     inp = {}
     try:
-        data = sys.stdin.read()
+        data = sys.stdin.read(1_000_000)  # 1MB max
         if data.strip():
             inp = json.loads(data)
     except Exception:
@@ -32,4 +32,4 @@ async def main():
 try:
     asyncio.run(main())
 except Exception as ex:
-    print(json.dumps({"systemMessage": f"JMEM auto-store skipped ({ex})"}))
+    print(json.dumps({"systemMessage": f"JMEM auto-store skipped ({type(ex).__name__})"}))
