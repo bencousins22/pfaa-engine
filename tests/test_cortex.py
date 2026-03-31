@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from time import time
 
 # Set up paths so we can import from .claude/hooks/ and jmem-mcp-server
 _hooks_path = os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks")
@@ -437,7 +438,8 @@ def jmem_engine(tmp_path):
             del sys.modules[mod]
     from jmem.engine import JMemEngine
     os.environ["JMEM_DATA_DIR"] = str(tmp_path / "jmem")
-    return JMemEngine()
+    db_path = str(tmp_path / "jmem" / "vector_store.db")
+    return JMemEngine(db_path=db_path)
 
 
 def test_handle_agent_start_no_history(jmem_engine, tmp_path):
@@ -533,3 +535,151 @@ def test_handle_agent_stop_repeated_failure_advises(jmem_engine, tmp_path):
 
     decision = run_async(_run())
     assert decision.action == "advise"
+
+
+# ── Task 8: Tool failure handler ─────────────────────────────────────
+
+
+def test_handle_tool_failure_first_time(jmem_engine):
+    from cortex import handle_tool_failure, ToolFailureEvent, CortexState
+
+    event = ToolFailureEvent(
+        type="PostToolUseFailure",
+        timestamp=time(),
+        tool="Bash",
+        error="denied",
+        error_class="permission",
+    )
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            return await handle_tool_failure(jmem_engine, event, CortexState())
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.action == "observe"
+
+
+def test_handle_tool_failure_escalation(jmem_engine):
+    from cortex import handle_tool_failure, ToolFailureEvent, CortexState
+    from jmem.engine import MemoryLevel
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            for i in range(3):
+                await jmem_engine.remember(
+                    content=f"Bash failed (permission): {i}",
+                    level=MemoryLevel.EPISODE,
+                    tags=["tool-failure", "Bash", "permission"],
+                )
+            event = ToolFailureEvent(
+                type="PostToolUseFailure",
+                timestamp=time(),
+                tool="Bash",
+                error="denied again",
+                error_class="permission",
+            )
+            return await handle_tool_failure(jmem_engine, event, CortexState())
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.action in ("advise", "block")
+
+
+# ── Task 9: Task completed handler ──────────────────────────────────
+
+
+def test_handle_task_completed_pressure(jmem_engine):
+    from cortex import handle_task_completed, TaskCompletedEvent, CortexState
+
+    state = CortexState()
+    state.pressure = 5.0
+    event = TaskCompletedEvent(
+        type="TaskCompleted", timestamp=time(), subject="Fix auth"
+    )
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            return await handle_task_completed(jmem_engine, event, state)
+        finally:
+            await jmem_engine.shutdown()
+
+    run_async(_run())
+    assert state.pressure == 6.0
+
+
+# ── Task 10: AST analyzer + file changed handler ────────────────────
+
+
+def test_py315_analyzer_pep810(tmp_path):
+    sys.path.insert(
+        0,
+        os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks", "analyzers"),
+    )
+    # Clear cached module
+    if "py315_ast" in sys.modules:
+        del sys.modules["py315_ast"]
+    from py315_ast import analyze
+
+    f = tmp_path / "sample.py"
+    f.write_text("import numpy\nimport json\nx = 1\n")
+    suggestions = analyze(str(f))
+    pep810 = [s for s in suggestions if s.pep == "PEP 810"]
+    assert len(pep810) == 1
+    assert "numpy" in pep810[0].current
+
+
+def test_py315_analyzer_pep814(tmp_path):
+    sys.path.insert(
+        0,
+        os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks", "analyzers"),
+    )
+    if "py315_ast" in sys.modules:
+        del sys.modules["py315_ast"]
+    from py315_ast import analyze
+
+    f = tmp_path / "sample.py"
+    f.write_text("CONFIG = {'key': 'value'}\nlower = {'a': 1}\n")
+    suggestions = analyze(str(f))
+    pep814 = [s for s in suggestions if s.pep == "PEP 814"]
+    assert len(pep814) == 1
+
+
+def test_py315_analyzer_clean(tmp_path):
+    sys.path.insert(
+        0,
+        os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks", "analyzers"),
+    )
+    if "py315_ast" in sys.modules:
+        del sys.modules["py315_ast"]
+    from py315_ast import analyze
+
+    f = tmp_path / "clean.py"
+    f.write_text("x = 1\ndef add(a, b):\n    return a + b\n")
+    assert analyze(str(f)) == []
+
+
+def test_handle_file_changed_py(jmem_engine, tmp_path):
+    from cortex import handle_file_changed, FileChangedEvent, CortexState
+
+    f = tmp_path / "sample.py"
+    f.write_text("import pandas\nCONFIG = {'a': 1}\n")
+    event = FileChangedEvent(
+        type="FileChanged", timestamp=time(), path=str(f), ext=".py"
+    )
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            return await handle_file_changed(jmem_engine, event, CortexState())
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.action == "advise"
+    assert "Py3.15" in decision.system_message

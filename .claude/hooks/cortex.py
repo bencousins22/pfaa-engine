@@ -496,6 +496,97 @@ async def handle_agent_stop(engine, event: AgentStopEvent, state: CortexState) -
     )
 
 
+async def handle_tool_failure(engine, event: ToolFailureEvent, state: CortexState) -> Decision:
+    """PostToolUseFailure: classify, store, escalate on repeated failures."""
+    from jmem.engine import MemoryLevel
+
+    await engine.remember(
+        content=event.to_episode(),
+        level=MemoryLevel.EPISODE,
+        tags=event.tags(),
+    )
+
+    try:
+        await engine.reward_recalled(reward_signal=-0.3)
+    except Exception:
+        pass
+
+    prior = await engine.recall(
+        f"{event.tool} failed {event.error_class}", limit=10, min_q=0.0,
+    )
+    same_class = [m for m in prior if event.error_class in m.tags]
+
+    if len(same_class) >= 5:
+        return Decision(
+            action="block",
+            block_reason=f"Repeated {event.error_class} failures for {event.tool} ({len(same_class)}x)",
+            confidence=0.85,
+        )
+    elif len(same_class) >= 3:
+        return Decision(
+            action="advise",
+            system_message=f"{event.tool} has failed {len(same_class)}x ({event.error_class}). Consider an alternative approach.",
+            confidence=0.6,
+        )
+
+    return Decision(action="observe")
+
+
+async def handle_task_completed(engine, event: TaskCompletedEvent, state: CortexState) -> Decision:
+    """TaskCompleted: silent reinforcement + pressure accumulation."""
+    from jmem.engine import MemoryLevel
+
+    await engine.remember(
+        content=event.to_episode(),
+        level=MemoryLevel.EPISODE,
+        tags=event.tags(),
+    )
+
+    try:
+        await engine.reward_recalled(reward_signal=0.7)
+    except Exception:
+        pass
+
+    state.pressure += 1.0
+    return Decision(action="observe")
+
+
+async def handle_file_changed(engine, event: FileChangedEvent, state: CortexState) -> Decision:
+    """FileChanged: AST analysis for .py, config tracking for others."""
+    from jmem.engine import MemoryLevel
+
+    if event.ext in (".py", ".pyi") and event.path:
+        sys.path.insert(0, str(PROJECT_ROOT / ".claude" / "hooks" / "analyzers"))
+        try:
+            from py315_ast import analyze
+            suggestions = analyze(event.path)
+        except Exception:
+            suggestions = []
+
+        if suggestions:
+            lines = [f"  Line {s.line}: {s.current} -> {s.proposed} ({s.pep}, {s.confidence:.0%})"
+                     for s in suggestions[:5]]
+            msg = f"Py3.15 opportunities in {Path(event.path).name}:\n" + "\n".join(lines)
+            await engine.remember(
+                content=f"Py3.15 scan: {Path(event.path).name} — {len(suggestions)} suggestions",
+                level=MemoryLevel.EPISODE,
+                tags=["file-changed", "py315-scan"],
+            )
+            return Decision(action="advise", system_message=msg, confidence=0.7)
+
+    elif event.path and event.path.endswith("settings.json"):
+        return Decision(action="observe", system_message="Config changed — cortex rules may need reload")
+
+    elif event.path and ".claude/agents/" in event.path:
+        await engine.remember(
+            content=f"Agent definition updated: {Path(event.path).name}",
+            level=MemoryLevel.EPISODE,
+            tags=["file-changed", "agent-update"],
+        )
+
+    return Decision(action="observe")
+
+
 # ── Core event processor ─────────────────────────────────────────
 
 
@@ -522,6 +613,12 @@ async def _handle_event(engine, event: HookEvent, state: CortexState, score: flo
             return await handle_agent_start(engine, event, state)
         case AgentStopEvent():
             return await handle_agent_stop(engine, event, state)
+        case ToolFailureEvent():
+            return await handle_tool_failure(engine, event, state)
+        case TaskCompletedEvent():
+            return await handle_task_completed(engine, event, state)
+        case FileChangedEvent():
+            return await handle_file_changed(engine, event, state)
         case _:
             return Decision()
 
