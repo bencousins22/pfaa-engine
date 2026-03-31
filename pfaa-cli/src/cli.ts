@@ -1158,7 +1158,9 @@ program
       await memory.connect();
       const ms = await memory.status();
       const max = Math.max(ms.l1Episodes, ms.l2Patterns, ms.l3Strategies, ms.l5Knowledge, 1);
+      const totalMemories = ms.l1Episodes + ms.l2Patterns + ms.l3Strategies + ms.l5Knowledge;
       const memLines = [
+        `${AZ.toolKey('Total:         ')} \x1b[38;2;0;255;136m\x1b[1m${totalMemories}${R} memories across all layers`,
         `${AZ.toolKey('L1 Episodes:   ')} ${String(ms.l1Episodes).padStart(4)}  ${bar(ms.l1Episodes, max, 15)}`,
         `${AZ.toolKey('L2 Patterns:   ')} ${String(ms.l2Patterns).padStart(4)}  ${bar(ms.l2Patterns, max, 15)}`,
         `${AZ.toolKey('L3 Strategies: ')} ${String(ms.l3Strategies).padStart(4)}  ${bar(ms.l3Strategies, max, 15)}`,

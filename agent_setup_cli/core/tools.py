@@ -504,19 +504,38 @@ async def tool_http_fetch(url: str, timeout: float = 10.0) -> dict[str, Any]:
     """Fetch a URL asynchronously. Enforces HTTPS for security."""
     if not url.startswith(("https://", "http://localhost", "http://127.0.0.1")):
         return {"success": False, "url": url, "error": "Only HTTPS URLs allowed (except localhost)"}
+    MAX_DOWNLOAD_BYTES = 1_048_576  # 1 MB hard limit on response body
     loop = asyncio.get_running_loop()
     try:
         def _fetch():
             req = urllib.request.Request(url, headers={"User-Agent": "AussieAgents/1.0"})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                body = resp.read().decode("utf-8", errors="replace")
+                # Reject responses that advertise a body larger than 1 MB
+                content_length = resp.headers.get("content-length")
+                if content_length and int(content_length) > MAX_DOWNLOAD_BYTES:
+                    return {
+                        "success": False,
+                        "url": url,
+                        "error": f"Response too large: {content_length} bytes (limit {MAX_DOWNLOAD_BYTES})",
+                    }
+                # Read with size cap to guard against missing/lying Content-Length
+                raw = resp.read(MAX_DOWNLOAD_BYTES + 1)
+                if len(raw) > MAX_DOWNLOAD_BYTES:
+                    return {
+                        "success": False,
+                        "url": url,
+                        "error": f"Response exceeded {MAX_DOWNLOAD_BYTES} byte download limit",
+                    }
+                body = raw.decode("utf-8", errors="replace")
                 return {
                     "status": resp.status,
                     "headers": dict(resp.headers),
-                    "body": body[:10000],  # cap at 10KB
+                    "body": body[:10000],  # cap at 10KB for output
                     "size": len(body),
                 }
         result = await loop.run_in_executor(None, _fetch)
+        if "success" in result and not result["success"]:
+            return result  # early rejection (size limit)
         return {"success": True, "url": url, **result}
     except Exception as e:
         return {"success": False, "url": url, "error": str(e)}

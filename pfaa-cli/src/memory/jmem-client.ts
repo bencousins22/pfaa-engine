@@ -98,6 +98,11 @@ export class JMEMClient extends EventEmitter {
       metadata,
     });
     const id = this.extractText(result);
+
+    // Invalidate the entire recall cache — any new memory could affect
+    // similarity-ranked results for any query.
+    this.cache.clear();
+
     log.debug('Stored memory', { id, layer });
     return id;
   }

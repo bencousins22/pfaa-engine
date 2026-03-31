@@ -105,14 +105,36 @@ def create_app(framework: Framework | None = None) -> FastAPI:
                     }))
                     continue
 
-                msg_type = msg.get("type", "")
+                # ── Input validation ────────────────────────────
+                if not isinstance(msg, dict):
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": "Message must be a JSON object",
+                    }))
+                    continue
+
+                msg_type = msg.get("type")
+                if not isinstance(msg_type, str) or not msg_type:
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": "Message must have a 'type' field (string)",
+                    }))
+                    continue
+
+                _VALID_MSG_TYPES = {"goal", "tool", "status", "memory"}
+                if msg_type not in _VALID_MSG_TYPES:
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": f"Unknown message type: {msg_type}",
+                    }))
+                    continue
 
                 if msg_type == "goal":
                     text = msg.get("text", "")
-                    if not text:
+                    if not isinstance(text, str) or not text.strip():
                         await websocket.send_text(json.dumps({
                             "type": "error",
-                            "message": "Missing 'text' field",
+                            "message": "Goal message must have a non-empty 'text' field (string)",
                         }))
                         continue
 
@@ -137,7 +159,13 @@ def create_app(framework: Framework | None = None) -> FastAPI:
                     }))
 
                 elif msg_type == "tool":
-                    name = msg.get("name", "")
+                    name = msg.get("name")
+                    if not isinstance(name, str) or not name:
+                        await websocket.send_text(json.dumps({
+                            "type": "error",
+                            "message": "Tool message must have a 'name' field (string)",
+                        }))
+                        continue
                     args = tuple(msg.get("args", []))
                     try:
                         result = await fw.tool(name, *args)
@@ -165,11 +193,7 @@ def create_app(framework: Framework | None = None) -> FastAPI:
                         "strategies": fw.learned_strategies(),
                     }))
 
-                else:
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "message": f"Unknown message type: {msg_type}",
-                    }))
+                # Unknown types already rejected above via _VALID_MSG_TYPES check
 
         except WebSocketDisconnect:
             logger.info("WebSocket client disconnected")

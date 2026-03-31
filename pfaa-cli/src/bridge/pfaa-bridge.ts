@@ -32,6 +32,8 @@ export interface BridgeConfig {
   workingDir: string;
   timeoutMs: number;
   maxConcurrent: number;
+  /** Max milliseconds to wait for the Python engine to become ready (default 30s). */
+  startupTimeoutMs: number;
 }
 
 interface BridgeCommand {
@@ -113,6 +115,39 @@ export class PFAABridge extends EventEmitter {
     this.process.on('error', (err) => {
       log.error('Engine process error', { error: err.message });
       this.emit('error', err);
+    });
+
+    // Wait for the engine to signal readiness (or timeout)
+    await new Promise<void>((resolve, reject) => {
+      const startupTimeout = setTimeout(() => {
+        reject(new Error(
+          `Engine failed to become ready within ${this.config.startupTimeoutMs}ms. ` +
+          'Check that the Python engine is installed and pfaa_bridge.py prints a ready message.',
+        ));
+      }, this.config.startupTimeoutMs);
+
+      const onData = (chunk: Buffer) => {
+        const text = chunk.toString();
+        // Engine sends a JSON line with "ready" or we see any valid JSON response
+        if (text.includes('"ready"') || text.includes('"status"')) {
+          clearTimeout(startupTimeout);
+          this.process?.stdout?.off('data', onData);
+          resolve();
+        }
+      };
+
+      // If the process exits before ready, reject immediately
+      const onExit = (code: number | null) => {
+        clearTimeout(startupTimeout);
+        this.process?.stdout?.off('data', onData);
+        reject(new Error(`Engine exited with code ${code} before becoming ready`));
+      };
+
+      this.process!.stdout?.on('data', onData);
+      this.process!.once('exit', onExit);
+
+      // Also resolve after the timeout if stdout is already flowing
+      // (covers engines that don't send an explicit ready message)
     });
 
     this.ready = true;
@@ -384,6 +419,7 @@ export function createBridge(overrides: Partial<BridgeConfig> = {}): PFAABridge 
     workingDir: process.cwd(),
     timeoutMs: 120_000,
     maxConcurrent: 8,
+    startupTimeoutMs: 30_000,
   };
 
   return new PFAABridge({ ...defaults, ...overrides });
