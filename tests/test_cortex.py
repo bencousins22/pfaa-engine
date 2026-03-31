@@ -35,6 +35,8 @@ from cortex import (
     classify_error,
     interest_score,
     is_feature_enabled,
+    _build_agent_context,
+    AGENT_FILE_HINTS,
 )
 
 
@@ -1056,3 +1058,117 @@ def test_handle_stop_dream_includes_perf(jmem_engine):
     assert "dream" in decision.system_message.lower()
     assert "Perf:" in decision.system_message
     assert "SubagentStart:" in decision.system_message
+
+
+# ── Self-Build Cycle 3: Pre-computed Agent Context Injection ──────
+
+
+def test_build_agent_context_with_profile():
+    """_build_agent_context returns project summary when profile is populated."""
+    state = CortexState()
+    state.project_profile = {
+        "py_count": 100, "ts_count": 50, "test_count": 20,
+        "primary_language": "python", "py315_enforcement": "aggressive",
+    }
+    ctx = _build_agent_context("aussie-researcher", "analyze code", state)
+    assert any("100 Python" in line for line in ctx)
+    assert any("50 TypeScript" in line for line in ctx)
+    assert any("aggressive" in line for line in ctx)
+
+
+def test_build_agent_context_with_decisions():
+    """_build_agent_context includes cortex stats when decisions > 0."""
+    state = CortexState()
+    state.project_profile = {"py_count": 10, "ts_count": 5, "test_count": 3,
+                             "primary_language": "python", "py315_enforcement": "moderate"}
+    state.total_decisions = 50
+    state.correct_blocks = 8
+    state.pressure = 3.5
+    state.phase = "implementation"
+    ctx = _build_agent_context("pfaa-rewriter", "modernize", state)
+    stats_lines = [l for l in ctx if "Cortex stats" in l]
+    assert len(stats_lines) == 1
+    assert "50 decisions" in stats_lines[0]
+    assert "pressure=3.5" in stats_lines[0]
+
+
+def test_build_agent_context_file_hints():
+    """_build_agent_context includes agent-specific file hints for known agents."""
+    state = CortexState()
+    for agent, expected_fragment in [
+        ("aussie-tdd", "test_cortex.py"),
+        ("aussie-security", "settings.json"),
+        ("pfaa-rewriter", "agent_setup_cli/core/"),
+        ("pfaa-validator", "py315_ast.py"),
+        ("aussie-docs", "CLAUDE.md"),
+    ]:
+        ctx = _build_agent_context(agent, "some task", state)
+        assert any(expected_fragment in line for line in ctx), f"{agent} missing hint for {expected_fragment}"
+
+
+def test_build_agent_context_no_hints_for_unknown():
+    """_build_agent_context returns no file hints for agents not in AGENT_FILE_HINTS."""
+    state = CortexState()
+    ctx = _build_agent_context("aussie-researcher", "research", state)
+    # No profile, no decisions, no hints -> empty
+    assert ctx == []
+
+
+def test_build_agent_context_empty_profile():
+    """_build_agent_context with empty profile returns no project summary."""
+    state = CortexState()
+    state.project_profile = {}
+    ctx = _build_agent_context("aussie-tdd", "test", state)
+    # Only the file hint should be present (no profile, no decisions)
+    assert len(ctx) == 1
+    assert "test_cortex.py" in ctx[0]
+
+
+def test_handle_agent_start_injects_project_context(jmem_engine, tmp_path):
+    """Integration: handle_agent_start injects pre-computed project context."""
+    from cortex import handle_agent_start
+
+    state = CortexState(state_path=tmp_path / "state.json")
+    state.project_profile = {
+        "py_count": 100, "ts_count": 50, "test_count": 20,
+        "primary_language": "python", "py315_enforcement": "aggressive",
+    }
+    state.total_decisions = 50
+    event = AgentStartEvent(
+        type="SubagentStart", timestamp=time(), agent="aussie-tdd", task="test auth"
+    )
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            return await handle_agent_start(jmem_engine, event, state)
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.additional_context is not None
+    assert "100 Python" in decision.additional_context
+    assert "test_cortex.py" in decision.additional_context  # agent-specific hint
+
+
+def test_handle_agent_start_no_profile_still_works(jmem_engine, tmp_path):
+    """handle_agent_start works without a project profile (no crash, still has phase guidance)."""
+    from cortex import handle_agent_start
+
+    state = CortexState(state_path=tmp_path / "state.json")
+    event = AgentStartEvent(
+        type="SubagentStart", timestamp=time(), agent="aussie-researcher", task="explore"
+    )
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            return await handle_agent_start(jmem_engine, event, state)
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.action == "observe"
+    # Should still have phase guidance even without profile
+    if decision.additional_context:
+        assert "RESEARCH" in decision.additional_context
