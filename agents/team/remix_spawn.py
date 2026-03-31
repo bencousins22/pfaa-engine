@@ -364,8 +364,10 @@ class RemixTeam:
     # ── Execution Modes ──────────────────────────────────────────
     async def swarm(self, goal):
         print(f"  {C}⚡ SWARM — all {len(self.agents)} agents parallel{X}\n")
-        results = await asyncio.gather(*[self.execute(r, f"[{r.value}] {goal}") for r in self.agents])
-        results = list(results)
+        results = []
+        async with asyncio.TaskGroup() as tg:
+            tasks = {r: tg.create_task(self.execute(r, f"[{r.value}] {goal}")) for r in self.agents}
+        results = [tasks[r].result() for r in self.agents]
         dead = sum(1 for r in results if not r["success"])
         if dead > len(results)//2:
             print(f"  {R}⚠ CASCADING FAILURE: {dead}/{len(results)} agents failed — aborting{X}")
@@ -482,14 +484,15 @@ async def main():
     team = RemixTeam(roles=roles, ns=args.ns, live=args.live)
     await team.start()
     try:
-        if args.mode == "remix":
-            await team.remix(args.goal)
-        elif args.mode == "swarm":
-            await team.swarm(args.goal)
-        elif args.mode == "pipeline":
-            await team.pipeline([(r, f"[{r.value}] {args.goal}") for r in team.agents])
-        elif args.mode == "dag":
-            await team.dag([(r, f"[{r.value}] {args.goal}", []) for r in team.agents])
+        match args.mode:
+            case "remix":
+                await team.remix(args.goal)
+            case "swarm":
+                await team.swarm(args.goal)
+            case "pipeline":
+                await team.pipeline([(r, f"[{r.value}] {args.goal}") for r in team.agents])
+            case "dag":
+                await team.dag([(r, f"[{r.value}] {args.goal}", []) for r in team.agents])
 
         # Final dashboard
         s = await team.status()

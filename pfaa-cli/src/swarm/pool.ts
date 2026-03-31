@@ -11,6 +11,9 @@ import { spawn, ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { resolve, dirname } from 'node:path';
 import { createInterface, Interface as ReadlineInterface } from 'node:readline';
+import { getLogger } from '../utils/logger.js';
+
+const log = getLogger('pool');
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -230,8 +233,8 @@ export class ProcessPool extends EventEmitter {
 
           this.drainQueue();
         }
-      } catch {
-        // Non-JSON line — ignore.
+      } catch (err) {
+        log.trace('Non-JSON line from worker', { line: line.slice(0, 100), error: String(err) });
       }
     };
 

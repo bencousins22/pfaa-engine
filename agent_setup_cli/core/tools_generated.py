@@ -135,7 +135,7 @@ async def tool_terminal_history(count: int = 20) -> dict:
                     recent.append(cmd)
                 elif ";" in cmd:
                     recent.append(cmd.split(";", 1)[-1])
-            except: pass
+            except (UnicodeDecodeError, ValueError): pass
         return {"success": True, "commands": recent[-count:], "count": len(recent)}
     return await loop.run_in_executor(None, _read)
 

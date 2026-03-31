@@ -140,10 +140,13 @@ class Orchestrator:
             )
 
             for task, result in zip(ready, results):
-                if isinstance(result, Exception):
-                    task.status = TaskStatus.FAILED
-                    task.error = str(result)
-                    logger.error("Task %s failed: %s", task.id, result)
+                match result:
+                    case Exception() as e:
+                        task.status = TaskStatus.FAILED
+                        task.error = str(e)
+                        logger.error("Task %s failed: %s", task.id, e)
+                    case _:
+                        pass  # success — task already updated by _execute_task
 
         return list(self._tasks.values())
 

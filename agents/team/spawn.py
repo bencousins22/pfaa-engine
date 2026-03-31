@@ -504,9 +504,9 @@ class AgentTeam:
     async def swarm(self, goal: str) -> list[dict]:
         """Execute goal across ALL agents in parallel."""
         print(f"  {C}⚡ Swarming all agents...{X}\n")
-        tasks = [self.execute(role, f"[{role.value}] {goal}") for role in self.agents]
-        results = await asyncio.gather(*tasks)
-        results = list(results)
+        async with asyncio.TaskGroup() as tg:
+            task_map = {role: tg.create_task(self.execute(role, f"[{role.value}] {goal}")) for role in self.agents}
+        results = [task_map[role].result() for role in self.agents]
         for r in results:
             icon = f"{G}✓{X}" if r["success"] else f"{R}✗{X}"
             role = r.get("role", "?")

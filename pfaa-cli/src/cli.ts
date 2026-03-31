@@ -523,7 +523,7 @@ program
     try {
       await withBridge(async () => {
         const result = await bridge.executeTool(name, ...args);
-        const phaseColor = result.phaseUsed === ('VAPOR' as any) ? 'cyan' : result.phaseUsed === ('LIQUID' as any) ? 'yellow' : 'red';
+        const phaseColor = result.phaseUsed === Phase.VAPOR ? 'cyan' : result.phaseUsed === Phase.LIQUID ? 'yellow' : 'red';
         console.log(colorize(phaseColor as Color, `[${result.phaseUsed}] ${result.elapsedUs}μs`));
 
         if (typeof result.result === 'string') {
@@ -1299,7 +1299,7 @@ configCmd
       try {
         const creds = JSON.parse(readFileSync(configFile, 'utf-8'));
         return !!creds.anthropicApiKey;
-      } catch { return false; }
+      } catch { return false; } // credentials file may be missing or malformed
     })();
     const envKey = !!process.env['ANTHROPIC_API_KEY'];
 
@@ -1328,7 +1328,7 @@ program
 
     try {
       await bridge.start();
-    } catch { /* bridge optional for chat */ }
+    } catch (err) { log.debug('Bridge unavailable for chat mode', { error: String(err) }); }
 
     while (true) {
       console.log();
@@ -1431,7 +1431,7 @@ program
         try {
           const result = await bridge.executeTool(tool.name, ...args);
           succeeded++;
-          const phaseColor = result.phaseUsed === ('VAPOR' as any) ? 'cyan' : result.phaseUsed === ('LIQUID' as any) ? 'yellow' : 'red';
+          const phaseColor = result.phaseUsed === Phase.VAPOR ? 'cyan' : result.phaseUsed === Phase.LIQUID ? 'yellow' : 'red';
           rows.push([
             '✓',
             tool.name,
@@ -1456,7 +1456,7 @@ program
       }
 
       // Force learning after warmup
-      try { await bridge.forceLearn(); } catch {}
+      try { await bridge.forceLearn(); } catch (err) { log.debug('forceLearn skipped', { error: String(err) }); }
 
       console.log(colorize('green', `\n  ✅ Warmup complete: ${succeeded}/${tools.length} tools profiled\n`));
     } catch (err) {

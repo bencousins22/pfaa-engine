@@ -52,7 +52,7 @@ interface MCPToolResult {
 export class JMEMClient extends EventEmitter {
   private config: JMEMConfig;
   private connected = false;
-  private cache = new Map<string, { entry: MemoryEntry; ts: number }>();
+  private cache = new Map<string, { entries: MemoryEntry[]; ts: number }>();
   private cacheMaxAge = 60_000; // 1 minute
 
   constructor(config: Partial<JMEMConfig> = {}) {
@@ -111,7 +111,7 @@ export class JMEMClient extends EventEmitter {
     const cacheKey = `${query}:${layer}:${limit}`;
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.ts < this.cacheMaxAge) {
-      return [cached.entry];
+      return cached.entries;
     }
 
     const result = await this.callMCP('jmem_recall', {
@@ -123,7 +123,7 @@ export class JMEMClient extends EventEmitter {
 
     const entries = this.parseEntries(result);
     if (entries.length > 0) {
-      this.cache.set(cacheKey, { entry: entries[0], ts: Date.now() });
+      this.cache.set(cacheKey, { entries, ts: Date.now() });
     }
     return entries;
   }

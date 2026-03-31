@@ -135,7 +135,7 @@ export class PFAABridge extends EventEmitter {
 
   async status(): Promise<MemoryStatus & { tools: number; uptime_ms: number }> {
     const resp = await this.send('status', {});
-    return resp.data as any;
+    return resp.data as MemoryStatus & { tools: number; uptime_ms: number };
   }
 
   async listTools(): Promise<Array<{
@@ -145,7 +145,7 @@ export class PFAABridge extends EventEmitter {
     capabilities: string[];
   }>> {
     const resp = await this.send('list_tools', {});
-    return resp.data as any;
+    return (resp.data ?? []) as Array<{ name: string; phase: Phase; description: string; capabilities: string[] }>;
   }
 
   async executeTool(name: string, ...args: unknown[]): Promise<ToolResult> {
@@ -192,7 +192,7 @@ export class PFAABridge extends EventEmitter {
     completed: number;
   }>> {
     const resp = await this.send('list_checkpoints', {});
-    return resp.data as any;
+    return (resp.data ?? []) as Array<{ goal_id: string; goal: string; status: string; subtasks: number; completed: number }>;
   }
 
   async resumeGoal(goalId: string): Promise<AgentResult> {
@@ -209,12 +209,12 @@ export class PFAABridge extends EventEmitter {
     knowledge: Array<{ pattern: string; frequency: number }>;
   }> {
     const resp = await this.send('get_memory', {});
-    return resp.data as any;
+    return resp.data as { patterns: Array<{ tool: string; best_phase: string; avg_latency_us: number; confidence: number }>; strategies: Array<{ tool: string; from_phase: string; to_phase: string; speedup: string }>; episodes: number; knowledge: Array<{ pattern: string; frequency: number }> };
   }
 
   async forceLearn(): Promise<{ learned: boolean }> {
     const resp = await this.send('force_learn', {});
-    return resp.data as any;
+    return resp.data as { learned: boolean };
   }
 
   // ── Scatter / Pipeline ────────────────────────────────────────
@@ -227,7 +227,7 @@ export class PFAABridge extends EventEmitter {
     elapsed_us: number;
   }>> {
     const resp = await this.send('pipeline', { steps }, this.config.timeoutMs);
-    return resp.data as any;
+    return (resp.data ?? []) as Array<{ tool: string; success: boolean; result: unknown; phase: string; elapsed_us: number }>;
   }
 
   // ── Exploration ───────────────────────────────────────────────
@@ -252,7 +252,7 @@ export class PFAABridge extends EventEmitter {
     elapsedMs: number;
   }> {
     const resp = await this.send('ask_claude', { prompt, model }, 120_000);
-    return resp.data as any;
+    return resp.data as { success: boolean; output: string; elapsedMs: number };
   }
 
   async generateCode(
@@ -265,7 +265,7 @@ export class PFAABridge extends EventEmitter {
       language,
       output_file: outputFile,
     }, 120_000);
-    return resp.data as any;
+    return resp.data as { success: boolean; code: string; file?: string };
   }
 
   // ── Session Persistence ──────────────────────────────────────────
@@ -289,7 +289,7 @@ export class PFAABridge extends EventEmitter {
     capabilities: string[];
   }>> {
     const resp = await this.send('deferred_tool_search', { query, limit });
-    return resp.data as any;
+    return (resp.data ?? []) as Array<{ name: string; description: string; phase: string; capabilities: string[] }>;
   }
 
   // ── Internal ─────────────────────────────────────────────────────
@@ -313,7 +313,13 @@ export class PFAABridge extends EventEmitter {
       }, timeoutMs || this.config.timeoutMs);
 
       this.pending.set(id, { resolve, reject, timer });
-      this.process!.stdin!.write(JSON.stringify(cmd) + '\n');
+      try {
+        this.process!.stdin!.write(JSON.stringify(cmd) + '\n');
+      } catch (err) {
+        this.pending.delete(id);
+        clearTimeout(timer);
+        reject(new Error(`Bridge stdin write failed: ${err}`));
+      }
     });
   }
 

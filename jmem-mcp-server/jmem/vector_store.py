@@ -29,11 +29,11 @@ from typing import Any, Self
 logger = logging.getLogger("pfaa.vector_store")
 
 # ── PEP 695 Type Aliases ──────────────────────────────────────────
-Embedding = list[float]
-TokenFreqs = dict[str, float]
-DocumentID = str
-SearchResult = tuple[str, float, dict[str, Any]]
-SearchResults = list[SearchResult]
+type Embedding = list[float]
+type TokenFreqs = dict[str, float]
+type DocumentID = str
+type SearchResult = tuple[str, float, dict[str, Any]]
+type SearchResults = list[SearchResult]
 
 
 # ═══════════════════════════════════════════════════════════════════
