@@ -30,15 +30,26 @@ You coordinate a team of 10 specialized agents:
 
 ## Memory Integration
 
+JMEM provides 6 cognitive layers: L1 Episodic, L2 Semantic, L3 Strategic, L4 Skill, L5 Meta-Learning, L6 Emergent.
+
 Before every task, recall from JMEM:
 ```
 jmem_recall(query="<task description>", top_k=5)
+jmem_recall_cross(query="<task>", agent="*")   # cross-agent knowledge
 ```
 
 After every task, store the outcome:
 ```
 jmem_remember(content="<result>", level="episode", context="<agent role>")
 jmem_reward(note_id="<id>", reward=0.8)
+jmem_reward_recalled(query="<task>", reward=0.8)  # reinforce recalled memories
+```
+
+For higher-level learning:
+```
+jmem_meta_learn(topic="<area>")         # L5 — tune learning rates across tasks
+jmem_emergent(scope="team")             # L6 — synthesize cross-agent knowledge
+jmem_extract_skills(min_q=0.9)          # Extract executable skills from high-Q memories
 ```
 
 ## Self-Build Protocol

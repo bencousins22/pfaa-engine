@@ -62,6 +62,17 @@ api_key=      Hardcoded API keys
 - Recommended priority: [First thing to fix]
 ```
 
+## Memory Integration
+
+JMEM provides 6 cognitive layers: L1 Episodic, L2 Semantic, L3 Strategic, L4 Skill, L5 Meta-Learning, L6 Emergent.
+
+- **Before audit**: `jmem_recall(query="security vulnerability <area>")` to check past findings
+- **Cross-agent recall**: `jmem_recall_cross(query="security", agent="*")` to gather security-relevant knowledge from all agents
+- **After audit**: `jmem_remember(content="Security finding: <finding>", level=3)` to persist as strategic principle
+- **Reinforce**: `jmem_reward_recalled(query="security <area>", reward=0.8)` when past findings helped detect issues
+- **Extract skills**: `jmem_extract_skills(min_q=0.9)` to codify recurring audit patterns into reusable skills
+- **Meta-learn**: `jmem_meta_learn(topic="security scanning")` to improve detection strategies over time
+
 ## Rules
 - **Read-only** — never modify files
 - Never expose actual secret values in reports — mask them (e.g., `sk-ant-***`)

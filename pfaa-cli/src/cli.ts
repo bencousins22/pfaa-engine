@@ -969,6 +969,168 @@ memoryCmd
     }
   });
 
+memoryCmd
+  .command('learn')
+  .description('Run the full cognitive cycle — consolidate, meta-learn, emergent, extract')
+  .action(async () => {
+    console.log(colorize('cyan', '\n🧠 Running full cognitive cycle...\n'));
+    try {
+      await memory.connect();
+
+      // Step 1: Consolidate
+      console.log(`  ${AZ.toolKey('Step 1:')} Consolidating memory...`);
+      const cStats = await memory.consolidate();
+      console.log(`    Promoted: ${colorize('green', String(cStats.promoted))}  Pruned: ${colorize('red', String(cStats.pruned))}  Merged: ${colorize('yellow', String(cStats.merged))}`);
+
+      // Step 2: Meta-learn
+      console.log(`  ${AZ.toolKey('Step 2:')} Analyzing learning process (L4)...`);
+      const meta = await memory.metaLearn();
+      const metaInsights = (meta.insights_stored ?? meta.insights ?? 0) as number;
+      console.log(`    Insights stored: ${colorize('green', String(metaInsights))}`);
+
+      // Step 3: Emergent discovery
+      console.log(`  ${AZ.toolKey('Step 3:')} Discovering emergent patterns (L5)...`);
+      const emrg = await memory.emergent();
+      const discoveries = (emrg.discoveries_stored ?? emrg.discoveries ?? 0) as number;
+      console.log(`    Discoveries stored: ${colorize('green', String(discoveries))}`);
+
+      // Step 4: Skill extraction
+      console.log(`  ${AZ.toolKey('Step 4:')} Extracting skills (L6)...`);
+      const skills = await memory.extractSkills();
+      const skillCount = (skills.skills_extracted ?? skills.extracted ?? 0) as number;
+      console.log(`    Skills extracted: ${colorize('green', String(skillCount))}`);
+
+      console.log('\n' + AZ.success('  Cognitive cycle complete') + '\n');
+    } catch (err) {
+      console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
+    }
+  });
+
+memoryCmd
+  .command('meta')
+  .description('L4 Meta-Learning — analyze Q-values, promotion velocity, reward patterns')
+  .action(async () => {
+    console.log(colorize('cyan', '\n🔬 Running L4 Meta-Learning analysis...\n'));
+    try {
+      await memory.connect();
+      const result = await memory.metaLearn();
+
+      if (Object.keys(result).length === 0) {
+        console.log(colorize('dim', '  No meta-learning insights available yet.\n'));
+        return;
+      }
+
+      for (const [key, value] of Object.entries(result)) {
+        const label = key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        if (typeof value === 'object' && value !== null) {
+          console.log(`  ${AZ.toolKey(label + ':')}`);
+          for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+            console.log(`    ${k}: ${colorize('green', String(v))}`);
+          }
+        } else {
+          console.log(`  ${AZ.toolKey(label + ':')} ${colorize('green', String(value))}`);
+        }
+      }
+      console.log();
+    } catch (err) {
+      console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
+    }
+  });
+
+memoryCmd
+  .command('emergent')
+  .description('L5 Emergent Knowledge — discover cross-cutting patterns and knowledge gaps')
+  .action(async () => {
+    console.log(colorize('magenta', '\n🔮 Running L5 Emergent Knowledge discovery...\n'));
+    try {
+      await memory.connect();
+      const result = await memory.emergent();
+
+      if (Object.keys(result).length === 0) {
+        console.log(colorize('dim', '  No emergent patterns discovered yet.\n'));
+        return;
+      }
+
+      for (const [key, value] of Object.entries(result)) {
+        const label = key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        if (Array.isArray(value)) {
+          console.log(`  ${AZ.toolKey(label + ':')} (${value.length} items)`);
+          for (const item of value.slice(0, 10)) {
+            console.log(`    ${colorize('dim', '•')} ${typeof item === 'string' ? item : JSON.stringify(item)}`);
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          console.log(`  ${AZ.toolKey(label + ':')}`);
+          for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+            console.log(`    ${k}: ${colorize('green', String(v))}`);
+          }
+        } else {
+          console.log(`  ${AZ.toolKey(label + ':')} ${colorize('green', String(value))}`);
+        }
+      }
+      console.log();
+    } catch (err) {
+      console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
+    }
+  });
+
+memoryCmd
+  .command('extract')
+  .description('Extract high-Q principles into structured SKILL memories (Q>=0.92)')
+  .action(async () => {
+    console.log(colorize('cyan', '\n⚡ Extracting skills from high-Q memories...\n'));
+    try {
+      await memory.connect();
+      const result = await memory.extractSkills();
+
+      if (Object.keys(result).length === 0) {
+        console.log(colorize('dim', '  No memories qualify for skill extraction yet (need Q>=0.92, retrievals>=5).\n'));
+        return;
+      }
+
+      const extracted = (result.skills_extracted ?? result.extracted ?? 0) as number;
+      const candidates = (result.candidates ?? result.candidates_evaluated ?? 0) as number;
+      console.log(`  ${AZ.toolKey('Candidates evaluated:')} ${colorize('yellow', String(candidates))}`);
+      console.log(`  ${AZ.toolKey('Skills extracted:    ')} ${colorize('green', String(extracted))}`);
+
+      if (Array.isArray(result.skills)) {
+        for (const skill of (result.skills as Array<Record<string, unknown>>).slice(0, 10)) {
+          const name = skill.name || skill.content || 'unnamed';
+          const q = typeof skill.q === 'number' ? skill.q.toFixed(3) : '?';
+          console.log(`    ${colorize('dim', '•')} ${AZ.toolVal(String(name))}  Q=${colorize('green', q)}`);
+        }
+      }
+      console.log();
+    } catch (err) {
+      console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
+    }
+  });
+
+memoryCmd
+  .command('decay')
+  .description('Apply time-based Q-decay to idle memories')
+  .option('-t, --hours <n>', 'Hours of inactivity before decay', '24')
+  .action(async (opts) => {
+    const hours = parseInt(opts.hours);
+    console.log(colorize('yellow', `\n🕐 Applying Q-decay to memories idle > ${hours}h...\n`));
+    try {
+      await memory.connect();
+      const result = await memory.decay(hours);
+
+      const decayed = (result.decayed ?? result.memories_decayed ?? 0) as number;
+      const total = (result.total ?? result.total_checked ?? 0) as number;
+      console.log(`  ${AZ.toolKey('Memories checked:')} ${colorize('dim', String(total))}`);
+      console.log(`  ${AZ.toolKey('Memories decayed:')} ${colorize('yellow', String(decayed))}`);
+      console.log();
+    } catch (err) {
+      console.error(colorize('red', `Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
+    }
+  });
+
 // ═════════════════════════════════════════════════════════════════════
 // PYTHON 3.15 TOOLS
 // ═════════════════════════════════════════════════════════════════════

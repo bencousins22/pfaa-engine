@@ -213,6 +213,48 @@ export class JMEMClient extends EventEmitter {
     return JSON.parse(this.extractText(result));
   }
 
+  // ── L4/L5/L6 Cognitive Operations ────────────────────────────────
+
+  /**
+   * L4 Meta-Learning: analyze the learning process itself.
+   * Examines Q-value distribution, promotion velocity, keyword diversity,
+   * and reward patterns. Auto-stores insights as META memories.
+   */
+  async metaLearn(): Promise<Record<string, unknown>> {
+    const result = await this.callMCP('jmem_meta_learn', {});
+    return JSON.parse(this.extractText(result) || '{}');
+  }
+
+  /**
+   * L5 Emergent Knowledge: discover cross-cutting patterns across all
+   * memories. Finds keyword clusters, promotion chains, knowledge gaps,
+   * and graph density. Auto-stores discoveries as EMERGENT memories.
+   */
+  async emergent(): Promise<Record<string, unknown>> {
+    const result = await this.callMCP('jmem_emergent', {});
+    return JSON.parse(this.extractText(result) || '{}');
+  }
+
+  /**
+   * Auto-extract high-Q principles (Q>=0.92, retrievals>=5) into
+   * structured SKILL memories.
+   */
+  async extractSkills(): Promise<Record<string, unknown>> {
+    const result = await this.callMCP('jmem_extract_skills', {});
+    return JSON.parse(this.extractText(result) || '{}');
+  }
+
+  /**
+   * Apply time-based Q-decay to idle memories. Prevents stale knowledge
+   * from blocking the promotion pipeline.
+   */
+  async decay(hoursThreshold: number = 24): Promise<Record<string, unknown>> {
+    const result = await this.callMCP('jmem_decay', {
+      hours_threshold: hoursThreshold,
+    });
+    return JSON.parse(this.extractText(result) || '{}');
+  }
+
   // ── Context-Aware Memory ─────────────────────────────────────────
 
   /**
