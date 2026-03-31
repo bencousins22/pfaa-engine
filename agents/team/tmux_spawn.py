@@ -128,12 +128,14 @@ def _find_claude_binary() -> str:
     sys.exit(1)
 
 
-def _build_cmd(agent: AgentDef, goal: str, interactive: bool, claude_bin: str) -> str:
+def _build_cmd(agent: AgentDef, goal: str, interactive: bool, claude_bin: str,
+               skip_permissions: bool = False) -> str:
     """Build the shell command for a single tmux pane."""
+    perms = " --dangerously-skip-permissions" if skip_permissions else ""
     if interactive:
-        return f"cd {shlex.quote(PROJECT_DIR)} && {shlex.quote(claude_bin)} --agent {agent.name}"
+        return f"cd {shlex.quote(PROJECT_DIR)} && {shlex.quote(claude_bin)} --agent {agent.name}{perms}"
     safe_goal = shlex.quote(goal)
-    return f"cd {shlex.quote(PROJECT_DIR)} && {shlex.quote(claude_bin)} --agent {agent.name} --print {safe_goal}"
+    return f"cd {shlex.quote(PROJECT_DIR)} && {shlex.quote(claude_bin)} --agent {agent.name}{perms} --print {safe_goal}"
 
 
 def _resolve_agents(names_csv: str) -> list[AgentDef]:
@@ -207,14 +209,14 @@ def _layout_grid(agents: list[AgentDef], session: str, claude_bin: str,
         sys.exit(1)
 
     # Create session with first pane
-    first_cmd = _build_cmd(first_agent, goal, interactive, claude_bin)
+    first_cmd = _build_cmd(first_agent, goal, interactive, claude_bin, skip_permissions)
     _tmux("new-session", "-d", "-s", session, "-n", "aussie-team", first_cmd)
     pane_agents: list[AgentDef] = [first_agent]
 
     # Split remaining non-lead agents into 2-column rows
     remaining = ordered[1:]
     for i, agent in enumerate(remaining):
-        cmd = _build_cmd(agent, goal, interactive, claude_bin)
+        cmd = _build_cmd(agent, goal, interactive, claude_bin, skip_permissions)
         if i % 2 == 0:
             # New row: vertical split from pane 0 (creates bottom slice)
             _tmux("split-window", "-t", f"{session}:0.0", "-v", cmd)
@@ -225,7 +227,7 @@ def _layout_grid(agents: list[AgentDef], session: str, claude_bin: str,
 
     # Add lead as the last pane (full-width bottom) if present and not already added
     if lead and lead is not first_agent:
-        cmd = _build_cmd(lead, goal, interactive, claude_bin)
+        cmd = _build_cmd(lead, goal, interactive, claude_bin, skip_permissions)
         _tmux("split-window", "-t", f"{session}:0.0", "-v", cmd)
         pane_agents.append(lead)
 
@@ -238,12 +240,12 @@ def _layout_grid(agents: list[AgentDef], session: str, claude_bin: str,
 def _layout_tall(agents: list[AgentDef], session: str, claude_bin: str,
                  goal: str, interactive: bool) -> list[AgentDef]:
     """Vertical stack: all panes in a single column."""
-    first_cmd = _build_cmd(agents[0], goal, interactive, claude_bin)
+    first_cmd = _build_cmd(agents[0], goal, interactive, claude_bin, skip_permissions)
     _tmux("new-session", "-d", "-s", session, "-n", "aussie-team", first_cmd)
     pane_agents = [agents[0]]
 
     for agent in agents[1:]:
-        cmd = _build_cmd(agent, goal, interactive, claude_bin)
+        cmd = _build_cmd(agent, goal, interactive, claude_bin, skip_permissions)
         _tmux("split-window", "-t", f"{session}:0", "-v", cmd)
         pane_agents.append(agent)
 
@@ -260,6 +262,7 @@ def spawn_team(
     layout: str,
     interactive: bool,
     dry_run: bool = False,
+    skip_permissions: bool = False,
 ) -> None:
     """Spawn the agent team in a tmux session."""
 
@@ -389,6 +392,10 @@ aliases (short names also accepted):
         help="Pane layout: grid (4x2 + lead) or tall (vertical stack)",
     )
     parser.add_argument(
+        "--dangerously-skip-permissions", "-y", action="store_true",
+        help="Pass --dangerously-skip-permissions to each claude session",
+    )
+    parser.add_argument(
         "--dry-run", "-n", action="store_true",
         help="Print spawn plan without creating tmux session",
     )
@@ -412,6 +419,7 @@ def main() -> None:
         layout=args.layout,
         interactive=args.interactive,
         dry_run=args.dry_run,
+        skip_permissions=args.dangerously_skip_permissions,
     )
 
 
