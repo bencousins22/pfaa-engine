@@ -145,6 +145,10 @@
     "aussie-self-build": {
       "path": ".claude/skills/aussie-self-build/SKILL.md",
       "description": "Automated self-improvement cycle — recall JMEM principles, apply unapplied patterns, test, commit, reward"
+    },
+    "aussie-a0-bridge": {
+      "path": ".claude/skills/aussie-a0-bridge/SKILL.md",
+      "description": "Agent Zero v1.5+ bridge — plugin creation, A2A, memory sync, tool interop"
     }
   },
   "permissions": {
