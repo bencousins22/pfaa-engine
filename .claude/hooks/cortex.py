@@ -54,6 +54,7 @@ class CortexState:
     last_prompt_recall: list[dict] = field(default_factory=list)
     last_prompt_at: float = 0.0
     recent_episode_hashes: list[str] = field(default_factory=list)
+    project_profile: dict = field(default_factory=dict)
     state_path: Path = field(default=STATE_PATH, repr=False)
 
     # ── Persistence ─────────────────────────────────────────────────
@@ -375,6 +376,103 @@ AGENT_NAMES = frozenset({
 })
 
 
+# ── S1 Fast Path: Dynamic L4 Rules ──────────────────────────────
+
+
+class DynamicRules:
+    """S1 Fast Path: JMEM L4 skills loaded as frozen decision tables."""
+
+    def __init__(self):
+        self._rules: dict[tuple[str, str], dict] = {}  # (agent, domain) -> rule
+        self._loaded_at: float = 0.0
+
+    async def load(self, engine) -> None:
+        """Reload L4 skills as decision rules. Cache for 60s."""
+        if time() - self._loaded_at < 60:
+            return
+        try:
+            from jmem.engine import MemoryLevel
+            skills = await engine.recall(
+                "blocking rules routing rules enforcement",
+                limit=20, level=MemoryLevel.SKILL, min_q=0.85,
+            )
+            rules = {}
+            for skill in skills:
+                try:
+                    parsed = json.loads(skill.content)
+                    key = (parsed.get("agent", "*"), parsed.get("domain", "*"))
+                    rules[key] = {
+                        "action": parsed["action"],
+                        "reason": parsed.get("reason", "JMEM L4 rule"),
+                        "q": skill.q_value,
+                        "source_id": skill.id,
+                    }
+                except (json.JSONDecodeError, KeyError):
+                    continue
+            self._rules = rules
+            self._loaded_at = time()
+        except Exception:
+            pass  # Keep existing rules on failure
+
+    def check(self, agent: str, domain: str) -> Decision | None:
+        """Check for a matching L4 rule. Returns Decision or None."""
+        # Try exact match first, then wildcard
+        for key in [(agent, domain), (agent, "*"), ("*", domain)]:
+            if key in self._rules:
+                rule = self._rules[key]
+                match rule["action"]:
+                    case "block":
+                        return Decision(
+                            action="block",
+                            block_reason=f"JMEM L4 (Q={rule['q']:.2f}): {rule['reason']}",
+                            confidence=rule["q"],
+                        )
+                    case "advise":
+                        return Decision(
+                            action="advise",
+                            system_message=f"JMEM L4: {rule['reason']}",
+                            confidence=rule["q"],
+                        )
+        return None
+
+
+# Module-level singleton
+_dynamic_rules = DynamicRules()
+
+
+# ── Context-Sensitive Project Personality ────────────────────────
+
+
+def detect_project_profile() -> dict[str, str | bool | float]:
+    """Scan project characteristics to adapt cortex behavior."""
+    try:
+        root = PROJECT_ROOT
+        py_count = len(list(root.rglob("*.py")))
+        ts_count = len(list(root.rglob("*.ts")))
+        test_count = len([f for f in root.rglob("*") if "test" in f.name.lower() and f.suffix in (".py", ".ts")])
+        has_security = (root / ".claude" / "agents" / "aussie-security.md").exists()
+        has_freqtrade = (root / "freqtrade_strategy").exists()
+
+        return {
+            "py315_enforcement": "aggressive" if py_count > 20 else "moderate",
+            "blocking_confidence": 0.75 if test_count > 10 else 0.90,
+            "security_emphasis": "high" if has_security else "normal",
+            "overfitting_checks": has_freqtrade,
+            "primary_language": "python" if py_count > ts_count else "typescript",
+            "py_count": py_count,
+            "ts_count": ts_count,
+            "test_count": test_count,
+        }
+    except Exception:
+        return {
+            "py315_enforcement": "moderate",
+            "blocking_confidence": 0.90,
+            "security_emphasis": "normal",
+            "overfitting_checks": False,
+            "primary_language": "python",
+        }
+
+
 # ── Agent handlers ───────────────────────────────────────────────
 
 
@@ -422,6 +520,8 @@ async def handle_agent_start(engine, event: AgentStartEvent, state: CortexState)
         parts.append(f"[cross-agent] {finding.content[:120]}")
 
     # Block if 3+ failures AND avg Q < 0.4
+    # Adjust blocking confidence from project profile
+    blocking_threshold = state.project_profile.get("blocking_confidence", 0.90) if state.project_profile else 0.90
     failure_notes = [n for n in history if "error" in n.tags]
     if len(failure_notes) >= 3:
         avg_q = sum(n.q_value for n in failure_notes) / len(failure_notes)
@@ -429,7 +529,7 @@ async def handle_agent_start(engine, event: AgentStartEvent, state: CortexState)
             return Decision(
                 action="block",
                 block_reason=f"Agent {event.agent} has {len(failure_notes)} recent failures with avg Q={avg_q:.2f}. Investigate before retrying.",
-                confidence=0.8,
+                confidence=blocking_threshold,
             )
 
     context = "\n".join(parts) if parts else None
@@ -738,7 +838,17 @@ async def _handle_event(engine, event: HookEvent, state: CortexState, score: flo
     state.episodes_this_session += 1
     state.total_decisions += 1
 
-    # Route to specific handlers
+    # S1 Fast Path: check dynamic L4 rules for agent events
+    if isinstance(event, (AgentStartEvent, AgentStopEvent)):
+        await _dynamic_rules.load(engine)
+        s1_result = _dynamic_rules.check(
+            event.agent,
+            event.task if isinstance(event, AgentStartEvent) else ""
+        )
+        if s1_result and s1_result.confidence > 0.9:
+            return s1_result  # High confidence L4 rule, skip S2
+
+    # S2 Full Path: per-handler logic
     match event:
         case AgentStartEvent():
             return await handle_agent_start(engine, event, state)
@@ -785,6 +895,10 @@ async def _run(event_type: str, raw_input: str) -> None:
         except Exception:
             # Level 3 degradation: state load failure
             return
+
+        # Detect project profile on first run
+        if not state.project_profile:
+            state.project_profile = detect_project_profile()
 
         # Dream Phase B: deferred from prior Stop
         if state.dream_pending:

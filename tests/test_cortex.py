@@ -839,6 +839,70 @@ def test_cortex_end_to_end_cli():
         assert result.returncode == 0, f"{event_type} failed: {result.stderr}"
 
 
+# ── Enhancement 1: DynamicRules S1 Fast Path ────────────────────────
+
+
+def test_dynamic_rules_empty():
+    """No rules loaded returns None."""
+    from cortex import DynamicRules
+    rules = DynamicRules()
+    assert rules.check("aussie-tdd", "auth") is None
+
+
+def test_dynamic_rules_match():
+    """Manually populated rules return decisions."""
+    from cortex import DynamicRules, Decision
+    rules = DynamicRules()
+    rules._rules = {("aussie-tdd", "auth"): {"action": "block", "reason": "fails on auth", "q": 0.95, "source_id": "x"}}
+    rules._loaded_at = time()
+    result = rules.check("aussie-tdd", "auth")
+    assert result is not None
+    assert result.action == "block"
+    assert result.confidence == 0.95
+
+
+def test_dynamic_rules_wildcard():
+    """Wildcard domain matches any domain."""
+    from cortex import DynamicRules
+    rules = DynamicRules()
+    rules._rules = {("aussie-tdd", "*"): {"action": "advise", "reason": "general warning", "q": 0.8, "source_id": "x"}}
+    rules._loaded_at = time()
+    result = rules.check("aussie-tdd", "anything")
+    assert result is not None
+    assert result.action == "advise"
+
+
+def test_dynamic_rules_no_match():
+    """Non-matching agent returns None."""
+    from cortex import DynamicRules
+    rules = DynamicRules()
+    rules._rules = {("aussie-tdd", "auth"): {"action": "block", "reason": "x", "q": 0.9, "source_id": "x"}}
+    rules._loaded_at = time()
+    assert rules.check("aussie-security", "auth") is None
+
+
+# ── Enhancement 2: Context-Sensitive Project Personality ─────────────
+
+
+def test_detect_project_profile():
+    """Profile detects project characteristics."""
+    from cortex import detect_project_profile
+    profile = detect_project_profile()
+    assert "py315_enforcement" in profile
+    assert "primary_language" in profile
+    assert profile["py_count"] > 0  # This project has Python files
+    assert profile["security_emphasis"] == "high"  # aussie-security.md exists
+
+
+def test_project_profile_cached_in_state():
+    """Profile is stored in CortexState and persists."""
+    from cortex import CortexState, detect_project_profile
+    state = CortexState()
+    assert state.project_profile == {}
+    state.project_profile = detect_project_profile()
+    assert state.project_profile["primary_language"] in ("python", "typescript")
+
+
 def test_dream_cycle_full_integration(jmem_engine):
     """Integration: accumulate pressure -> stop triggers dream -> phase B clears pending."""
     from cortex import (
