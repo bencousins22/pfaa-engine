@@ -616,7 +616,8 @@ def test_handle_task_completed_pressure(jmem_engine):
 # ── Task 10: AST analyzer + file changed handler ────────────────────
 
 
-def test_py315_analyzer_pep810(tmp_path):
+def test_py315_analyzer_pep810(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     sys.path.insert(
         0,
         os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks", "analyzers"),
@@ -634,7 +635,8 @@ def test_py315_analyzer_pep810(tmp_path):
     assert "numpy" in pep810[0].current
 
 
-def test_py315_analyzer_pep814(tmp_path):
+def test_py315_analyzer_pep814(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     sys.path.insert(
         0,
         os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks", "analyzers"),
@@ -650,7 +652,8 @@ def test_py315_analyzer_pep814(tmp_path):
     assert len(pep814) == 1
 
 
-def test_py315_analyzer_clean(tmp_path):
+def test_py315_analyzer_clean(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     sys.path.insert(
         0,
         os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks", "analyzers"),
@@ -664,7 +667,8 @@ def test_py315_analyzer_clean(tmp_path):
     assert analyze(str(f)) == []
 
 
-def test_handle_file_changed_py(jmem_engine, tmp_path):
+def test_handle_file_changed_py(jmem_engine, tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     from cortex import handle_file_changed, FileChangedEvent, CortexState
 
     f = tmp_path / "sample.py"
