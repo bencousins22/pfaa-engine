@@ -155,11 +155,15 @@ async def worker_main() -> None:
 
             # Structured concurrency: wrap dispatch in a TaskGroup so any
             # spawned subtasks are properly awaited / cancelled on error.
+            task_error_group = None
             try:
                 async with asyncio.TaskGroup() as tg:
                     task = tg.create_task(_dispatch(payload), name="dispatch")
             except* Exception as eg:
-                errors = [str(e) for e in eg.exceptions]
+                task_error_group = eg
+
+            if task_error_group is not None:
+                errors = [str(e) for e in task_error_group.exceptions]
                 _emit("task_error", {
                     "errors": errors,
                     "duration_ms": int((time.monotonic() - task_start) * 1000),

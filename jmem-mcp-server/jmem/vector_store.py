@@ -203,7 +203,7 @@ class PureVectorStore:
 
     def _init_sync(self) -> None:
         os.makedirs(os.path.dirname(self._db_path) or ".", exist_ok=True)
-        self._conn = sqlite3.connect(self._db_path)
+        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)  # async: init in thread, use in main
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA cache_size=-8000")

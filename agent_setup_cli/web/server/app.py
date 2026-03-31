@@ -129,12 +129,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 os.write(master_fd, msg["data"].encode('utf-8'))
             elif msg.get("type") == "resize":
                 set_winsize(master_fd, msg["rows"], msg["cols"])
-    except Exception as e:
+    except (ConnectionError, RuntimeError):
         pass
     finally:
         read_task.cancel()
         try:
             os.close(master_fd)
-        except:
+        except OSError:
             pass
         p.terminate()
