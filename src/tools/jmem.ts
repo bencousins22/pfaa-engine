@@ -110,10 +110,6 @@ export class JMemTool implements Tool {
     return this.callJMem(toolName, input)
   }
 
-  async executeNamed(name: string, input: Record<string, any>): Promise<string> {
-    return this.callJMem(name, input)
-  }
-
   private async callJMem(toolName: string, args: Record<string, any>): Promise<string> {
     const scriptPath = resolve(__dirname, '../../python/jmem/server.py')
 

@@ -91,13 +91,13 @@ def _cos(a,b):
 class VStore:
     def __init__(self, path):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        self.db = sqlite3.connect(path, check_same_thread=False)
+        self.db = sqlite3.connect(path)
         self.db.execute("PRAGMA journal_mode=WAL"); self.db.execute("PRAGMA synchronous=NORMAL")
         self.db.executescript("CREATE TABLE IF NOT EXISTS docs(id TEXT PRIMARY KEY,text TEXT,meta TEXT DEFAULT '{}',emb TEXT DEFAULT '[]',ts REAL);")
         self.tf = _TFIDF(); self.ec = {}
         for r in self.db.execute("SELECT id,emb FROM docs").fetchall():
             try: self.ec[r[0]] = json.loads(r[1])
-            except: pass
+            except (json.JSONDecodeError, ValueError, TypeError): pass
     def upsert(self, id, text, meta=None):
         e = self.tf.fit_transform(_tokenize(text))
         self.db.execute("INSERT INTO docs VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET text=excluded.text,meta=excluded.meta,emb=excluded.emb",

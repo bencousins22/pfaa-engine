@@ -6,9 +6,9 @@ lazy import anthropic
 
 class ClaudeCodeClient:
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-        if self.api_key:
-            self.client = anthropic.Anthropic(api_key=self.api_key)
+        _key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+        if _key:
+            self.client = anthropic.Anthropic(api_key=_key)
         else:
             self.client = None
 
@@ -26,10 +26,10 @@ class ClaudeCodeClient:
                                    timeout=30)
             
             response = self.client.messages.create(
-                model="claude-3-7-sonnet-20250219",
+                model="claude-sonnet-4-20250514",
                 max_tokens=1024,
                 messages=[{
-                    "role": "user", 
+                    "role": "user",
                     "content": f"Analyze this CLI output and suggest configuration settings or improvements for our automated setup:\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
                 }]
             )
@@ -51,7 +51,7 @@ class ClaudeCodeClient:
         prompt += "Generate a bash script that would automatically configure this service. Return ONLY the bash script in a markdown code block."
         
         response = self.client.messages.create(
-            model="claude-3-7-sonnet-20250219",
+            model="claude-sonnet-4-20250514",
             max_tokens=2048,
             messages=[{"role": "user", "content": prompt}]
         )

@@ -274,11 +274,17 @@ def tool_shell(command: str, timeout: float = 30.0) -> dict[str, Any]:
     timeout_s=5.0,
 ))
 async def tool_read_file(path: str) -> dict[str, Any]:
-    """Read a file asynchronously."""
+    """Read a file asynchronously with path traversal protection."""
+    resolved = os.path.realpath(path)
+    if ".." in os.path.relpath(resolved, os.getcwd()):
+        # Allow home dir and /tmp but reject paths outside workspace going upward
+        allowed_prefixes = (os.path.expanduser("~"), "/tmp", os.getcwd())
+        if not any(resolved.startswith(p) for p in allowed_prefixes):
+            return {"success": False, "path": path, "error": "Path outside allowed directories"}
     loop = asyncio.get_running_loop()
     try:
-        content = await loop.run_in_executor(None, lambda: open(path).read())
-        return {"success": True, "path": path, "content": content, "size": len(content)}
+        content = await loop.run_in_executor(None, lambda: open(resolved).read())
+        return {"success": True, "path": resolved, "content": content, "size": len(content)}
     except Exception as e:
         return {"success": False, "path": path, "error": str(e)}
 
@@ -291,16 +297,20 @@ async def tool_read_file(path: str) -> dict[str, Any]:
     timeout_s=5.0,
 ))
 async def tool_write_file(path: str, content: str) -> dict[str, Any]:
-    """Write to a file asynchronously."""
+    """Write to a file asynchronously with path traversal protection."""
+    resolved = os.path.realpath(os.path.expanduser(path))
+    allowed_prefixes = (os.path.expanduser("~"), "/tmp", os.getcwd())
+    if not any(resolved.startswith(p) for p in allowed_prefixes):
+        return {"success": False, "path": path, "error": "Path outside allowed directories"}
     loop = asyncio.get_running_loop()
     try:
         def _write():
-            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-            with open(path, "w") as f:
+            os.makedirs(os.path.dirname(resolved) or ".", exist_ok=True)
+            with open(resolved, "w") as f:
                 f.write(content)
-            return os.path.getsize(path)
+            return os.path.getsize(resolved)
         size = await loop.run_in_executor(None, _write)
-        return {"success": True, "path": path, "bytes_written": size}
+        return {"success": True, "path": resolved, "bytes_written": size}
     except Exception as e:
         return {"success": False, "path": path, "error": str(e)}
 
@@ -375,16 +385,71 @@ def tool_grep(pattern: str, path: str = ".", file_glob: str = "*") -> dict[str, 
     timeout_s=60.0,
 ))
 def tool_compute(expression: str) -> dict[str, Any]:
-    """Evaluate a mathematical expression in a thread."""
+    """Evaluate a mathematical expression safely using AST parsing."""
+    import ast
     import math as math_mod
-    safe_builtins = {
+    import operator
+
+    # Allowed operators for safe evaluation
+    _ops = {
+        ast.Add: operator.add, ast.Sub: operator.sub,
+        ast.Mult: operator.mul, ast.Div: operator.truediv,
+        ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
+        ast.Pow: operator.pow, ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+    }
+
+    # Allowed math functions
+    _funcs: dict[str, Any] = {
         k: getattr(math_mod, k)
         for k in dir(math_mod)
-        if not k.startswith("_")
+        if not k.startswith("_") and callable(getattr(math_mod, k))
     }
-    safe_builtins.update({"abs": abs, "round": round, "len": len, "sum": sum, "min": min, "max": max})
+    _funcs.update({"abs": abs, "round": round, "len": len, "sum": sum, "min": min, "max": max})
+
+    # Allowed constants
+    _consts: dict[str, Any] = {
+        k: getattr(math_mod, k)
+        for k in ("pi", "e", "tau", "inf", "nan")
+        if hasattr(math_mod, k)
+    }
+
+    def _safe_eval(node: ast.AST) -> Any:
+        if isinstance(node, ast.Expression):
+            return _safe_eval(node.body)
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float, complex)):
+                return node.value
+            raise ValueError(f"Unsupported constant: {node.value!r}")
+        if isinstance(node, ast.BinOp):
+            op = _ops.get(type(node.op))
+            if op is None:
+                raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
+            return op(_safe_eval(node.left), _safe_eval(node.right))
+        if isinstance(node, ast.UnaryOp):
+            op = _ops.get(type(node.op))
+            if op is None:
+                raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
+            return op(_safe_eval(node.operand))
+        if isinstance(node, ast.Call):
+            if not isinstance(node.func, ast.Name):
+                raise ValueError("Only named function calls allowed")
+            func = _funcs.get(node.func.id)
+            if func is None:
+                raise ValueError(f"Unknown function: {node.func.id}")
+            args = [_safe_eval(a) for a in node.args]
+            return func(*args)
+        if isinstance(node, ast.Name):
+            if node.id in _consts:
+                return _consts[node.id]
+            if node.id in _funcs:
+                return _funcs[node.id]
+            raise ValueError(f"Unknown name: {node.id}")
+        raise ValueError(f"Unsupported expression: {type(node).__name__}")
+
     try:
-        result = eval(expression, {"__builtins__": {}}, safe_builtins)
+        tree = ast.parse(expression, mode="eval")
+        result = _safe_eval(tree)
         return {"success": True, "expression": expression, "result": result}
     except Exception as e:
         return {"success": False, "expression": expression, "error": str(e)}
@@ -400,16 +465,10 @@ def tool_compute(expression: str) -> dict[str, Any]:
     retries=1,
 ))
 def tool_sandbox_exec(code: str, timeout: float = 10.0) -> dict[str, Any]:
-    """Execute arbitrary Python code in a sandboxed subprocess."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".py", delete=False
-    ) as f:
-        f.write(code)
-        temp_path = f.name
-
+    """Execute Python code in an isolated subprocess via stdin (no temp file)."""
     try:
         result = subprocess.run(
-            ["python3", temp_path],
+            ["python3", "-c", code],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -422,8 +481,6 @@ def tool_sandbox_exec(code: str, timeout: float = 10.0) -> dict[str, Any]:
         }
     except subprocess.TimeoutExpired:
         return {"success": False, "error": "timeout"}
-    finally:
-        os.unlink(temp_path)
 
 
 @registry.register(ToolSpec(
@@ -435,7 +492,9 @@ def tool_sandbox_exec(code: str, timeout: float = 10.0) -> dict[str, Any]:
     retries=2,
 ))
 async def tool_http_fetch(url: str, timeout: float = 10.0) -> dict[str, Any]:
-    """Fetch a URL asynchronously."""
+    """Fetch a URL asynchronously. Enforces HTTPS for security."""
+    if not url.startswith(("https://", "http://localhost", "http://127.0.0.1")):
+        return {"success": False, "url": url, "error": "Only HTTPS URLs allowed (except localhost)"}
     loop = asyncio.get_running_loop()
     try:
         def _fetch():

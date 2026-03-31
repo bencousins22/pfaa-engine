@@ -91,7 +91,7 @@ class AgentTeam:
         logger.info("Starting Aussie Agents Team with %d roles", len(self.config.roles))
 
         # Initialize JMEM engine
-        from jmem_mcp_server.jmem.engine import JMemEngine
+        from python.jmem.engine import JMemEngine
         self._engine = JMemEngine(
             namespace=self.config.jmem_namespace,
             db_path=os.path.expanduser(f"~/.pfaa/team/{self.config.jmem_namespace}/memory.db"),
@@ -173,7 +173,7 @@ class AgentTeam:
             agent.last_result = result
 
             # Phase 3: Store outcome in JMEM
-            from jmem_mcp_server.jmem.engine import MemoryLevel
+            from python.jmem.engine import MemoryLevel
             note_id = await self._engine.remember(
                 content=f"[{role.value}] Task: {task[:200]} | Result: {json.dumps(result, default=str)[:200]}",
                 level=MemoryLevel.EPISODE,

@@ -144,7 +144,7 @@ class VectorStore:
 
     def __init__(self, db_path: str):
         os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._conn = sqlite3.connect(db_path)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.executescript("""
@@ -162,7 +162,7 @@ class VectorStore:
             if row[1]:
                 try:
                     self._cache[row[0]] = json.loads(row[1])
-                except:
+                except (json.JSONDecodeError, ValueError, TypeError):
                     pass
 
     def upsert(self, doc_id: str, text: str, metadata: dict | None = None) -> str:

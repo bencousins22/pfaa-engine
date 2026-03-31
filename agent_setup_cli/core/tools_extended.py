@@ -128,6 +128,8 @@ def tool_git_branch(
     create: str | None = None,
 ) -> dict[str, Any]:
     if create:
+        if create.startswith("-") or not all(c.isalnum() or c in "-_/." for c in create):
+            return {"success": False, "error": f"Invalid branch name: {create}"}
         r = subprocess.run(
             ["git", "checkout", "-b", create],
             capture_output=True, text=True, cwd=repo_path,

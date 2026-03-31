@@ -311,6 +311,9 @@ def tool_focus_mode(enable: bool = True) -> dict[str, Any]:
     if enable:
         distractions = ["Messages", "Mail", "Slack", "Discord", "Music", "News", "Podcasts"]
         for app in distractions:
+            # Sanitize app name — only allow alphanumeric and spaces
+            if not all(c.isalnum() or c == " " for c in app):
+                continue
             r = subprocess.run(
                 ["osascript", "-e", f'tell application "{app}" to quit'],
                 capture_output=True, text=True, timeout=5,
