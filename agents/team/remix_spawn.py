@@ -219,35 +219,58 @@ ROLE_PROMPTS = {
 
 
 class ClaudeClient:
-    """Wrapper around the Anthropic API with graceful fallback."""
+    """Wrapper that uses `claude --print` (Claude Code subscription) or Anthropic API as fallback."""
 
     def __init__(self):
-        self._client = None
-        if _HAS_ANTHROPIC and os.environ.get("ANTHROPIC_API_KEY"):
+        self._claude_bin = self._find_claude_binary()
+        self._api_client = None
+        # Fallback to API if no claude binary
+        if not self._claude_bin and _HAS_ANTHROPIC and os.environ.get("ANTHROPIC_API_KEY"):
             try:
-                self._client = _anthropic.Anthropic()
+                self._api_client = _anthropic.Anthropic()
             except Exception:
-                self._client = None
+                pass
+
+    @staticmethod
+    def _find_claude_binary() -> str | None:
+        """Find the claude CLI binary."""
+        import shutil
+        for path in ["claude", os.path.expanduser("~/.claude/local/claude"), os.path.expanduser("~/.local/bin/claude")]:
+            if shutil.which(path):
+                return path
+        return None
 
     @property
     def available(self) -> bool:
-        return self._client is not None
+        return self._claude_bin is not None or self._api_client is not None
 
     def ask(self, role_context: str, task: str, memories: list[str] | None = None) -> str:
-        """Call Claude API. Returns response text, or raises on failure."""
-        if not self._client:
-            raise RuntimeError("Claude API client not available")
+        """Call Claude via CLI (subscription) or API (fallback)."""
         mem_block = ""
         if memories:
             mem_block = "\n\n## Recalled Memories\n" + "\n".join(f"- {m}" for m in memories)
-        system_prompt = f"{role_context}{mem_block}\n\nRespond concisely with actionable results. Use structured formatting."
-        message = self._client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2048,
-            system=system_prompt,
-            messages=[{"role": "user", "content": task}],
-        )
-        return message.content[0].text
+        prompt = f"{role_context}{mem_block}\n\n{task}\n\nRespond concisely with actionable results."
+
+        # Prefer claude CLI (uses subscription, no API key needed)
+        if self._claude_bin:
+            result = subprocess.run(
+                [self._claude_bin, "--print", "-p", prompt],
+                capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+
+        # Fallback to Anthropic API
+        if self._api_client:
+            message = self._api_client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=2048,
+                system=f"{role_context}{mem_block}\n\nRespond concisely with actionable results.",
+                messages=[{"role": "user", "content": task}],
+            )
+            return message.content[0].text
+
+        raise RuntimeError("No claude binary or API key available")
 
 
 # Module-level singleton — created lazily
@@ -477,7 +500,7 @@ async def main():
     p.add_argument("--mode", choices=["swarm","pipeline","dag","remix"], default="remix")
     p.add_argument("--roles", help="Comma-separated roles")
     p.add_argument("--ns", default="pfaa-remix", help="JMEM namespace")
-    p.add_argument("--live", action="store_true", help="Enable real Claude API calls (requires ANTHROPIC_API_KEY)")
+    p.add_argument("--live", action="store_true", default=True, help="Enable real Claude API calls (default: True)")
     args = p.parse_args()
 
     roles = [Role(r.strip()) for r in args.roles.split(",")] if args.roles else list(Role)
