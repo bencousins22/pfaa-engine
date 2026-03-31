@@ -386,6 +386,10 @@ AGENT_NAMES = frozenset({
 })
 
 
+# Events that never need full S1 analysis — safe-list bypass (like CC's SAFE_YOLO_ALLOWLISTED_TOOLS)
+SAFE_EVENTS = frozenset({"TaskCompleted", "Stop"})
+
+
 # ── S1 Fast Path: Dynamic L4 Rules ──────────────────────────────
 
 
@@ -809,8 +813,24 @@ def self_assess(state: CortexState) -> None:
 # ── Dream Phase B ────────────────────────────────────────────────
 
 
-async def run_dream_phase_b(engine, state: CortexState) -> None:
-    """Dream Phase B: heavy cognitive cycle — extract, meta-learn, emerge, assess."""
+async def suggest_self_improvements(engine) -> list[str]:
+    """Check JMEM for CC patterns not yet applied to cortex."""
+    suggestions = []
+    try:
+        patterns = await engine.recall("claude-code-pattern apply cortex", limit=5, min_q=0.5)
+        for p in patterns:
+            if "apply to cortex" in p.content.lower() or "apply to pfaa" in p.content.lower():
+                suggestions.append(f"Unapplied CC pattern (Q={p.q_value:.2f}): {p.content[:100]}")
+    except Exception:
+        pass
+    return suggestions
+
+
+async def run_dream_phase_b(engine, state: CortexState) -> list[str]:
+    """Dream Phase B: heavy cognitive cycle — extract, meta-learn, emerge, assess.
+
+    Returns list of self-improvement suggestions (may be empty).
+    """
     try:
         await engine.extract_skills()
     except Exception:
@@ -826,6 +846,9 @@ async def run_dream_phase_b(engine, state: CortexState) -> None:
 
     self_assess(state)
     state.dream_pending = False
+
+    # Check for unapplied CC patterns
+    return await suggest_self_improvements(engine)
 
 
 # ── Core event processor ─────────────────────────────────────────
@@ -848,13 +871,17 @@ async def _handle_event(engine, event: HookEvent, state: CortexState, score: flo
     state.episodes_this_session += 1
     state.total_decisions += 1
 
-    # S1 Fast Path: check dynamic L4 rules for agent events
-    if isinstance(event, (AgentStartEvent, AgentStopEvent)):
+    # S1 Fast Path: check dynamic L4 rules for agent events (skip safe events)
+    if isinstance(event, (AgentStartEvent, AgentStopEvent)) and event.type not in SAFE_EVENTS:
         await _dynamic_rules.load(engine)
         s1_result = _dynamic_rules.check(
             event.agent,
             event.task if isinstance(event, AgentStartEvent) else ""
         )
+        # CC permission precedence: DENY > ASK > ALLOW
+        # If S1 says block, never override with S2 allow
+        if s1_result and s1_result.action == "block":
+            return s1_result  # Deny always wins regardless of confidence
         if s1_result and s1_result.confidence > 0.9:
             return s1_result  # High confidence L4 rule, skip S2
 
@@ -881,8 +908,8 @@ async def _handle_event(engine, event: HookEvent, state: CortexState, score: flo
 # ── Entry point with 4-level degradation ─────────────────────────
 
 
-async def _run(event_type: str, raw_input: str) -> None:
-    """Main async entry point with graceful degradation."""
+async def _run(event_type: str, raw_input: str) -> Decision | None:
+    """Main async entry point with graceful degradation. Returns Decision for exit code handling."""
     # Level 4: outermost try — never crash
     try:
         # Level 3: parse JSON input
@@ -897,14 +924,14 @@ async def _run(event_type: str, raw_input: str) -> None:
 
         # Skip low-interest events
         if score < 0.1:
-            return
+            return None
 
         # Load cortex state
         try:
             state = CortexState.load()
         except Exception:
             # Level 3 degradation: state load failure
-            return
+            return None
 
         # Detect project profile on first run
         if not state.project_profile:
@@ -923,7 +950,7 @@ async def _run(event_type: str, raw_input: str) -> None:
         # Check circuit breaker for this event type
         handler_name = event_type
         if state.is_disabled(handler_name):
-            return
+            return None
 
         # Level 1: full processing with JMEM
         try:
@@ -953,16 +980,22 @@ async def _run(event_type: str, raw_input: str) -> None:
         if output:
             print(output)
 
+        return decision
+
     except Exception:
         # Level 4 degradation: absolute fallback — never crash
-        pass
+        return None
 
 
 def main() -> None:
     """CLI entry point — reads event type from argv[1], payload from stdin."""
     event_type = sys.argv[1] if len(sys.argv) > 1 else "unknown"
     raw_input = sys.stdin.read() if not sys.stdin.isatty() else ""
-    asyncio.run(_run(event_type, raw_input))
+    decision = asyncio.run(_run(event_type, raw_input))
+
+    # CC hook protocol: exit code 2 = blocking signal
+    if decision and decision.action == "block":
+        sys.exit(2)
 
 
 if __name__ == "__main__":

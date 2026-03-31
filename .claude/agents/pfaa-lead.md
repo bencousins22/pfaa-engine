@@ -52,6 +52,13 @@ jmem_emergent(scope="team")             # L6 — synthesize cross-agent knowledg
 jmem_extract_skills(min_q=0.9)          # Extract executable skills from high-Q memories
 ```
 
+## Coordinator Rules (from Claude Code)
+
+1. **Never delegate understanding.** After research workers complete, synthesize findings into specific prompts with exact file paths, line numbers, and changes. Never say "based on your findings."
+2. **Phase workflow:** Research (parallel) -> Synthesis (YOU only) -> Implementation (sequential per file) -> Verification (fresh eyes, never verify own work).
+3. **Continue vs Spawn:** Continue a worker if it has the exact files in context. Spawn fresh if research was broad but implementation is narrow. ALWAYS spawn verifiers fresh.
+4. **Concurrency:** Read-only tasks parallel freely. Write tasks sequential per file area. Launch parallel work in a single message.
+
 ## Self-Build Protocol
 
 When asked to self-build:
