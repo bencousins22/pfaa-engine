@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from enum import IntEnum
@@ -138,6 +140,38 @@ class JMemEngine:
 
     async def start(self) -> None:
         await self._store._ensure_initialized()
+        await self._restore_adaptive_thresholds()
+
+    async def _restore_adaptive_thresholds(self) -> None:
+        """Restore persisted adaptive thresholds from a META memory (if any)."""
+        try:
+            results = await self._store.search(
+                "adaptive-thresholds", top_k=5,
+                where={"level": MemoryLevel.META.value},
+            )
+            for doc_id, _score, meta in results:
+                keywords = meta.get("keywords", [])
+                if "adaptive-thresholds" not in keywords:
+                    continue
+                doc = await self._store.get(doc_id)
+                if not doc:
+                    continue
+                # Content stores the JSON thresholds
+                content = doc.get("text", "")
+                # Extract JSON from content (may be wrapped in descriptive text)
+                json_start = content.find("{")
+                json_end = content.rfind("}") + 1
+                if json_start >= 0 and json_end > json_start:
+                    parsed = json.loads(content[json_start:json_end])
+                    restored: dict[int, tuple[float, int]] = {}
+                    for k, v in parsed.items():
+                        restored[int(k)] = (float(v[0]), int(v[1]))
+                    self._promotion_thresholds = restored
+                    logger.info("Restored adaptive thresholds from META memory %s: %s",
+                                doc_id[:8], self._promotion_thresholds)
+                return
+        except Exception as e:
+            logger.warning("Could not restore adaptive thresholds: %s", e)
 
     async def shutdown(self) -> None:
         await self._store.close()
@@ -578,6 +612,9 @@ class JMemEngine:
                 tags=["auto", "meta"],
             )
 
+        # 5. Persist adaptive thresholds so they survive restarts
+        await self._persist_adaptive_thresholds()
+
         return {
             "insights": insights,
             "adjustments": adjustments,
@@ -701,7 +738,76 @@ class JMemEngine:
             "orphan_count": len(orphans),
         }
 
+    # ── Cross-Namespace Recall ─────────────────────────────────
+
+    async def recall_cross_namespace(
+        self,
+        query: str,
+        namespaces: list[str],
+        limit: int = 5,
+    ) -> list[MemoryNote]:
+        """Search across multiple agent namespaces, merging results by Q-value.
+
+        Each namespace maps to ~/.jmem/{namespace}/memory.db.
+        Enables emergent cross-agent knowledge synthesis.
+        """
+        all_notes: list[MemoryNote] = []
+
+        for ns in namespaces:
+            db_path = os.path.join(os.path.expanduser("~/.jmem"), ns, "memory.db")
+            if not os.path.exists(db_path):
+                logger.debug("Skipping namespace %r — no database at %s", ns, db_path)
+                continue
+
+            ns_engine = JMemEngine(namespace=ns, db_path=db_path)
+            try:
+                await ns_engine.start()
+                notes = await ns_engine.recall(query=query, limit=limit)
+                # Tag each note with its source namespace for the caller
+                for note in notes:
+                    note.tags = list(set(note.tags) | {f"ns:{ns}"})
+                all_notes.extend(notes)
+            except Exception as e:
+                logger.warning("Cross-namespace recall failed for %r: %s", ns, e)
+            finally:
+                await ns_engine.shutdown()
+
+        # Merge by Q-value descending, then trim to limit
+        all_notes.sort(key=lambda n: n.q_value, reverse=True)
+        return all_notes[:limit]
+
     # ── Helpers ──────────────────────────────────────────────────
+
+    async def _persist_adaptive_thresholds(self) -> None:
+        """Store current adaptive thresholds as a META memory for restart persistence."""
+        # Serialize thresholds: {level_int: [q_threshold, retrieval_threshold]}
+        serializable = {str(k): list(v) for k, v in self._promotion_thresholds.items()}
+        content = json.dumps(serializable)
+
+        # Check if a threshold memory already exists — evolve it if so
+        try:
+            results = await self._store.search(
+                "adaptive-thresholds", top_k=5,
+                where={"level": MemoryLevel.META.value},
+            )
+            for doc_id, _score, meta in results:
+                keywords = meta.get("keywords", [])
+                if "adaptive-thresholds" in keywords:
+                    await self.evolve(doc_id, content)
+                    logger.info("Evolved adaptive-thresholds META memory %s", doc_id[:8])
+                    return
+        except Exception:
+            pass
+
+        # No existing memory found — create a new one
+        await self.remember(
+            content=content,
+            level=MemoryLevel.META,
+            context="adaptive promotion thresholds — persisted by meta_learn",
+            keywords=["adaptive-thresholds"],
+            tags=["auto", "meta", "thresholds"],
+        )
+        logger.info("Created new adaptive-thresholds META memory")
 
     def _generate_id(self, content: str, level: MemoryLevel) -> str:
         raw = f"{self.namespace}:{level.value}:{content}:{time.time()}"

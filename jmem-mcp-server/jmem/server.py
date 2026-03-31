@@ -3,7 +3,7 @@ JMEM MCP Server — JSON-RPC 2.0 over stdin/stdout.
 
 Ported from https://github.com/Aussie-Agents/jmem-mcp-server
 
-7 MCP Tools:
+8 MCP Tools:
     jmem_recall       — Search semantic memory with TF-IDF + Zettelkasten graph
     jmem_remember     — Store memories at cognitive levels (episode→concept→principle→skill)
     jmem_consolidate  — Link related memories and synthesize clusters
@@ -11,6 +11,7 @@ Ported from https://github.com/Aussie-Agents/jmem-mcp-server
     jmem_reward       — Reinforce memories via Q-value adjustment
     jmem_evolve       — Update existing memory content
     jmem_status       — Health reporting and statistics
+    jmem_recall_cross — Cross-namespace search for multi-agent synthesis
 
 Protocol: MCP (Model Context Protocol) via stdio transport.
 """
@@ -156,6 +157,19 @@ TOOLS = [
             "properties": {},
         },
     },
+    {
+        "name": "jmem_recall_cross",
+        "description": "Search across multiple agent namespaces and merge results by Q-value. Enables emergent cross-agent knowledge synthesis.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query"},
+                "namespaces": {"type": "array", "items": {"type": "string"}, "description": "Agent namespaces to search (e.g. ['security', 'architect', 'tdd'])"},
+                "limit": {"type": "integer", "description": "Max results across all namespaces", "default": 5},
+            },
+            "required": ["query", "namespaces"],
+        },
+    },
 ]
 
 
@@ -234,6 +248,29 @@ async def handle_tool_call(engine: JMemEngine, name: str, args: dict[str, Any]) 
 
     elif name == "jmem_emergent":
         return await engine.emergent_synthesis()
+
+    elif name == "jmem_recall_cross":
+        notes = await engine.recall_cross_namespace(
+            query=args["query"],
+            namespaces=args["namespaces"],
+            limit=args.get("limit", 5),
+        )
+        return {
+            "memories": [
+                {
+                    "id": n.id,
+                    "content": n.content,
+                    "level": n.level.name,
+                    "q_value": round(n.q_value, 3),
+                    "keywords": n.keywords,
+                    "tags": n.tags,
+                    "retrieval_count": n.retrieval_count,
+                }
+                for n in notes
+            ],
+            "count": len(notes),
+            "namespaces_queried": args["namespaces"],
+        }
 
     else:
         raise ValueError(f"Unknown tool: {name}")
