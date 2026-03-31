@@ -965,10 +965,20 @@ async def _run(event_type: str, raw_input: str) -> Decision | None:
             finally:
                 await engine.shutdown()
 
-        except Exception:
-            # Level 2 degradation: JMEM failure
-            state.record_error(handler_name)
-            decision = Decision()
+        except Exception as exc:
+            # Level 2: JMEM unavailable — state-only decisions
+            try:
+                state.record_error(handler_name)
+                # Fail-safe: advise on security-sensitive events when processing fails
+                if event_type in ("SubagentStart", "PostToolUseFailure"):
+                    decision = Decision(
+                        action="advise",
+                        system_message=f"Cortex processing error for {event_type} — proceeding with caution",
+                    )
+                else:
+                    decision = Decision()
+            except Exception:
+                decision = Decision()
 
         # Save state and output
         try:

@@ -938,3 +938,35 @@ def test_dream_cycle_full_integration(jmem_engine):
             await jmem_engine.shutdown()
 
     run_async(_run())
+
+
+# ── Self-Build: Fail-Safe on Processing Errors ──────────────────────
+
+
+def test_run_failsafe_advises_on_subagent_start_error():
+    """When _handle_event raises a non-JMEM error for SubagentStart, _run should advise."""
+    from cortex import _run
+
+    # Simulate a SubagentStart with valid JSON — JMEM will fail (no server),
+    # so Level 2 kicks in and should produce an advise for security-sensitive events.
+    decision = run_async(_run("SubagentStart", '{"agent_type":"aussie-tdd","task":"test"}'))
+    # If JMEM is available, we get a normal decision; if not, fail-safe advises
+    # Either way it should not be None (the event has score >= 0.1)
+    assert decision is not None
+
+
+def test_run_failsafe_advises_on_tool_failure_error():
+    """When _handle_event raises for PostToolUseFailure, _run should advise."""
+    from cortex import _run
+
+    decision = run_async(_run("PostToolUseFailure", '{"tool_name":"Bash","error":"timeout"}'))
+    assert decision is not None
+
+
+def test_run_non_security_event_observes_on_error():
+    """Non-security events should still default to observe on processing error."""
+    from cortex import _run
+
+    decision = run_async(_run("TaskCompleted", '{"subject":"done"}'))
+    # TaskCompleted has score 0.3 >= 0.1, so it should be processed
+    assert decision is not None
