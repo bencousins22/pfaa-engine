@@ -441,9 +441,174 @@ Each phase is independently deployable. Phase 1 alone provides value (agent perf
 
 ## 15. Success Criteria
 
-- Cortex startup < 50ms for trivial events (interest < 0.3).
+- Cortex startup < 80ms for trivial events (interest < 0.3), including ~40ms Python interpreter startup.
 - Cortex full analysis < 500ms for complex events.
 - Block accuracy > 70% after 50+ decisions (measured by self-assessment).
 - Dream cycles produce at least 1 L4 skill per 100 events.
 - Zero crashes in Claude Code's hook pipeline (degradation chain holds).
 - AST analyzer catches patterns string-matching misses (nested imports, conditional TypeVar, dict comprehensions).
+
+## 16. Errata and Refinements (Post-Review)
+
+### 16.1 Python Startup Cost
+
+Every hook invocation runs `python3 cortex.py`, incurring ~40ms Python interpreter startup. This is unavoidable without a persistent daemon. Latency budgets throughout this spec include this baseline. The "skip entirely" tier for interest < 0.1 still costs ~40ms (Python starts, cortex reads stdin, checks interest, exits). Use `python3 -S` (skip site imports) to reduce to ~20ms where possible.
+
+### 16.2 cortex_state.json Race Condition
+
+Two hooks firing simultaneously (e.g., SubagentStop + TaskCompleted) could both read-modify-write cortex_state.json, with the second clobbering the first. Solution: atomic writes via temp file + `os.replace()`:
+
+```python
+def save(self) -> None:
+    tmp = CORTEX_STATE_PATH.with_suffix('.tmp')
+    tmp.write_text(json.dumps(asdict(self), default=str))
+    os.replace(str(tmp), str(CORTEX_STATE_PATH))  # Atomic on POSIX
+```
+
+For counters (pressure, error counts), accept eventual consistency — off-by-one is acceptable. For boolean flags (disabled_handlers), the last writer wins, which is correct because the most recent error state is the most relevant.
+
+### 16.3 Dream Cycle Timeout
+
+The 7-step dream cycle may exceed the 10s Stop hook timeout. Solution: two-phase dream.
+
+**Phase A (in Stop hook, <5s):** Run the lightweight steps:
+- `consolidate()` (~1-2s)
+- `decay_idle()` (~0.5s)
+- Store `dream_pending = true` if heavier steps needed
+
+**Phase B (in next SessionStart, <8s):** Run the heavy steps if `dream_pending`:
+- `extract_skills()`
+- `meta_learn()`
+- `emergent_synthesis()`
+- `self_assess()`
+- `suggest_hook_evolution()`
+- Set `dream_pending = false`
+
+This keeps Stop fast and defers expensive analysis to session startup where latency is more forgiving.
+
+### 16.4 Cross-Namespace Recall
+
+The current JMEM MCP server uses a single namespace (`claude-code`). `recall_cross_namespace` would return nothing useful. Instead, use tag-based filtering on regular `recall`:
+
+```python
+# Instead of recall_cross_namespace:
+results = await engine.recall(
+    f"{task_description}",
+    limit=5, min_q=0.3
+)
+# Filter for memories tagged with other agents:
+cross = [m for m in results if any(t in AGENT_NAMES for t in m.tags) and agent not in m.tags]
+```
+
+All agent memories share one namespace but are tagged with their source agent. Regular recall with tag filtering achieves the same cross-agent synthesis.
+
+### 16.5 FileChanged Per-File Invocation
+
+Claude Code fires FileChanged once per changed file. If `git pull` lands 15 `.py` files, 15 separate `python3 cortex.py FileChanged` processes spawn. Each analyzes one file independently. The free-threading optimization for batch analysis does NOT apply (threads can't span processes).
+
+Remove the free-threading FileChanged claim from Section 10. Free-threading is still load-bearing for concurrent JMEM TaskGroup operations within a single invocation.
+
+### 16.6 UserPromptSubmit Cache
+
+The 30-second recall cache cannot live in-process (each invocation is a new process). Store the cache in cortex_state.json:
+
+```python
+# In CortexState:
+last_prompt_keywords: list[str] = []
+last_prompt_recall: list[dict] = []   # Serialized memory summaries
+last_prompt_at: float = 0.0
+
+# In handler:
+if time() - state.last_prompt_at < 30:
+    overlap = len(set(keywords) & set(state.last_prompt_keywords)) / max(len(keywords), 1)
+    if overlap > 0.5:
+        return Decision(additional_context=format_cached(state.last_prompt_recall))
+```
+
+### 16.7 JMEM Engine Import
+
+The cortex MUST use the `jmem-mcp-server/` engine, not the `python/` engine. They have different APIs:
+
+| Feature | `jmem-mcp-server/jmem/engine.py` | `python/jmem/engine.py` |
+|---|---|---|
+| `recall(limit=, min_q=)` | Yes | No (uses `top_k=`) |
+| `recall_cross_namespace()` | Yes | No |
+| `extract_skills()` | Yes | Differs |
+| `meta_learn()` | Yes | Differs |
+| `emergent_synthesis()` | Yes | Differs |
+| `reward_recalled()` | Yes | Differs |
+| `decay_idle()` | Yes | Differs |
+
+Import path: `sys.path.insert(0, "/Users/borris/Desktop/pfaa-engine/jmem-mcp-server")`.
+
+### 16.8 Hook Payload Validation
+
+Claude Code's stdin JSON schema varies by hook event. The cortex must validate gracefully:
+
+```python
+def parse_event(event_type: str, payload: dict) -> HookEvent:
+    match event_type:
+        case "SubagentStart":
+            return AgentStartEvent(
+                type=event_type,
+                timestamp=time(),
+                raw=frozendict(payload),
+                agent=payload.get("agent_name", payload.get("name", "unknown")),
+                task=payload.get("task", payload.get("prompt", "")[:200]),
+            )
+        # ... other cases with .get() defaults for all fields
+```
+
+Every field access uses `.get()` with a default. Missing fields degrade functionality but never crash.
+
+### 16.9 Memory Volume Control
+
+The cortex stores L1 episodes on most events. At high activity (50+ events/session), this could flood JMEM. Controls:
+
+- **Dedup window:** Before storing, check cortex_state for last 5 episode hashes. Skip if duplicate content hash.
+- **Rate limit:** Max 30 episodes per session. After that, only store high-interest events (score > 0.6).
+- **Decay handles cleanup:** `decay_idle(24h)` in the dream cycle prunes stale episodes with low Q.
+
+### 16.10 Multi-Project Portability
+
+Replace hardcoded paths with environment variable detection:
+
+```python
+PROJECT_ROOT = Path(
+    os.environ.get("CLAUDE_PROJECT_DIR",
+    os.environ.get("PWD",
+    "/Users/borris/Desktop/pfaa-engine"))
+)
+JMEM_PATH = PROJECT_ROOT / "jmem-mcp-server"
+STATE_PATH = PROJECT_ROOT / ".claude" / "hooks" / "cortex_state.json"
+```
+
+### 16.11 Coordinator Phase Detection
+
+The cortex infers the current phase from agent types being spawned:
+
+| Agents spawning | Detected phase |
+|---|---|
+| aussie-researcher, aussie-planner, aussie-architect | RESEARCH |
+| pfaa-lead (solo) | SYNTHESIS |
+| aussie-tdd, pfaa-rewriter, aussie-deployer | IMPLEMENTATION |
+| pfaa-validator, aussie-security | VERIFICATION |
+| Mixed or unknown | IDLE (no phase injection) |
+
+Phase advances when SubagentStop fires for the last agent in the current phase group. Stored in cortex_state.json as `phase: str`.
+
+### 16.12 Error Classification
+
+Expanded from 4 to 7 categories for richer PostToolUseFailure handling:
+
+```python
+ERROR_PATTERNS = {
+    "permission": ["permission", "denied", "forbidden", "unauthorized"],
+    "timeout": ["timeout", "timed out", "deadline exceeded"],
+    "not_found": ["not found", "no such file", "does not exist", "enoent"],
+    "syntax": ["syntax", "parse error", "unexpected token", "invalid"],
+    "network": ["connection", "network", "econnrefused", "dns"],
+    "resource": ["out of memory", "disk full", "too many open files"],
+    "unknown": [],  # Fallback
+}
+```
