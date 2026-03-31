@@ -2,6 +2,7 @@
 """SessionStart hook: recall JMEM context directly via engine."""
 import asyncio
 import json
+import os
 import sys
 
 sys.path.insert(0, "/Users/borris/Desktop/pfaa-engine/jmem-mcp-server")
@@ -10,7 +11,7 @@ from jmem.engine import JMemEngine
 
 
 async def main():
-    e = JMemEngine()
+    e = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))
     r = await e.recall("recent learnings priorities context", limit=3, min_q=0.6)
     if r:
         notes = [{"content": n.content, "level": str(n.level), "q": n.q_value} for n in r]

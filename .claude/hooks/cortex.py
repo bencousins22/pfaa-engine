@@ -915,7 +915,7 @@ async def _run(event_type: str, raw_input: str) -> None:
             try:
                 sys.path.insert(0, str(JMEM_PATH))
                 from jmem.engine import JMemEngine
-                engine = JMemEngine()
+                engine = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))
                 await run_dream_phase_b(engine, state)
             except Exception:
                 state.dream_pending = False
@@ -930,7 +930,7 @@ async def _run(event_type: str, raw_input: str) -> None:
             sys.path.insert(0, str(JMEM_PATH))
             from jmem.engine import JMemEngine
 
-            engine = JMemEngine()
+            engine = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))
             await engine.start()
             try:
                 decision = await _handle_event(engine, event, state, score)

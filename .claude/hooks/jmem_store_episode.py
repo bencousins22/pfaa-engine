@@ -2,6 +2,7 @@
 """Stop hook: store session episode directly via JMEM engine."""
 import asyncio
 import json
+import os
 import sys
 from datetime import datetime
 
@@ -23,7 +24,7 @@ async def main():
     ts = datetime.now().isoformat()
     content = f"[{ts}] Session episode: {str(summary)[:500]}"
 
-    e = JMemEngine()
+    e = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))
     await e.remember(content=content, level=MemoryLevel.EPISODE, tags=["auto-episode", "session"])
     print(json.dumps({"systemMessage": "JMEM: episode stored"}))
 
