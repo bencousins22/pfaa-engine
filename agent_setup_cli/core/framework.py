@@ -76,8 +76,7 @@ class Framework:
         self._memory = PersistentMemory(
             storage_dir=storage_dir or os.path.expanduser("~/.pfaa"),
         )
-        self._registry = ToolRegistry.get()
-        self._registry.set_memory(self._memory.memory)
+        self._registry = ToolRegistry.get(memory=self._memory.memory)
         self._bus = EventBus.get()
         self._agent = AutonomousAgent.__new__(AutonomousAgent)
         self._agent._memory = self._memory

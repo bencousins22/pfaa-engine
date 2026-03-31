@@ -233,8 +233,7 @@ class AutonomousAgent:
 
     def __init__(self):
         self._memory = PersistentMemory()
-        self._registry = ToolRegistry.get()
-        self._registry.set_memory(self._memory.memory)
+        self._registry = ToolRegistry.get(memory=self._memory.memory)
         self._bridge = ClaudeBridge(memory=self._memory.memory)
         os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 

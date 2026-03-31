@@ -68,15 +68,26 @@ class ToolRegistry:
 
     _instance: ToolRegistry | None = None
 
-    def __init__(self):
+    def __init__(self, *, memory=None):
         self._tools: dict[str, tuple[ToolSpec, Callable]] = {}
         self._nucleus = Nucleus()
-        self._memory_ref = None  # set via set_memory() for exploration
+        self._memory_ref = None
+        # Accept memory at construction time (dependency injection)
+        # so callers don't need a separate set_memory() call.
+        if memory is not None:
+            self.set_memory(memory)
 
     @classmethod
-    def get(cls) -> ToolRegistry:
+    def get(cls, *, memory=None) -> ToolRegistry:
+        """Return the singleton registry, optionally injecting memory.
+
+        If memory is provided and the instance already exists, it will
+        be attached via set_memory() — no re-creation needed.
+        """
         if cls._instance is None:
-            cls._instance = cls()
+            cls._instance = cls(memory=memory)
+        elif memory is not None:
+            cls._instance.set_memory(memory)
         return cls._instance
 
     def register(self, spec: ToolSpec) -> Callable:

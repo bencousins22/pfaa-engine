@@ -75,7 +75,7 @@ class PersistentMemory:
 
         # Wire memory into the tool registry for exploration-guided phase selection
         from agent_setup_cli.core.tools import ToolRegistry
-        ToolRegistry.get().set_memory(self.memory)
+        ToolRegistry.get(memory=self.memory)
 
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
