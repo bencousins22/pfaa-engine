@@ -269,6 +269,16 @@
             "statusMessage": "Storing JMEM episode..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py Stop",
+            "timeout": 10,
+            "statusMessage": "Cortex: stop..."
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -293,6 +303,79 @@
             "command": "node -e \"if(process.env.ECC_HOOK_PROFILE==='off'){process.exit(0)}let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const inp=JSON.parse(d);const fs=require('fs');const os=require('os');const path=require('path');const dir=path.join(os.homedir(),'.pfaa');fs.mkdirSync(dir,{recursive:true});const entry={timestamp:new Date().toISOString(),trigger:inp.trigger||'unknown',summary:inp.summary||inp.compact_summary||'',conversationId:inp.conversation_id||null,tokensBeforeCompact:inp.tokens_before||null,tokensAfterCompact:inp.tokens_after||null};fs.appendFileSync(path.join(dir,'compaction-log.jsonl'),JSON.stringify(entry)+'\\n');process.stdout.write(JSON.stringify({systemMessage:'Compaction summary logged to ~/.pfaa/compaction-log.jsonl'}))}catch(e){process.stdout.write(JSON.stringify({systemMessage:'Compaction log failed: '+e.message}))}})\"",
             "timeout": 10,
             "statusMessage": "Logging compaction summary..."
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py SubagentStart",
+            "timeout": 5,
+            "statusMessage": "Cortex: agent start..."
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py SubagentStop",
+            "timeout": 10,
+            "statusMessage": "Cortex: agent stop..."
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py PostToolUseFailure",
+            "timeout": 5,
+            "statusMessage": "Cortex: tool failure..."
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py TaskCompleted",
+            "timeout": 5,
+            "statusMessage": "Cortex: task done..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py UserPromptSubmit",
+            "timeout": 3,
+            "statusMessage": "Cortex: recall..."
+          }
+        ]
+      }
+    ],
+    "FileChanged": [
+      {
+        "matcher": "*.py|*.pyi|settings.json|.claude/agents/*.md",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py FileChanged",
+            "timeout": 10,
+            "statusMessage": "Cortex: file scan..."
           }
         ]
       }
