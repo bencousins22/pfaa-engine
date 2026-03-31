@@ -1,8 +1,11 @@
 """Tests for CortexState, Decision, and Event types — Aussie Cortex hook system."""
 
+import asyncio
 import json
 import os
+import subprocess
 import sys
+from pathlib import Path
 
 # Set up paths so we can import from .claude/hooks/ and jmem-mcp-server
 _hooks_path = os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks")
@@ -29,6 +32,7 @@ from cortex import (
     PromptSubmitEvent,
     parse_event,
     classify_error,
+    interest_score,
 )
 
 
@@ -322,3 +326,210 @@ def test_classify_error_resource():
 
 def test_classify_error_unknown():
     assert classify_error("Something completely unexpected") == "unknown"
+
+
+# ── Task 4: Interest scoring + circuit breaker ─────────────────────
+
+
+def test_interest_score_failure_max():
+    """Failed agent stop should get maximum interest (1.0)."""
+    ev = AgentStopEvent(type="agent_stop", agent="pfaa-lead", success=False, error="crash")
+    assert interest_score(ev) == 1.0
+
+
+def test_interest_score_trivial_prompt():
+    """Very short prompt (<=3 words) should get near-zero interest."""
+    ev = PromptSubmitEvent(type="prompt_submit", prompt="hi")
+    assert interest_score(ev) == 0.05
+
+
+def test_interest_score_py_file():
+    """Python file changes should get high interest (0.8)."""
+    ev = FileChangedEvent(type="file_changed", path="src/main.py", ext=".py")
+    assert interest_score(ev) == 0.8
+
+
+def test_interest_score_task_completed():
+    """Task completed events should get low-medium interest (0.3)."""
+    ev = TaskCompletedEvent(type="task_completed", subject="deploy")
+    assert interest_score(ev) == 0.3
+
+
+def test_circuit_breaker_disable():
+    """After 3 errors on the same handler, it should be disabled."""
+    s = CortexState()
+    s.record_error("noisy_handler")
+    s.record_error("noisy_handler")
+    assert not s.is_disabled("noisy_handler")
+    s.record_error("noisy_handler")
+    assert s.is_disabled("noisy_handler")
+
+
+def test_circuit_breaker_reenable():
+    """A success should reset error count and re-enable a disabled handler."""
+    s = CortexState()
+    for _ in range(3):
+        s.record_error("flaky_handler")
+    assert s.is_disabled("flaky_handler")
+    s.record_success("flaky_handler")
+    assert not s.is_disabled("flaky_handler")
+    assert s.error_counts["flaky_handler"] == 0
+
+
+# ── Task 5: CLI entry point + degradation ──────────────────────────
+
+
+CORTEX_SCRIPT = os.path.join(
+    os.path.dirname(__file__), "..", ".claude", "hooks", "cortex.py"
+)
+
+
+def test_cortex_cli_unknown_event():
+    """Unknown event type should not crash — should exit 0."""
+    result = subprocess.run(
+        [sys.executable, CORTEX_SCRIPT, "totally_made_up"],
+        input="{}",
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0
+
+
+def test_cortex_cli_bad_json():
+    """Bad JSON input should not crash — should exit 0."""
+    result = subprocess.run(
+        [sys.executable, CORTEX_SCRIPT, "agent_start"],
+        input="not json at all {{{",
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0
+
+
+def test_cortex_cli_empty_stdin():
+    """Empty stdin should not crash — should exit 0."""
+    result = subprocess.run(
+        [sys.executable, CORTEX_SCRIPT, "agent_start"],
+        input="",
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0
+
+
+# ── Task 6: Agent handlers ─────────────────────────────────────────
+
+
+def run_async(coro):
+    """Helper to run an async function synchronously in tests."""
+    return asyncio.run(coro)
+
+
+@pytest.fixture
+def jmem_engine(tmp_path):
+    """Create an isolated JMemEngine using a temp directory."""
+    sys.path.insert(0, str(Path(__file__).parent.parent / "jmem-mcp-server"))
+    for mod in list(sys.modules):
+        if mod.startswith("jmem"):
+            del sys.modules[mod]
+    from jmem.engine import JMemEngine
+    os.environ["JMEM_DATA_DIR"] = str(tmp_path / "jmem")
+    return JMemEngine()
+
+
+def test_handle_agent_start_no_history(jmem_engine, tmp_path):
+    """Agent start with no history should observe with context."""
+    from cortex import handle_agent_start
+
+    state = CortexState(state_path=tmp_path / "state.json")
+    ev = AgentStartEvent(
+        type="agent_start", agent="aussie-researcher", task="analyze codebase"
+    )
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            return await handle_agent_start(jmem_engine, ev, state)
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.action == "observe"
+
+
+def test_handle_agent_stop_success(jmem_engine, tmp_path):
+    """Successful agent stop should produce system_message mentioning the agent."""
+    from cortex import handle_agent_stop
+
+    state = CortexState(state_path=tmp_path / "state.json")
+    ev = AgentStopEvent(
+        type="agent_stop", agent="aussie-tdd", success=True
+    )
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            return await handle_agent_stop(jmem_engine, ev, state)
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.action == "observe"
+    assert decision.system_message is not None
+    assert "aussie-tdd" in decision.system_message
+
+
+def test_handle_agent_stop_failure(jmem_engine, tmp_path):
+    """Failed agent stop should still observe (not block)."""
+    from cortex import handle_agent_stop
+
+    state = CortexState(state_path=tmp_path / "state.json")
+    ev = AgentStopEvent(
+        type="agent_stop", agent="pfaa-lead", success=False, error="timeout"
+    )
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            return await handle_agent_stop(jmem_engine, ev, state)
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.action == "observe"
+
+
+def test_handle_agent_stop_repeated_failure_advises(jmem_engine, tmp_path):
+    """After 3+ recent failures, agent stop should advise."""
+    from jmem.engine import MemoryLevel
+    from cortex import handle_agent_stop
+
+    state = CortexState(state_path=tmp_path / "state.json")
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            # Pre-store 3 failure episodes within the last hour
+            for i in range(3):
+                await jmem_engine.remember(
+                    content=f"Agent pfaa-lead failed: error {i}",
+                    level=MemoryLevel.EPISODE,
+                    context="failure",
+                    tags=["agent", "stop", "pfaa-lead", "error"],
+                )
+
+            ev = AgentStopEvent(
+                type="agent_stop",
+                agent="pfaa-lead",
+                success=False,
+                error="yet another failure",
+            )
+            return await handle_agent_stop(jmem_engine, ev, state)
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.action == "advise"

@@ -10,6 +10,8 @@ components (decisions, event handlers, RL policies) build on top of this
 state and are added in subsequent tasks.
 """
 
+import asyncio
+import hashlib
 import json
 import os
 import sys
@@ -78,6 +80,20 @@ class CortexState:
             if tmp.exists():
                 tmp.unlink()
             raise
+
+    # ── Circuit breaker ──────────────────────────────────────────────
+
+    def record_error(self, handler: str) -> None:
+        self.error_counts[handler] = self.error_counts.get(handler, 0) + 1
+        if self.error_counts[handler] >= 3:
+            self.disabled_handlers.add(handler)
+
+    def record_success(self, handler: str) -> None:
+        self.error_counts[handler] = 0
+        self.disabled_handlers.discard(handler)
+
+    def is_disabled(self, handler: str) -> bool:
+        return handler in self.disabled_handlers
 
     @classmethod
     def load(cls, path: Path | None = STATE_PATH) -> "CortexState":
@@ -310,3 +326,278 @@ def parse_event(event_type: str, payload: dict) -> HookEvent:
             )
         case _:
             return HookEvent(type=event_type, timestamp=ts)
+
+
+# ── Interest scoring ─────────────────────────────────────────────
+
+
+def interest_score(event: HookEvent) -> float:
+    """How much processing does this event deserve? 0.0-1.0."""
+    match event:
+        case AgentStopEvent(success=False):
+            return 1.0
+        case AgentStartEvent():
+            return 0.9
+        case FileChangedEvent(ext=".py" | ".pyi"):
+            return 0.8
+        case PromptSubmitEvent(prompt=p) if len(p.split()) > 10:
+            return 0.7
+        case AgentStopEvent(success=True):
+            return 0.5
+        case TaskCompletedEvent():
+            return 0.3
+        case FileChangedEvent():
+            return 0.4
+        case PromptSubmitEvent(prompt=p) if len(p.split()) <= 3:
+            return 0.05
+        case PromptSubmitEvent():
+            return 0.5
+        case _:
+            return 0.4
+
+
+# ── Phase constants ──────────────────────────────────────────────
+
+RESEARCH_AGENTS = frozenset({"aussie-researcher", "aussie-planner", "aussie-architect"})
+IMPL_AGENTS = frozenset({"aussie-tdd", "pfaa-rewriter", "aussie-deployer"})
+VERIFY_AGENTS = frozenset({"pfaa-validator", "aussie-security"})
+PHASE_GUIDANCE = {
+    "research": "RESEARCH phase: focus on gathering information, do not implement.",
+    "synthesis": "SYNTHESIS phase: synthesize research findings into a spec.",
+    "implementation": "IMPLEMENTATION phase: implement per the synthesized spec.",
+    "verification": "VERIFICATION phase: validate implementation, check for issues.",
+}
+
+AGENT_NAMES = frozenset({
+    "pfaa-lead", "aussie-researcher", "aussie-planner", "aussie-architect",
+    "aussie-security", "aussie-tdd", "pfaa-rewriter", "pfaa-validator",
+    "aussie-deployer", "aussie-docs",
+})
+
+
+# ── Agent handlers ───────────────────────────────────────────────
+
+
+async def handle_agent_start(engine, event: AgentStartEvent, state: CortexState) -> Decision:
+    """Handle an agent starting — detect phase, recall history, provide context."""
+    # Store L1 episode
+    from jmem.engine import MemoryLevel
+
+    await engine.remember(
+        content=event.to_episode(),
+        level=MemoryLevel.EPISODE,
+        context=f"agent_start:{event.agent}",
+        tags=event.tags(),
+    )
+
+    # Detect phase from agent type
+    if event.agent in RESEARCH_AGENTS:
+        state.phase = "research"
+    elif event.agent in IMPL_AGENTS:
+        state.phase = "implementation"
+    elif event.agent in VERIFY_AGENTS:
+        state.phase = "verification"
+    else:
+        state.phase = "synthesis"
+
+    # Recall agent history
+    history = await engine.recall(
+        query=f"agent {event.agent}",
+        limit=5,
+        min_q=0.3,
+    )
+
+    # Build context: phase guidance + cross-agent findings
+    parts = []
+    guidance = PHASE_GUIDANCE.get(state.phase)
+    if guidance:
+        parts.append(guidance)
+
+    # Cross-agent findings: memories tagged with other agents
+    cross_findings = [
+        n for n in history
+        if event.agent not in n.tags and any(a in n.tags for a in AGENT_NAMES)
+    ]
+    for finding in cross_findings[:3]:
+        parts.append(f"[cross-agent] {finding.content[:120]}")
+
+    # Block if 3+ failures AND avg Q < 0.4
+    failure_notes = [n for n in history if "error" in n.tags]
+    if len(failure_notes) >= 3:
+        avg_q = sum(n.q_value for n in failure_notes) / len(failure_notes)
+        if avg_q < 0.4:
+            return Decision(
+                action="block",
+                block_reason=f"Agent {event.agent} has {len(failure_notes)} recent failures with avg Q={avg_q:.2f}. Investigate before retrying.",
+                confidence=0.8,
+            )
+
+    context = "\n".join(parts) if parts else None
+    return Decision(action="observe", additional_context=context)
+
+
+async def handle_agent_stop(engine, event: AgentStopEvent, state: CortexState) -> Decision:
+    """Handle an agent finishing — reward/penalize, detect repeated failure."""
+    from jmem.engine import MemoryLevel
+
+    # Store L1 episode
+    await engine.remember(
+        content=event.to_episode(),
+        level=MemoryLevel.EPISODE,
+        context=f"agent_stop:{event.agent}",
+        tags=event.tags(),
+    )
+
+    if event.success:
+        # Reward recalled memories
+        await engine.reward_recalled(reward_signal=0.8)
+        state.pressure = max(0.0, state.pressure + 0.5)
+        return Decision(
+            action="observe",
+            system_message=f"Agent {event.agent} completed successfully. Pressure: {state.pressure:.1f}",
+            confidence=0.6,
+        )
+
+    # Failure path
+    await engine.reward_recalled(reward_signal=-0.5)
+    state.pressure = min(10.0, state.pressure + 2.0)
+
+    # Count recent failures (1h window) by recalling failure episodes
+    recent_failures = await engine.recall(
+        query=f"agent {event.agent} failed error",
+        limit=10,
+        level=MemoryLevel.EPISODE,
+    )
+    # Filter to those tagged as errors for this agent
+    agent_failures = [
+        n for n in recent_failures
+        if "error" in n.tags and event.agent in n.tags
+    ]
+
+    if len(agent_failures) >= 3:
+        # Store L2 Concept about repeated failure
+        await engine.remember(
+            content=f"Agent {event.agent} has failed {len(agent_failures)} times recently. Pattern: repeated failures suggest systemic issue.",
+            level=MemoryLevel.CONCEPT,
+            context=f"repeated_failure:{event.agent}",
+            keywords=[event.agent, "repeated-failure", "systemic"],
+            tags=["agent", "failure-pattern", event.agent],
+        )
+        return Decision(
+            action="advise",
+            system_message=f"Agent {event.agent} has failed {len(agent_failures)} times recently. Consider investigating root cause before retrying. Pressure: {state.pressure:.1f}",
+            confidence=0.8,
+        )
+
+    return Decision(
+        action="observe",
+        system_message=f"Agent {event.agent} failed: {event.error or 'unknown'}. Pressure: {state.pressure:.1f}",
+        confidence=0.4,
+    )
+
+
+# ── Core event processor ─────────────────────────────────────────
+
+
+async def _handle_event(engine, event: HookEvent, state: CortexState, score: float) -> Decision:
+    """Process a hook event through the cortex. Store L1 episode with dedup, then route."""
+    # Dedup: skip if we already processed an identical episode recently
+    episode_text = event.to_episode()
+    ep_hash = hashlib.sha256(episode_text.encode()).hexdigest()[:12]
+
+    if ep_hash in state.recent_episode_hashes:
+        return Decision()
+
+    state.recent_episode_hashes.append(ep_hash)
+    # Keep only last 100 hashes
+    if len(state.recent_episode_hashes) > 100:
+        state.recent_episode_hashes = state.recent_episode_hashes[-100:]
+
+    state.episodes_this_session += 1
+    state.total_decisions += 1
+
+    # Route to specific handlers
+    match event:
+        case AgentStartEvent():
+            return await handle_agent_start(engine, event, state)
+        case AgentStopEvent():
+            return await handle_agent_stop(engine, event, state)
+        case _:
+            return Decision()
+
+
+# ── Entry point with 4-level degradation ─────────────────────────
+
+
+async def _run(event_type: str, raw_input: str) -> None:
+    """Main async entry point with graceful degradation."""
+    # Level 4: outermost try — never crash
+    try:
+        # Level 3: parse JSON input
+        try:
+            payload = json.loads(raw_input) if raw_input.strip() else {}
+        except (json.JSONDecodeError, ValueError):
+            payload = {}
+
+        # Parse event and compute interest
+        event = parse_event(event_type, payload)
+        score = interest_score(event)
+
+        # Skip low-interest events
+        if score < 0.1:
+            return
+
+        # Load cortex state
+        try:
+            state = CortexState.load()
+        except Exception:
+            # Level 3 degradation: state load failure
+            return
+
+        # Check circuit breaker for this event type
+        handler_name = event_type
+        if state.is_disabled(handler_name):
+            return
+
+        # Level 1: full processing with JMEM
+        try:
+            sys.path.insert(0, str(JMEM_PATH))
+            from jmem.engine import JMemEngine
+
+            engine = JMemEngine()
+            await engine.start()
+            try:
+                decision = await _handle_event(engine, event, state, score)
+                state.record_success(handler_name)
+            finally:
+                await engine.shutdown()
+
+        except Exception:
+            # Level 2 degradation: JMEM failure
+            state.record_error(handler_name)
+            decision = Decision()
+
+        # Save state and output
+        try:
+            state.save()
+        except Exception:
+            pass
+
+        output = decision.to_json()
+        if output:
+            print(output)
+
+    except Exception:
+        # Level 4 degradation: absolute fallback — never crash
+        pass
+
+
+def main() -> None:
+    """CLI entry point — reads event type from argv[1], payload from stdin."""
+    event_type = sys.argv[1] if len(sys.argv) > 1 else "unknown"
+    raw_input = sys.stdin.read() if not sys.stdin.isatty() else ""
+    asyncio.run(_run(event_type, raw_input))
+
+
+if __name__ == "__main__":
+    main()
