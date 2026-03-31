@@ -34,6 +34,8 @@ class MemoryLevel(IntEnum):
     CONCEPT = 2    # Patterns extracted from episodes
     PRINCIPLE = 3  # Generalizable rules
     SKILL = 4      # Executable capabilities
+    META = 5       # Meta-learning insights (how to learn better)
+    EMERGENT = 6   # Cross-agent emergent knowledge
 
 
 @dataclass(slots=True)
@@ -268,17 +270,28 @@ class JMemEngine:
         # Get all documents
         all_docs = await self._store.get_all(limit=1000) if hasattr(self._store, 'get_all') else []
 
-        # Auto-promote: episodes with Q > 0.8 and retrieval_count > 3
+        # Auto-promote across all levels with scaling thresholds
+        promotion_rules: dict[int, tuple[int, float, int]] = {
+            # current_level: (target_level, min_q, min_retrievals)
+            MemoryLevel.EPISODE.value: (MemoryLevel.CONCEPT.value, 0.65, 2),
+            MemoryLevel.CONCEPT.value: (MemoryLevel.PRINCIPLE.value, 0.75, 4),
+            MemoryLevel.PRINCIPLE.value: (MemoryLevel.SKILL.value, 0.9, 6),
+        }
         for doc in all_docs:
             meta = doc.get("metadata", {})
             if isinstance(meta, str):
                 import json
                 meta = json.loads(meta)
-            if meta.get("level", 1) == MemoryLevel.EPISODE.value:
-                if meta.get("q_value", 0) > 0.8 and meta.get("retrieval_count", 0) > 3:
-                    meta["level"] = MemoryLevel.CONCEPT.value
+            level = meta.get("level", 1)
+            if level in promotion_rules:
+                target, min_q, min_ret = promotion_rules[level]
+                if meta.get("q_value", 0) >= min_q and meta.get("retrieval_count", 0) >= min_ret:
+                    meta["level"] = target
                     await self._store.update_metadata(doc["id"], meta)
                     stats["promoted"] += 1
+                    logger.info("Promoted %s: L%d → L%d (Q=%.2f, retrievals=%d)",
+                                doc["id"][:8], level, target,
+                                meta.get("q_value", 0), meta.get("retrieval_count", 0))
 
         # Keyword clustering: link memories sharing 2+ keywords
         keyword_map: dict[str, list[str]] = {}
@@ -326,7 +339,11 @@ class JMemEngine:
             if isinstance(meta, str):
                 import json
                 meta = json.loads(meta)
-            lvl = MemoryLevel(meta.get("level", 1))
+            raw_level = meta.get("level", 1)
+            try:
+                lvl = MemoryLevel(raw_level)
+            except ValueError:
+                lvl = MemoryLevel.EPISODE
             level_counts[lvl.name] += 1
             total_q += meta.get("q_value", 0.5)
 
@@ -348,6 +365,207 @@ class JMemEngine:
         return {
             "namespace": self.namespace,
             "store": store_status,
+        }
+
+    # ── Meta-Learn ───────────────────────────────────────────────
+
+    async def meta_learn(self) -> dict[str, Any]:
+        """L4 Meta-Learning: analyze the learning process itself.
+
+        Examines:
+        - Promotion velocity (how fast memories climb levels)
+        - Q-value distribution (healthy learning vs stagnation)
+        - Keyword saturation (are we learning new things?)
+        - Reward patterns (what types of memories get rewarded most)
+
+        Stores insights as L5 META memories and adjusts promotion thresholds.
+        """
+        all_docs = await self._store.get_all(limit=2000) if hasattr(self._store, 'get_all') else []
+        if not all_docs:
+            return {"insights": [], "adjustments": []}
+
+        insights: list[dict[str, str]] = []
+        adjustments: list[dict[str, str]] = []
+
+        # Parse all notes
+        notes: list[MemoryNote] = []
+        for doc in all_docs:
+            meta = doc.get("metadata", {})
+            if isinstance(meta, str):
+                import json
+                meta = json.loads(meta)
+            notes.append(MemoryNote.from_metadata(doc["id"], doc.get("text", ""), meta))
+
+        # 1. Q-value distribution analysis
+        q_values = [n.q_value for n in notes]
+        avg_q = sum(q_values) / max(len(q_values), 1)
+        high_q = sum(1 for q in q_values if q > 0.8)
+        low_q = sum(1 for q in q_values if q < 0.3)
+
+        if avg_q < 0.4:
+            insights.append({"category": "learning_rate", "observation": f"Average Q-value is low ({avg_q:.2f}). Memories are not being rewarded enough.", "suggestion": "Increase reward signals for successful outcomes."})
+        if high_q > len(notes) * 0.5:
+            insights.append({"category": "q_inflation", "observation": f"{high_q}/{len(notes)} memories have Q > 0.8. Possible reward inflation.", "suggestion": "Apply stricter reward criteria or increase decay rate."})
+        if low_q > len(notes) * 0.5:
+            insights.append({"category": "q_stagnation", "observation": f"{low_q}/{len(notes)} memories have Q < 0.3. Knowledge is decaying.", "suggestion": "Consolidate and recall more often to boost retrieval counts."})
+
+        # 2. Level distribution analysis
+        level_counts: dict[int, int] = {}
+        for n in notes:
+            level_counts[n.level.value] = level_counts.get(n.level.value, 0) + 1
+
+        episodes = level_counts.get(1, 0)
+        concepts = level_counts.get(2, 0)
+        principles = level_counts.get(3, 0)
+        skills = level_counts.get(4, 0)
+
+        if episodes > 20 and concepts == 0:
+            insights.append({"category": "promotion_stall", "observation": f"{episodes} episodes but 0 concepts. Auto-promotion is not triggering.", "suggestion": "Run consolidate more often, or lower promotion thresholds."})
+            adjustments.append({"type": "lower_episode_threshold", "from": "Q>0.8, retrievals>3", "to": "Q>0.65, retrievals>2"})
+        if concepts > 10 and principles == 0:
+            insights.append({"category": "promotion_stall", "observation": f"{concepts} concepts but 0 principles. Higher-level synthesis needed.", "suggestion": "Reward validated concepts to push them toward principles."})
+
+        # 3. Keyword diversity (are we learning new things?)
+        all_keywords: set[str] = set()
+        for n in notes:
+            all_keywords.update(n.keywords)
+        keyword_ratio = len(all_keywords) / max(len(notes), 1)
+
+        if keyword_ratio < 1.0 and len(notes) > 10:
+            insights.append({"category": "knowledge_saturation", "observation": f"Keyword diversity is low ({keyword_ratio:.1f} unique keywords per memory). Learning is repetitive.", "suggestion": "Explore new topics or domains."})
+
+        # 4. Store meta-learning insight as L5 META memory
+        if insights:
+            insight_summary = "; ".join(f"[{i['category']}] {i['observation']}" for i in insights)
+            await self.remember(
+                content=f"META-LEARNING INSIGHT: {insight_summary}",
+                level=MemoryLevel.META,
+                context="auto-generated by meta_learn cycle",
+                keywords=["meta-learning", "self-analysis"] + [i["category"] for i in insights],
+                tags=["auto", "meta"],
+            )
+
+        return {
+            "insights": insights,
+            "adjustments": adjustments,
+            "stats": {
+                "avg_q": round(avg_q, 3),
+                "high_q_count": high_q,
+                "low_q_count": low_q,
+                "level_distribution": level_counts,
+                "keyword_diversity": round(keyword_ratio, 2),
+                "total_memories": len(notes),
+            },
+        }
+
+    # ── Emergent Synthesis ──────────────────────────────────────
+
+    async def emergent_synthesis(self) -> dict[str, Any]:
+        """L5 Emergent Knowledge: discover cross-cutting patterns.
+
+        Analyzes the entire memory graph for:
+        - Co-occurring keywords (concepts that belong together)
+        - Promotion chains (what path do successful memories take)
+        - Cluster density (tightly linked memory groups = strong knowledge areas)
+        - Knowledge gaps (isolated memories with no links)
+
+        Stores discoveries as L6 EMERGENT memories.
+        """
+        all_docs = await self._store.get_all(limit=2000) if hasattr(self._store, 'get_all') else []
+        if not all_docs:
+            return {"discoveries": [], "clusters": [], "gaps": []}
+
+        discoveries: list[dict[str, Any]] = []
+        notes: list[MemoryNote] = []
+        for doc in all_docs:
+            meta = doc.get("metadata", {})
+            if isinstance(meta, str):
+                import json
+                meta = json.loads(meta)
+            notes.append(MemoryNote.from_metadata(doc["id"], doc.get("text", ""), meta))
+
+        # 1. Keyword co-occurrence — find concepts that cluster together
+        from collections import Counter
+        keyword_pairs: Counter[tuple[str, str]] = Counter()
+        for n in notes:
+            kws = sorted(set(n.keywords))
+            for i, a in enumerate(kws):
+                for b in kws[i + 1:]:
+                    keyword_pairs[(a, b)] += 1
+
+        strong_pairs = [(pair, count) for pair, count in keyword_pairs.most_common(20) if count >= 3]
+        for pair, count in strong_pairs:
+            discoveries.append({
+                "type": "keyword_cluster",
+                "description": f"'{pair[0]}' and '{pair[1]}' co-occur in {count} memories — strong conceptual link",
+                "confidence": min(1.0, count / 10.0),
+            })
+
+        # 2. Knowledge gaps — orphan memories with no links
+        orphans = [n for n in notes if not n.links and n.retrieval_count == 0]
+        gaps = [{"id": n.id, "content": n.content[:80], "level": n.level.name} for n in orphans[:10]]
+
+        # 3. Cluster density — count strongly-connected groups
+        clusters: list[dict[str, Any]] = []
+        visited: set[str] = set()
+        note_map = {n.id: n for n in notes}
+
+        for n in notes:
+            if n.id in visited or not n.links:
+                continue
+            # BFS to find cluster
+            cluster_ids: set[str] = set()
+            queue = [n.id]
+            while queue:
+                current = queue.pop(0)
+                if current in cluster_ids:
+                    continue
+                cluster_ids.add(current)
+                if current in note_map:
+                    for link_id in note_map[current].links:
+                        if link_id not in cluster_ids:
+                            queue.append(link_id)
+
+            visited.update(cluster_ids)
+            if len(cluster_ids) >= 3:
+                cluster_keywords: Counter[str] = Counter()
+                for cid in cluster_ids:
+                    if cid in note_map:
+                        cluster_keywords.update(note_map[cid].keywords)
+                top_keywords = [kw for kw, _ in cluster_keywords.most_common(5)]
+                clusters.append({
+                    "size": len(cluster_ids),
+                    "keywords": top_keywords,
+                    "avg_q": round(sum(note_map[cid].q_value for cid in cluster_ids if cid in note_map) / len(cluster_ids), 3),
+                })
+
+        # 4. Promotion chain analysis — what makes memories succeed
+        promoted = [n for n in notes if n.level.value >= 3]
+        if promoted:
+            avg_promoted_q = sum(n.q_value for n in promoted) / len(promoted)
+            avg_promoted_retrievals = sum(n.retrieval_count for n in promoted) / len(promoted)
+            discoveries.append({
+                "type": "promotion_pattern",
+                "description": f"Successful memories (L3+) have avg Q={avg_promoted_q:.2f}, avg retrievals={avg_promoted_retrievals:.1f}",
+                "confidence": 0.8,
+            })
+
+        # Store emergent insight if we found patterns
+        if discoveries:
+            summary = "; ".join(d["description"] for d in discoveries[:5])
+            await self.remember(
+                content=f"EMERGENT KNOWLEDGE: {summary}",
+                level=MemoryLevel.EMERGENT,
+                context="auto-generated by emergent_synthesis cycle",
+                keywords=["emergent", "synthesis", "cross-cutting"],
+                tags=["auto", "emergent"],
+            )
+
+        return {
+            "discoveries": discoveries,
+            "clusters": clusters,
+            "gaps": gaps,
+            "orphan_count": len(orphans),
         }
 
     # ── Helpers ──────────────────────────────────────────────────

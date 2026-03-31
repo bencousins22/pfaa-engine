@@ -112,6 +112,22 @@ TOOLS = [
             "properties": {},
         },
     },
+    {
+        "name": "jmem_meta_learn",
+        "description": "L4 Meta-Learning: analyze the learning process itself. Examines Q-value distribution, promotion velocity, keyword diversity, and reward patterns. Auto-stores insights as META memories.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "jmem_emergent",
+        "description": "L5 Emergent Knowledge: discover cross-cutting patterns across all memories. Finds keyword clusters, promotion chains, knowledge gaps, and graph density. Auto-stores discoveries as EMERGENT memories.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
 ]
 
 
@@ -175,6 +191,12 @@ async def handle_tool_call(engine: JMemEngine, name: str, args: dict[str, Any]) 
 
     elif name == "jmem_status":
         return await engine.reflect()
+
+    elif name == "jmem_meta_learn":
+        return await engine.meta_learn()
+
+    elif name == "jmem_emergent":
+        return await engine.emergent_synthesis()
 
     else:
         raise ValueError(f"Unknown tool: {name}")
