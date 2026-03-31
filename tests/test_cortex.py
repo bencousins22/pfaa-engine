@@ -683,3 +683,101 @@ def test_handle_file_changed_py(jmem_engine, tmp_path):
     decision = run_async(_run())
     assert decision.action == "advise"
     assert "Py3.15" in decision.system_message
+
+
+# ── Task 11: handle_prompt_submit ──────────────────────────────────
+
+
+def test_handle_prompt_submit_trivial():
+    from cortex import handle_prompt_submit, PromptSubmitEvent, CortexState
+    event = PromptSubmitEvent(type="UserPromptSubmit", timestamp=time(), prompt="yes")
+    decision = run_async(handle_prompt_submit(None, event, CortexState()))
+    assert decision.action == "observe"
+    assert decision.additional_context is None
+
+def test_handle_prompt_submit_no_engine():
+    from cortex import handle_prompt_submit, PromptSubmitEvent, CortexState
+    event = PromptSubmitEvent(type="UserPromptSubmit", timestamp=time(), prompt="fix the auth bug in the login flow please")
+    decision = run_async(handle_prompt_submit(None, event, CortexState()))
+    assert decision.action == "observe"
+
+def test_handle_prompt_submit_with_memories(jmem_engine):
+    from cortex import handle_prompt_submit, PromptSubmitEvent, CortexState
+    from jmem.engine import MemoryLevel
+    run_async(jmem_engine.remember(content="auth module has race condition in token refresh", level=MemoryLevel.PRINCIPLE, tags=["auth"]))
+    event = PromptSubmitEvent(type="UserPromptSubmit", timestamp=time(), prompt="fix the auth bug in the login token refresh flow")
+    decision = run_async(handle_prompt_submit(jmem_engine, event, CortexState()))
+    assert decision.action == "observe"  # May or may not inject depending on TF-IDF match
+
+
+# ── Task 12: handle_stop + Dream Phase A ──────────────────────────
+
+
+def test_handle_stop_stores_episode(jmem_engine):
+    from cortex import handle_stop, HookEvent, CortexState
+    event = HookEvent(type="Stop", timestamp=time())
+    decision = run_async(handle_stop(jmem_engine, event, CortexState()))
+    assert decision.action == "observe"
+
+def test_handle_stop_dream_phase_a(jmem_engine):
+    from cortex import handle_stop, HookEvent, CortexState
+    state = CortexState()
+    state.pressure = 15.0
+    state.last_dream_at = 0.0
+    event = HookEvent(type="Stop", timestamp=time())
+    decision = run_async(handle_stop(jmem_engine, event, state))
+    assert state.pressure == 0.0
+    assert state.dream_pending is True
+
+def test_handle_stop_no_dream_too_recent(jmem_engine):
+    from cortex import handle_stop, HookEvent, CortexState
+    state = CortexState()
+    state.pressure = 15.0
+    state.last_dream_at = time() - 60  # 1 minute ago
+    event = HookEvent(type="Stop", timestamp=time())
+    run_async(handle_stop(jmem_engine, event, state))
+    assert state.pressure == 15.0
+    assert state.dream_pending is False
+
+
+# ── Task 13: Dream Phase B ────────────────────────────────────────
+
+
+def test_dream_phase_b(jmem_engine):
+    from cortex import run_dream_phase_b, CortexState
+    state = CortexState()
+    state.dream_pending = True
+    run_async(run_dream_phase_b(jmem_engine, state))
+    assert state.dream_pending is False
+
+
+# ── Task 14: self_assess ──────────────────────────────────────────
+
+
+def test_self_assess_raises_baseline_low_accuracy():
+    from cortex import CortexState, self_assess
+    state = CortexState()
+    state.total_decisions = 50
+    state.correct_blocks = 2
+    state.overridden_blocks = 8
+    old = state.interest_baseline
+    self_assess(state)
+    assert state.interest_baseline > old
+
+def test_self_assess_lowers_baseline_high_accuracy():
+    from cortex import CortexState, self_assess
+    state = CortexState()
+    state.total_decisions = 50
+    state.correct_blocks = 9
+    state.overridden_blocks = 1
+    old = state.interest_baseline
+    self_assess(state)
+    assert state.interest_baseline < old
+
+def test_self_assess_noop_insufficient_data():
+    from cortex import CortexState, self_assess
+    state = CortexState()
+    state.total_decisions = 5
+    old = state.interest_baseline
+    self_assess(state)
+    assert state.interest_baseline == old

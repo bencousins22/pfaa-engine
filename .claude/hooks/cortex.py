@@ -587,6 +587,137 @@ async def handle_file_changed(engine, event: FileChangedEvent, state: CortexStat
     return Decision(action="observe")
 
 
+# ── Keyword extraction ──────────────────────────────────────────
+
+
+def _extract_keywords(text: str) -> list[str]:
+    stop_words = {"the", "a", "an", "is", "are", "was", "were", "be", "been",
+                  "being", "have", "has", "had", "do", "does", "did", "will",
+                  "would", "could", "should", "may", "might", "can", "to", "of",
+                  "in", "for", "on", "with", "at", "by", "from", "it", "this",
+                  "that", "and", "or", "but", "not", "no", "so", "if", "then",
+                  "than", "too", "very", "just", "i", "me", "my", "we", "you"}
+    words = text.lower().split()
+    return [w for w in words if w not in stop_words and len(w) > 2][:10]
+
+
+# ── Prompt submit handler ──────────────────────────────────────────
+
+
+async def handle_prompt_submit(engine, event: PromptSubmitEvent, state: CortexState) -> Decision:
+    """UserPromptSubmit: inject relevant JMEM context before Claude processes."""
+    if len(event.prompt.split()) <= 3:
+        return Decision(action="observe")
+
+    if engine is None:
+        return Decision(action="observe")
+
+    keywords = _extract_keywords(event.prompt)
+
+    # Cache check (30s window, 50% keyword overlap)
+    if (time() - state.last_prompt_at < 30 and state.last_prompt_keywords):
+        overlap = len(set(keywords) & set(state.last_prompt_keywords)) / max(len(keywords), 1)
+        if overlap > 0.5 and state.last_prompt_recall:
+            lines = [f"[{m['level']} Q={m['q']:.1f}] {m['content'][:120]}" for m in state.last_prompt_recall]
+            return Decision(action="observe", additional_context="JMEM auto-recall:\n" + "\n".join(lines))
+
+    # Full JMEM recall with latency gate
+    start = time()
+    try:
+        memories = await engine.recall(event.prompt, limit=3, min_q=0.6)
+    except Exception:
+        return Decision(action="observe")
+
+    if time() - start > 0.15:
+        return Decision(action="observe")
+
+    if not memories:
+        state.last_prompt_keywords = keywords
+        state.last_prompt_recall = []
+        state.last_prompt_at = time()
+        return Decision(action="observe")
+
+    recall_data = [{"content": m.content[:120], "level": m.level.name, "q": m.q_value} for m in memories]
+    state.last_prompt_keywords = keywords
+    state.last_prompt_recall = recall_data
+    state.last_prompt_at = time()
+
+    lines = [f"[{m['level'][:4]} Q={m['q']:.1f}] {m['content']}" for m in recall_data]
+    return Decision(action="observe", additional_context="JMEM auto-recall:\n" + "\n".join(lines))
+
+
+# ── Stop + Dream Phase A ──────────────────────────────────────────
+
+PRESSURE_THRESHOLD_DEFAULT = 10.0
+DREAM_MIN_HOURS = 1.0
+
+
+async def handle_stop(engine, event: HookEvent, state: CortexState) -> Decision:
+    """Stop: store episode, run dream Phase A if conditions met."""
+    from jmem.engine import MemoryLevel
+
+    await engine.remember(
+        content=f"Session stop — {state.total_decisions} decisions, pressure={state.pressure:.1f}",
+        level=MemoryLevel.EPISODE,
+        tags=["session-stop", "auto-episode"],
+    )
+
+    hours_since_dream = (time() - state.last_dream_at) / 3600
+    if state.pressure >= PRESSURE_THRESHOLD_DEFAULT and hours_since_dream >= DREAM_MIN_HOURS:
+        try:
+            await engine.consolidate()
+            await engine.decay_idle(hours_threshold=24.0)
+        except Exception:
+            pass
+
+        state.pressure = 0.0
+        state.last_dream_at = time()
+        state.dream_pending = True
+
+        return Decision(action="observe", system_message="Cortex dream (Phase A): consolidated + decayed")
+
+    return Decision(action="observe")
+
+
+# ── Self-assessment ───────────────────────────────────────────────
+
+
+def self_assess(state: CortexState) -> None:
+    """Evaluate cortex accuracy and adjust intervention level."""
+    if state.total_decisions < 20:
+        return
+    total_blocks = state.correct_blocks + state.overridden_blocks
+    if total_blocks == 0:
+        return
+    accuracy = state.correct_blocks / total_blocks
+    if accuracy < 0.5:
+        state.interest_baseline = min(state.interest_baseline * 1.2, 0.9)
+    elif accuracy > 0.85:
+        state.interest_baseline = max(state.interest_baseline * 0.9, 0.2)
+
+
+# ── Dream Phase B ────────────────────────────────────────────────
+
+
+async def run_dream_phase_b(engine, state: CortexState) -> None:
+    """Dream Phase B: heavy cognitive cycle — extract, meta-learn, emerge, assess."""
+    try:
+        await engine.extract_skills()
+    except Exception:
+        pass
+    try:
+        await engine.meta_learn()
+    except Exception:
+        pass
+    try:
+        await engine.emergent_synthesis()
+    except Exception:
+        pass
+
+    self_assess(state)
+    state.dream_pending = False
+
+
 # ── Core event processor ─────────────────────────────────────────
 
 
@@ -619,6 +750,10 @@ async def _handle_event(engine, event: HookEvent, state: CortexState, score: flo
             return await handle_task_completed(engine, event, state)
         case FileChangedEvent():
             return await handle_file_changed(engine, event, state)
+        case PromptSubmitEvent():
+            return await handle_prompt_submit(engine, event, state)
+        case HookEvent(type="Stop"):
+            return await handle_stop(engine, event, state)
         case _:
             return Decision()
 
@@ -650,6 +785,16 @@ async def _run(event_type: str, raw_input: str) -> None:
         except Exception:
             # Level 3 degradation: state load failure
             return
+
+        # Dream Phase B: deferred from prior Stop
+        if state.dream_pending:
+            try:
+                sys.path.insert(0, str(JMEM_PATH))
+                from jmem.engine import JMemEngine
+                engine = JMemEngine()
+                await run_dream_phase_b(engine, state)
+            except Exception:
+                state.dream_pending = False
 
         # Check circuit breaker for this event type
         handler_name = event_type
