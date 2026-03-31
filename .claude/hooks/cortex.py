@@ -55,6 +55,7 @@ class CortexState:
     last_prompt_at: float = 0.0
     recent_episode_hashes: list[str] = field(default_factory=list)
     project_profile: dict = field(default_factory=dict)
+    event_timings: dict[str, list[float]] = field(default_factory=dict)  # event_type -> last 10 latencies
     state_path: Path = field(default=STATE_PATH, repr=False)
 
     # ── Persistence ─────────────────────────────────────────────────
@@ -454,6 +455,25 @@ class DynamicRules:
 _dynamic_rules = DynamicRules()
 
 
+# ── JMEM Feature Gates ─────────────────────────────────────────
+
+
+async def is_feature_enabled(engine, feature_name: str) -> bool:
+    """Check JMEM L4 skills for feature gate status. Default: enabled."""
+    try:
+        results = await engine.recall(
+            f"feature gate {feature_name}",
+            limit=1, level=4, min_q=0.5,  # L4 SKILL level
+        )
+        if results:
+            content = results[0].content.lower()
+            if "disabled" in content or "off" in content:
+                return False
+    except Exception:
+        pass
+    return True  # Safe default: enabled
+
+
 # ── Context-Sensitive Project Personality ────────────────────────
 
 
@@ -461,9 +481,34 @@ def detect_project_profile() -> dict[str, str | bool | float]:
     """Scan project characteristics to adapt cortex behavior."""
     try:
         root = PROJECT_ROOT
-        py_count = len(list(root.rglob("*.py")))
-        ts_count = len(list(root.rglob("*.ts")))
-        test_count = len([f for f in root.rglob("*") if "test" in f.name.lower() and f.suffix in (".py", ".ts")])
+        # Bounded scan — exclude heavy directories
+        EXCLUDE = {"node_modules", ".git", "__pycache__", ".venv", "venv", ".tox", "dist", "build"}
+        py_count = 0
+        ts_count = 0
+        test_count = 0
+
+        def _count(path, depth=0):
+            nonlocal py_count, ts_count, test_count
+            if depth > 4 or py_count + ts_count > 5000:  # Bail on huge trees
+                return
+            try:
+                for entry in path.iterdir():
+                    if entry.name in EXCLUDE or entry.name.startswith('.'):
+                        continue
+                    if entry.is_dir():
+                        _count(entry, depth + 1)
+                    elif entry.suffix == '.py':
+                        py_count += 1
+                        if 'test' in entry.name.lower():
+                            test_count += 1
+                    elif entry.suffix == '.ts':
+                        ts_count += 1
+                        if 'test' in entry.name.lower():
+                            test_count += 1
+            except PermissionError:
+                pass
+
+        _count(root)
         has_security = (root / ".claude" / "agents" / "aussie-security.md").exists()
         has_freqtrade = (root / "freqtrade_strategy").exists()
 
@@ -670,7 +715,9 @@ async def handle_file_changed(engine, event: FileChangedEvent, state: CortexStat
     from jmem.engine import MemoryLevel
 
     if event.ext in (".py", ".pyi") and event.path:
-        sys.path.insert(0, str(PROJECT_ROOT / ".claude" / "hooks" / "analyzers"))
+        _analyzers_path = str(PROJECT_ROOT / ".claude" / "hooks" / "analyzers")
+        if _analyzers_path not in sys.path:
+            sys.path.append(_analyzers_path)
         try:
             from py315_ast import analyze
             suggestions = analyze(event.path)
@@ -776,6 +823,17 @@ async def handle_stop(engine, event: HookEvent, state: CortexState) -> Decision:
         tags=["session-stop", "auto-episode"],
     )
 
+    # Performance telemetry
+    perf_msg = None
+    if state.event_timings:
+        perf_parts = []
+        for evt, times in sorted(state.event_timings.items()):
+            if times:
+                avg = sum(times) / len(times)
+                perf_parts.append(f"{evt}:{avg:.0f}ms")
+        if perf_parts:
+            perf_msg = " | ".join(perf_parts)
+
     hours_since_dream = (time() - state.last_dream_at) / 3600
     if state.pressure >= PRESSURE_THRESHOLD_DEFAULT and hours_since_dream >= DREAM_MIN_HOURS:
         try:
@@ -788,9 +846,15 @@ async def handle_stop(engine, event: HookEvent, state: CortexState) -> Decision:
         state.last_dream_at = time()
         state.dream_pending = True
 
-        return Decision(action="observe", system_message="Cortex dream (Phase A): consolidated + decayed")
+        dream_msg = "Cortex dream (Phase A): consolidated + decayed"
+        if perf_msg:
+            dream_msg += f"\nPerf: {perf_msg}"
+        return Decision(action="observe", system_message=dream_msg)
 
-    return Decision(action="observe")
+    stop_msg = None
+    if perf_msg:
+        stop_msg = f"Cortex perf: {perf_msg}"
+    return Decision(action="observe", system_message=stop_msg)
 
 
 # ── Self-assessment ───────────────────────────────────────────────
@@ -953,6 +1017,9 @@ async def _run(event_type: str, raw_input: str) -> Decision | None:
             return None
 
         # Level 1: full processing with JMEM
+        import time as _time
+        handler_start = _time.monotonic()
+
         try:
             sys.path.insert(0, str(JMEM_PATH))
             from jmem.engine import JMemEngine
@@ -980,6 +1047,12 @@ async def _run(event_type: str, raw_input: str) -> Decision | None:
             except Exception:
                 decision = Decision()
 
+        # Track timing (keep last 10 per event type)
+        handler_elapsed = _time.monotonic() - handler_start
+        timings = state.event_timings.get(event_type, [])
+        timings.append(round(handler_elapsed * 1000, 1))  # ms
+        state.event_timings[event_type] = timings[-10:]  # Keep last 10
+
         # Save state and output
         try:
             state.save()
@@ -1000,7 +1073,7 @@ async def _run(event_type: str, raw_input: str) -> Decision | None:
 def main() -> None:
     """CLI entry point — reads event type from argv[1], payload from stdin."""
     event_type = sys.argv[1] if len(sys.argv) > 1 else "unknown"
-    raw_input = sys.stdin.read() if not sys.stdin.isatty() else ""
+    raw_input = sys.stdin.read(1_000_000) if not sys.stdin.isatty() else ""  # 1MB max
     decision = asyncio.run(_run(event_type, raw_input))
 
     # CC hook protocol: exit code 2 = blocking signal

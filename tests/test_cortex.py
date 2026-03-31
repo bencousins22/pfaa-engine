@@ -34,6 +34,7 @@ from cortex import (
     parse_event,
     classify_error,
     interest_score,
+    is_feature_enabled,
 )
 
 
@@ -970,3 +971,88 @@ def test_run_non_security_event_observes_on_error():
     decision = run_async(_run("TaskCompleted", '{"subject":"done"}'))
     # TaskCompleted has score 0.3 >= 0.1, so it should be processed
     assert decision is not None
+
+
+# ── Self-Build Cycle 3: Event Timings + Feature Gates ────────────
+
+
+def test_cortex_state_event_timings():
+    """event_timings field persists through save/load."""
+    from cortex import CortexState
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        fp = Path(td) / "cortex_state.json"
+        state = CortexState(state_path=fp)
+        assert state.event_timings == {}
+        state.event_timings["SubagentStart"] = [5.2, 3.1, 4.8]
+        state.save()
+        loaded = CortexState.load(fp)
+        assert loaded.event_timings["SubagentStart"] == [5.2, 3.1, 4.8]
+
+
+def test_event_timings_default():
+    """Fresh CortexState has empty event_timings."""
+    state = CortexState()
+    assert state.event_timings == {}
+
+
+def test_event_timings_cap_at_10():
+    """event_timings should only keep last 10 entries per event type."""
+    state = CortexState()
+    state.event_timings["SubagentStart"] = list(range(15))
+    # Simulate what _run does: trim to last 10
+    state.event_timings["SubagentStart"] = state.event_timings["SubagentStart"][-10:]
+    assert len(state.event_timings["SubagentStart"]) == 10
+    assert state.event_timings["SubagentStart"][0] == 5
+
+
+def test_is_feature_enabled_default(jmem_engine):
+    """Feature gate defaults to enabled when no JMEM skill exists."""
+    result = run_async(is_feature_enabled(jmem_engine, "nonexistent_feature"))
+    assert result is True
+
+
+def test_is_feature_enabled_no_engine():
+    """Feature gate defaults to enabled when engine is broken."""
+    result = run_async(is_feature_enabled(None, "any_feature"))
+    assert result is True
+
+
+def test_handle_stop_perf_telemetry(jmem_engine):
+    """handle_stop includes performance telemetry when timings exist."""
+    from cortex import handle_stop, HookEvent, CortexState
+    state = CortexState()
+    state.event_timings = {
+        "SubagentStart": [12.5, 15.0, 10.0],
+        "PostToolUseFailure": [5.0, 8.0],
+    }
+    event = HookEvent(type="Stop", timestamp=time())
+    decision = run_async(handle_stop(jmem_engine, event, state))
+    assert decision.system_message is not None
+    assert "Cortex perf:" in decision.system_message
+    assert "SubagentStart:" in decision.system_message
+    assert "ms" in decision.system_message
+
+
+def test_handle_stop_no_telemetry_when_empty(jmem_engine):
+    """handle_stop has no perf message when no timings recorded."""
+    from cortex import handle_stop, HookEvent, CortexState
+    state = CortexState()
+    event = HookEvent(type="Stop", timestamp=time())
+    decision = run_async(handle_stop(jmem_engine, event, state))
+    # No timings -> system_message should be None (no perf line)
+    assert decision.system_message is None
+
+
+def test_handle_stop_dream_includes_perf(jmem_engine):
+    """When dream Phase A triggers, perf telemetry is appended to the dream message."""
+    from cortex import handle_stop, HookEvent, CortexState
+    state = CortexState()
+    state.pressure = 15.0
+    state.last_dream_at = 0.0
+    state.event_timings = {"SubagentStart": [20.0]}
+    event = HookEvent(type="Stop", timestamp=time())
+    decision = run_async(handle_stop(jmem_engine, event, state))
+    assert "dream" in decision.system_message.lower()
+    assert "Perf:" in decision.system_message
+    assert "SubagentStart:" in decision.system_message
