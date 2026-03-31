@@ -159,7 +159,7 @@ def _resolve_agents(names_csv: str) -> list[AgentDef]:
 # -- Layout builders -----------------------------------------------------------
 
 def _layout_grid(agents: list[AgentDef], session: str, claude_bin: str,
-                 goal: str, interactive: bool) -> None:
+                 goal: str, interactive: bool, skip_permissions: bool = False) -> None:
     """
     Grid layout: 4 rows of 2 + bottom full-width lead.
 
@@ -238,7 +238,7 @@ def _layout_grid(agents: list[AgentDef], session: str, claude_bin: str,
 
 
 def _layout_tall(agents: list[AgentDef], session: str, claude_bin: str,
-                 goal: str, interactive: bool) -> list[AgentDef]:
+                 goal: str, interactive: bool, skip_permissions: bool = False) -> list[AgentDef]:
     """Vertical stack: all panes in a single column."""
     first_cmd = _build_cmd(agents[0], goal, interactive, claude_bin, skip_permissions)
     _tmux("new-session", "-d", "-s", session, "-n", "aussie-team", first_cmd)
@@ -302,9 +302,9 @@ def spawn_team(
 
     # -- Build layout ----------------------------------------------------------
     if layout == "tall":
-        pane_agents = _layout_tall(agents, session, claude_bin, goal, interactive)
+        pane_agents = _layout_tall(agents, session, claude_bin, goal, interactive, skip_permissions)
     else:
-        pane_agents = _layout_grid(agents, session, claude_bin, goal, interactive)
+        pane_agents = _layout_grid(agents, session, claude_bin, goal, interactive, skip_permissions)
 
     # -- Configure pane titles and borders -------------------------------------
     for i, agent in enumerate(pane_agents):
