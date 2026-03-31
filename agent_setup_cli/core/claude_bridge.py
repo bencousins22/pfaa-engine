@@ -233,9 +233,15 @@ class ClaudeBridge:
             elif "```" in code:
                 code = code.split("```")[1].split("```")[0].strip()
 
-            os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
-            with open(output_file, "w") as f:
-                f.write(code)
+            await asyncio.to_thread(
+                os.makedirs, os.path.dirname(output_file) or ".", exist_ok=True
+            )
+
+            def _write_file(path: str, data: str) -> None:
+                with open(path, "w") as f:
+                    f.write(data)
+
+            await asyncio.to_thread(_write_file, output_file, code)
 
         return result
 
@@ -274,8 +280,11 @@ class ClaudeBridge:
     async def review_code(self, file_path: str) -> ClaudeResult:
         """Have Claude review a code file."""
         try:
-            with open(file_path) as f:
-                code = f.read()
+            def _read_file(path: str) -> str:
+                with open(path) as f:
+                    return f.read()
+
+            code = await asyncio.to_thread(_read_file, file_path)
         except Exception as e:
             return ClaudeResult(success=False, output=f"Cannot read {file_path}: {e}")
 

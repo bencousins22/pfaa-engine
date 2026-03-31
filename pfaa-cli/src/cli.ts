@@ -1575,6 +1575,22 @@ program
 // ENTRY POINT
 // ═════════════════════════════════════════════════════════════════════
 
+// ── Graceful Shutdown ───────────────────────────────────────────────
+function handleShutdown(signal: string): void {
+  console.log(`\nShutting down... (${signal})`);
+  try {
+    if (bridge && 'shutdown' in bridge && typeof (bridge as any).shutdown === 'function') {
+      (bridge as any).shutdown();
+    }
+  } catch {
+    // Best-effort cleanup
+  }
+  process.exit(0);
+}
+
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+
 if (process.argv.length <= 2) {
   console.log(renderBanner());
   program.outputHelp();

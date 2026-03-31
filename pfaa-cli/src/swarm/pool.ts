@@ -194,8 +194,8 @@ export class ProcessPool extends EventEmitter {
             // Re-attach generic listener after handshake.
             resolve();
           }
-        } catch {
-          // Ignore non-JSON lines during startup.
+        } catch (err) {
+          log.trace('Non-JSON line during worker startup', { id, line: line.slice(0, 120), error: String(err) });
         }
       };
 
@@ -291,8 +291,8 @@ export class ProcessPool extends EventEmitter {
       setTimeout(() => {
         try {
           w.proc.kill('SIGKILL');
-        } catch {
-          // already dead
+        } catch (err) {
+          log.trace('Worker already dead on SIGKILL', { id: w.id, error: String(err) });
         }
       }, 2_000);
     });

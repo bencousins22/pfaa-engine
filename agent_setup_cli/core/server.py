@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from typing import Any
 
@@ -257,8 +258,10 @@ def _safe_serialize(obj: Any) -> Any:
     return str(obj)[:500]
 
 
-def serve(host: str = "0.0.0.0", port: int = 8000):
+def serve(host: str | None = None, port: int | None = None):
     """Start the Aussie Agents server."""
+    host = host or os.environ.get("PFAA_SERVER_HOST", "0.0.0.0")
+    port = port or int(os.environ.get("PFAA_SERVER_PORT", "8000"))
     app = create_app()
     uvicorn.run(app, host=host, port=port, log_level="info")
 

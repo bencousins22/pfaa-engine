@@ -27,7 +27,7 @@ export interface JMEMConfig {
 }
 
 const DEFAULT_JMEM_CONFIG: JMEMConfig = {
-  serverUrl: 'http://localhost:3100',
+  serverUrl: process.env.JMEM_SERVER_URL || 'http://localhost:3100',
   serverCommand: 'python -m jmem.server',
   namespace: 'pfaa-cli',
   maxEpisodes: 10_000,
@@ -303,26 +303,60 @@ export class JMEMClient extends EventEmitter {
 
     // In production, this would use the MCP client transport.
     // For now, simulate via HTTP to the JMEM server.
-    try {
-      const response = await fetch(`${this.config.serverUrl}/mcp/tool`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: toolName, arguments: args }),
-        signal: AbortSignal.timeout(10_000),
-      });
+    // Retry with exponential backoff for transient failures.
+    const MAX_RETRIES = 3;
+    const BASE_DELAY_MS = 200;
 
-      if (!response.ok) {
-        throw new Error(`JMEM MCP call failed: ${response.status}`);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(`${this.config.serverUrl}/mcp/tool`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: toolName, arguments: args }),
+          signal: AbortSignal.timeout(10_000),
+        });
+
+        // Retry on server errors (5xx)
+        if (response.status >= 500 && attempt < MAX_RETRIES) {
+          const delay = BASE_DELAY_MS * 2 ** attempt;
+          log.debug(`JMEM ${toolName} returned ${response.status}, retrying in ${delay}ms`, {
+            attempt: attempt + 1,
+          });
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+
+        if (!response.ok) {
+          throw new Error(`JMEM MCP call failed: ${response.status}`);
+        }
+
+        return await response.json() as MCPToolResult;
+      } catch (err) {
+        const isRetryable =
+          err instanceof TypeError || // fetch network error (connection refused)
+          (err instanceof DOMException && err.name === 'TimeoutError') ||
+          (err instanceof Error && err.message.includes('ECONNREFUSED'));
+
+        if (isRetryable && attempt < MAX_RETRIES) {
+          const delay = BASE_DELAY_MS * 2 ** attempt;
+          log.debug(`JMEM ${toolName} failed (attempt ${attempt + 1}), retrying in ${delay}ms`, {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+
+        if (toolName === 'jmem_status') throw err;
+        log.debug(`JMEM call failed: ${toolName}`, {
+          error: err instanceof Error ? err.message : String(err),
+          attempts: attempt + 1,
+        });
+        return { content: [{ type: 'text', text: '[]' }] };
       }
-
-      return await response.json() as MCPToolResult;
-    } catch (err) {
-      if (toolName === 'jmem_status') throw err;
-      log.debug(`JMEM call failed: ${toolName}`, {
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return { content: [{ type: 'text', text: '[]' }] };
     }
+
+    // Unreachable, but satisfies TypeScript return type
+    return { content: [{ type: 'text', text: '[]' }] };
   }
 
   private extractText(result: MCPToolResult): string {

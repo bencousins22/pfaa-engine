@@ -194,10 +194,19 @@ class ToolRegistry:
         calls: list[tuple[str, tuple, dict]],
     ) -> list[TaskResult]:
         """Execute multiple tools in parallel (scatter pattern)."""
-        tasks = []
-        for name, args, kwargs in calls:
-            tasks.append(self.execute(name, *args, **kwargs))
-        return list(await asyncio.gather(*tasks, return_exceptions=True))
+        coros = [self.execute(name, *args, **kwargs) for name, args, kwargs in calls]
+        results: list[TaskResult] = []
+        try:
+            async with asyncio.TaskGroup() as tg:
+                task_handles = [tg.create_task(c) for c in coros]
+            results = [t.result() for t in task_handles]
+        except* Exception as eg:
+            for t in task_handles:
+                if t.done() and t.exception() is None:
+                    results.append(t.result())
+                else:
+                    results.append(t.exception() if t.done() else None)
+        return results
 
     async def pipeline(
         self,

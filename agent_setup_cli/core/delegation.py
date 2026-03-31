@@ -99,14 +99,23 @@ class Supervisor:
         """Run all workers in parallel, handling restarts."""
         self._start_ns = time.perf_counter_ns()
 
-        # Run workers + child supervisors concurrently
-        worker_tasks = [self._run_worker(w) for w in self._workers]
-        child_tasks = [c.run_all() for c in self._children]
+        # Run workers + child supervisors concurrently via TaskGroup
+        worker_coros = [self._run_worker(w) for w in self._workers]
+        child_coros = [c.run_all() for c in self._children]
+        all_coros = worker_coros + child_coros
 
-        all_results = await asyncio.gather(
-            *worker_tasks, *child_tasks,
-            return_exceptions=True,
-        )
+        all_results: list[Any] = []
+        try:
+            async with asyncio.TaskGroup() as tg:
+                task_handles = [tg.create_task(c) for c in all_coros]
+            all_results = [t.result() for t in task_handles]
+        except* Exception as eg:
+            # Collect partial results and exceptions
+            for i, t in enumerate(task_handles):
+                if t.done() and t.exception() is None:
+                    all_results.append(t.result())
+                else:
+                    all_results.append(t.exception() if t.done() else None)
 
         elapsed_ms = (time.perf_counter_ns() - self._start_ns) / 1_000_000
 
@@ -115,7 +124,7 @@ class Supervisor:
         worker_results = all_results[:n_workers]
         child_results = all_results[n_workers:]
 
-        # Handle any gather exceptions
+        # Handle any TaskGroup exceptions
         for i, result in enumerate(worker_results):
             if isinstance(result, Exception) and i < len(self._workers):
                 self._workers[i].status = "failed"

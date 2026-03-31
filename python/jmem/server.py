@@ -27,8 +27,8 @@ from typing import Any
 
 logger = logging.getLogger("jmem.mcp")
 
-JsonRpcRequest = dict[str, Any]
-JsonRpcResponse = dict[str, Any]
+type JsonRpcRequest = dict[str, Any]
+type JsonRpcResponse = dict[str, Any]
 
 AGENT_NAME = os.environ.get("JMEM_AGENT", os.environ.get("PFAA_AGENT_NAME", "default"))
 

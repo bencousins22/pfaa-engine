@@ -129,6 +129,7 @@ export function loadConfig(overrides: Partial<PFAAConfig> = {}): PFAAConfig {
     PFAA_PYTHON_PATH: (v) => { config.python.interpreterPath = v; },
     PFAA_MEMORY_PATH: (v) => { config.memory.storagePath = v; },
     PFAA_VERBOSE: (v) => { config.verbose = v === 'true' || v === '1'; },
+    PFAA_JMEM_URL: (v) => { (config.memory as any).serverUrl = v; },
     ANTHROPIC_API_KEY: (v) => { config.enterprise.auth.apiKey = v; },
     PFAA_TEAM_ID: (v) => { config.enterprise.auth.teamId = v; },
     PFAA_CACHE_ENABLED: (v) => { config.enterprise.cache.enabled = v === 'true'; },

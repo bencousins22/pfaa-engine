@@ -228,9 +228,13 @@ async def bench_mixed_workload() -> None:
         hint=Phase.SOLID,
     )
 
-    vapor_results, liquid_results, solid_results = await asyncio.gather(
-        vapor_tasks, liquid_tasks, solid_tasks
-    )
+    async with asyncio.TaskGroup() as tg:
+        vapor_handle = tg.create_task(vapor_tasks)
+        liquid_handle = tg.create_task(liquid_tasks)
+        solid_handle = tg.create_task(solid_tasks)
+    vapor_results = vapor_handle.result()
+    liquid_results = liquid_handle.result()
+    solid_results = solid_handle.result()
 
     elapsed_ms = (time.perf_counter_ns() - start) / 1_000_000
 
