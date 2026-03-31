@@ -39,6 +39,16 @@ Every deployment MUST have a rollback strategy documented before execution:
 - **Cloud**: Platform-specific rollback (Render: previous deploy, Railway: revert)
 - **CI/CD**: Revert commit + re-trigger pipeline
 
+## Memory Integration
+
+JMEM tracks deployment history and surfaces incident patterns to prevent repeated failures.
+
+- **Before deploying**: `jmem_recall(query="deployment rollback incident <target>")` to check past outcomes and known failure modes
+- **After deploying**: `jmem_remember(content="Deploy <target>: <outcome>", level=1)` to log episodic deployment traces
+- **Analyze trends**: `jmem_meta_learn(topic="deployment success rates")` to identify systemic deployment risks
+- **Reinforce**: `jmem_reward_recalled(query="<deploy>", reward=0.9)` when a recalled rollback strategy prevented downtime
+- **Promote**: `jmem_remember(content="Deploy principle: <lesson>", level=3)` to elevate repeated incident learnings to strategic level
+
 ## Rules
 - **NEVER deploy without passing tests** — this is non-negotiable
 - **NEVER deploy without a rollback plan** — document it before proceeding

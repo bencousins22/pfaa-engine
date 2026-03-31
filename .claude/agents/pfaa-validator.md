@@ -28,6 +28,16 @@ For any code change:
 - Sharpe ratio > 3.0 (suspiciously high)
 - Memory Q-values all clustered near 0.5 (no learning happening)
 
+## Memory Integration
+
+JMEM tracks test outcomes and regression patterns to focus validation on historically fragile areas.
+
+- **Before validating**: `jmem_recall(query="test failure validation regression <area>")` to prioritize checks on known failure-prone code
+- **After validating**: `jmem_remember(content="Validation: <result and findings>", level=1)` to log episodic test outcomes
+- **Reinforce**: `jmem_reward_recalled(query="<test pattern>", reward=0.8)` when recalled failure patterns caught a real regression
+- **Consolidate**: `jmem_consolidate()` to promote recurring test failures from episodic to semantic patterns
+- **Meta-learn**: `jmem_meta_learn(topic="validation effectiveness")` to analyze which validation checks catch the most issues
+
 ## Important
 You are READ-ONLY. Never use Write, Edit, or Bash commands that modify files.
 Use only: Read, Glob, Grep, and analysis tools.

@@ -57,6 +57,16 @@ def first(items: list[T]) -> T: ...
 def first[T](items: list[T]) -> T: ...
 ```
 
+## Memory Integration
+
+JMEM captures optimization patterns and extracts reusable rewrite skills for future transformations.
+
+- **Before rewriting**: `jmem_recall(query="python315 optimization performance <pattern>")` to recall proven transformation patterns
+- **After rewriting**: `jmem_remember(content="Rewrite: <transformation and speedup>", level=3)` to store successful rewrites as principles
+- **Extract skills**: `jmem_extract_skills(topic="python315 rewrites")` to promote recurring patterns into reusable skill memories
+- **Reinforce**: `jmem_reward_recalled(query="<optimization>", reward=0.9)` when a recalled pattern produced measurable speedup
+- **Evolve**: `jmem_evolve()` to decay stale optimization patterns that no longer apply to current Python versions
+
 ## Rules
 1. Only rewrite files when asked — never modify without permission
 2. Always preserve existing behavior — rewrite for speed, not features

@@ -97,6 +97,50 @@
     "aussie-learn": {
       "path": ".claude/skills/aussie-learn/SKILL.md",
       "description": "Full JMEM cognitive cycle — recall, reward, consolidate, meta-learn, emergent, extract, decay, status"
+    },
+    "aussie-status": {
+      "path": ".claude/skills/aussie-status/SKILL.md",
+      "description": "Full system health — bridge, tools, memory, agents, phases"
+    },
+    "aussie-explore": {
+      "path": ".claude/skills/aussie-explore/SKILL.md",
+      "description": "Epsilon-greedy phase exploration and self-optimization"
+    },
+    "aussie-scatter": {
+      "path": ".claude/skills/aussie-scatter/SKILL.md",
+      "description": "Parallel fan-out — spawn sub-agents per input, merge results"
+    },
+    "aussie-pipeline": {
+      "path": ".claude/skills/aussie-pipeline/SKILL.md",
+      "description": "Sequential step execution — each output feeds the next input"
+    },
+    "aussie-generate": {
+      "path": ".claude/skills/aussie-generate/SKILL.md",
+      "description": "Generate code from natural language, validate with tests"
+    },
+    "aussie-search": {
+      "path": ".claude/skills/aussie-search/SKILL.md",
+      "description": "Search tools by name, description, phase, or capability"
+    },
+    "aussie-ask": {
+      "path": ".claude/skills/aussie-ask/SKILL.md",
+      "description": "Smart Q&A with JMEM memory context and codebase search"
+    },
+    "aussie-checkpoint": {
+      "path": ".claude/skills/aussie-checkpoint/SKILL.md",
+      "description": "Save and resume goals via JMEM checkpoints"
+    },
+    "aussie-session": {
+      "path": ".claude/skills/aussie-session/SKILL.md",
+      "description": "Save, list, and recall session states"
+    },
+    "aussie-config": {
+      "path": ".claude/skills/aussie-config/SKILL.md",
+      "description": "View and manage Claude Code configuration"
+    },
+    "aussie-bench": {
+      "path": ".claude/skills/aussie-bench/SKILL.md",
+      "description": "Performance benchmarks — JMEM, tools, compile times"
     }
   },
   "permissions": {
