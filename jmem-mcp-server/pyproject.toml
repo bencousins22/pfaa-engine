@@ -21,6 +21,9 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["jmem"]
+
 [project.scripts]
 jmem-server = "jmem.server:main"
 
