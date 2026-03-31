@@ -199,9 +199,9 @@ def test_decision_with_context():
 
 def test_parse_agent_start():
     """parse_event('agent_start', ...) returns AgentStartEvent with correct fields."""
-    ev = parse_event("agent_start", {"agent": "pfaa-lead", "task": "deploy v2"})
+    ev = parse_event("SubagentStart", {"agent_type": "pfaa-lead", "task": "deploy v2"})
     assert isinstance(ev, AgentStartEvent)
-    assert ev.type == "agent_start"
+    assert ev.type == "SubagentStart"
     assert ev.agent == "pfaa-lead"
     assert ev.task == "deploy v2"
     assert ev.timestamp > 0
@@ -213,7 +213,7 @@ def test_parse_agent_start():
 
 def test_parse_agent_stop_success():
     """AgentStopEvent with success=True and no error."""
-    ev = parse_event("agent_stop", {"agent": "aussie-tdd", "success": True})
+    ev = parse_event("SubagentStop", {"agent_type": "aussie-tdd", "success": True})
     assert isinstance(ev, AgentStopEvent)
     assert ev.success is True
     assert ev.error is None
@@ -223,8 +223,8 @@ def test_parse_agent_stop_success():
 def test_parse_agent_stop_failure():
     """AgentStopEvent with success=False and error populated."""
     ev = parse_event(
-        "agent_stop",
-        {"agent": "aussie-tdd", "success": False, "error": "Timeout exceeded"},
+        "SubagentStop",
+        {"agent_type": "aussie-tdd", "success": False, "error": "Timeout exceeded"},
     )
     assert isinstance(ev, AgentStopEvent)
     assert ev.success is False
@@ -234,7 +234,7 @@ def test_parse_agent_stop_failure():
 
 def test_parse_file_changed():
     """FileChangedEvent extracts path and extension."""
-    ev = parse_event("file_changed", {"path": "src/core/engine.ts"})
+    ev = parse_event("FileChanged", {"file_path": "src/core/engine.ts"})
     assert isinstance(ev, FileChangedEvent)
     assert ev.path == "src/core/engine.ts"
     assert ev.ext == ".ts"
@@ -244,8 +244,8 @@ def test_parse_file_changed():
 def test_parse_tool_failure():
     """ToolFailureEvent classifies error correctly."""
     ev = parse_event(
-        "tool_failure",
-        {"tool": "Bash", "error": "Permission denied: /etc/shadow"},
+        "PostToolUseFailure",
+        {"tool_name": "Bash", "error": "Permission denied: /etc/shadow"},
     )
     assert isinstance(ev, ToolFailureEvent)
     assert ev.tool == "Bash"
@@ -255,7 +255,7 @@ def test_parse_tool_failure():
 
 def test_parse_prompt_submit():
     """PromptSubmitEvent extracts prompt text."""
-    ev = parse_event("prompt_submit", {"prompt": "refactor the memory store"})
+    ev = parse_event("UserPromptSubmit", {"prompt": "refactor the memory store"})
     assert isinstance(ev, PromptSubmitEvent)
     assert ev.prompt == "refactor the memory store"
     assert "prompt" in ev.tags()
@@ -264,8 +264,8 @@ def test_parse_prompt_submit():
 def test_parse_task_completed():
     """TaskCompletedEvent extracts subject."""
     ev = parse_event(
-        "task_completed",
-        {"subject": "deploy", "description": "Deployed v2.1 to prod"},
+        "TaskCompleted",
+        {"task_subject": "deploy", "task_description": "Deployed v2.1 to prod"},
     )
     assert isinstance(ev, TaskCompletedEvent)
     assert ev.subject == "deploy"
@@ -275,20 +275,20 @@ def test_parse_task_completed():
 
 def test_parse_unknown_event():
     """Unknown event type returns base HookEvent, never crashes."""
-    ev = parse_event("totally_new_event", {"foo": "bar"})
+    ev = parse_event("TotallyNewEvent", {"foo": "bar"})
     assert isinstance(ev, HookEvent)
-    assert ev.type == "totally_new_event"
+    assert ev.type == "TotallyNewEvent"
 
 
 def test_parse_missing_fields():
     """Empty payload produces defaults, never crashes."""
     for event_type in [
-        "agent_start",
-        "agent_stop",
-        "tool_failure",
-        "file_changed",
-        "task_completed",
-        "prompt_submit",
+        "SubagentStart",
+        "SubagentStop",
+        "PostToolUseFailure",
+        "FileChanged",
+        "TaskCompleted",
+        "UserPromptSubmit",
     ]:
         ev = parse_event(event_type, {})
         assert ev.type == event_type

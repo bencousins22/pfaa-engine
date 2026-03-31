@@ -279,32 +279,37 @@ def parse_event(event_type: str, payload: dict) -> HookEvent:
     """Parse a raw hook payload into a typed HookEvent. Never crashes on missing fields."""
     ts = time()
     match event_type:
-        case "agent_start":
+        case "SubagentStart":
             return AgentStartEvent(
                 type=event_type,
                 timestamp=ts,
-                agent=payload.get("agent", "unknown"),
-                task=payload.get("task", ""),
+                agent=payload.get("agent_type", payload.get("agent_name", payload.get("agent", "unknown"))),
+                task=payload.get("task", payload.get("prompt", "")),
             )
-        case "agent_stop":
+        case "SubagentStop":
+            # CC sends: agent_type, agent_id, last_assistant_message, stop_hook_active
+            last_msg = payload.get("last_assistant_message", "")
+            success = "error" not in last_msg.lower() if last_msg else True
             return AgentStopEvent(
                 type=event_type,
                 timestamp=ts,
-                agent=payload.get("agent", "unknown"),
-                success=payload.get("success", False),
+                agent=payload.get("agent_type", payload.get("agent_name", payload.get("agent", "unknown"))),
+                success=payload.get("success", success),
                 error=payload.get("error", None),
             )
-        case "tool_failure":
-            error_msg = payload.get("error", "")
+        case "PostToolUseFailure":
+            # CC sends: tool_name, tool_input, tool_use_id, error
+            error_msg = str(payload.get("error", ""))
             return ToolFailureEvent(
                 type=event_type,
                 timestamp=ts,
-                tool=payload.get("tool", "unknown"),
-                error=error_msg,
+                tool=payload.get("tool_name", payload.get("tool", "unknown")),
+                error=error_msg[:500],
                 error_class=classify_error(error_msg),
             )
-        case "file_changed":
-            file_path = payload.get("path", "")
+        case "FileChanged":
+            # CC sends: file_path, event (change|add|unlink)
+            file_path = payload.get("file_path", payload.get("path", ""))
             ext = Path(file_path).suffix if file_path else ""
             return FileChangedEvent(
                 type=event_type,
@@ -312,19 +317,24 @@ def parse_event(event_type: str, payload: dict) -> HookEvent:
                 path=file_path,
                 ext=ext,
             )
-        case "task_completed":
+        case "TaskCompleted":
+            # CC sends: task_id, task_subject, task_description, teammate_name
             return TaskCompletedEvent(
                 type=event_type,
                 timestamp=ts,
-                subject=payload.get("subject", ""),
-                description=payload.get("description", ""),
+                subject=payload.get("task_subject", payload.get("subject", "")),
+                description=payload.get("task_description", payload.get("description", "")),
             )
-        case "prompt_submit":
+        case "UserPromptSubmit":
+            # CC sends: prompt
             return PromptSubmitEvent(
                 type=event_type,
                 timestamp=ts,
-                prompt=payload.get("prompt", ""),
+                prompt=payload.get("prompt", payload.get("content", "")),
             )
+        case "Stop":
+            # CC sends: stop_hook_active, last_assistant_message
+            return HookEvent(type=event_type, timestamp=ts)
         case _:
             return HookEvent(type=event_type, timestamp=ts)
 
