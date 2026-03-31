@@ -4,28 +4,59 @@
 
 Enterprise AI agent framework with phase-fluid execution (VAPOR/LIQUID/SOLID), JMEM semantic memory (6 cognitive layers + Q-learning), and multi-agent team orchestration. All skills run natively in Claude Code — no external CLI required.
 
+## Automatic Skill Routing
+
+**IMPORTANT**: When the user makes a request, automatically invoke the matching skill WITHOUT requiring them to type a slash command. Use this routing table:
+
+| User says something like... | Invoke |
+|---|---|
+| "run/do/execute/build [goal]" | `/aussie-run` |
+| "swarm/parallel/fan-out [task]" | `/aussie-swarm` |
+| "scatter [tool] across [inputs]" | `/aussie-scatter` |
+| "pipeline/chain/sequence [steps]" | `/aussie-pipeline` |
+| "spawn team/full team/all agents" | `/pfaa-team` |
+| "generate/create/write code for [X]" | `/aussie-generate` |
+| "self-build/improve/enhance itself" | `/aussie-build` |
+| "learn/consolidate/cognitive cycle" | `/aussie-learn` |
+| "evolve/cleanup memory/skill evolution" | `/aussie-evolve` |
+| "explore/optimize phases" | `/aussie-explore` |
+| "status/health/how is the system" | `/aussie-status` |
+| "audit/benchmark/test performance" | `/aussie-bench` |
+| "warmup/profile tools" | `/aussie-warmup` |
+| "memory/recall/remember/jmem" | `/aussie-memory` |
+| "analyze python/py315/modernize" | `/aussie-analyze` |
+| "search tools/find tool" | `/aussie-search` |
+| "ask/question/what is/how does" | `/aussie-ask` |
+| "save checkpoint/resume goal" | `/aussie-checkpoint` |
+| "save session/list sessions" | `/aussie-session` |
+| "config/settings/permissions" | `/aussie-config` |
+| "chat/interactive/loop" | `/aussie-chat` |
+| "exec/sandbox/run python" | `/aussie-exec` |
+| "list tools/show tools" | `/aussie-tools` |
+| "audit/self-assess/reliability" | `/aussie-audit` |
+| "loop/recurring/schedule learning" | `/aussie-loop` |
+
+If the request is ambiguous or doesn't match, ask the user. If it clearly matches multiple skills, pick the most specific one. Always recall JMEM context before executing any skill.
+
 ## Key Commands
 
 ```bash
-# Claude Code slash commands (preferred — native execution)
+# Claude Code slash commands (also auto-invoked by intent matching above)
 /aussie-run "goal"          # Execute any goal with full agent stack
 /aussie-build               # Self-improvement cycle
 /aussie-evolve              # Memory cleanup + skill evolution
-/aussie-audit               # System health check
-/aussie-loop                # Learning cycle (warmup + learn)
+/aussie-learn               # Full cognitive cycle (8 steps)
 /aussie-swarm "task"        # Parallel multi-agent dispatch
 /aussie-memory              # JMEM memory operations
 /aussie-analyze             # Python 3.15 code analysis
+/aussie-status              # System health check
+/aussie-bench               # Performance benchmarks
+/pfaa-team                  # Full 10-agent team
 
-# Python team spawners
-python3 agents/team/remix_spawn.py "goal"   # Full 10-agent team
-python3 agents/team/spawn.py "goal"         # Basic 6-agent team
+# Global CLI (installed via npm link)
+pfaa status | run | memory | team | bench | ...
 
-# Node.js CLI (fallback)
-cd pfaa-cli && npx tsx src/cli.ts status
-cd pfaa-cli && npx tsx src/cli.ts run "goal"
-
-# JMEM MCP server
+# JMEM MCP server (auto-started by Claude Code)
 python3 -m jmem
 ```
 
@@ -39,7 +70,7 @@ pfaa-engine/
 ├── src/                     # TypeScript core (orchestrator, providers, memory)
 ├── jmem-mcp-server/         # JMEM semantic memory MCP server
 ├── freqtrade_strategy/      # Self-optimizing BTC FreqTrade strategy
-└── .claude/                 # 10 agents, 13 skills, 6 hooks
+└── .claude/                 # 10 agents, 25 skills, 8 hooks, 13 MCP tools
 ```
 
 ## Claude Code Agents (10)
