@@ -141,6 +141,10 @@
     "aussie-bench": {
       "path": ".claude/skills/aussie-bench/SKILL.md",
       "description": "Performance benchmarks — JMEM, tools, compile times"
+    },
+    "aussie-self-build": {
+      "path": ".claude/skills/aussie-self-build/SKILL.md",
+      "description": "Automated self-improvement cycle — recall JMEM principles, apply unapplied patterns, test, commit, reward"
     }
   },
   "permissions": {

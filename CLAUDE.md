@@ -16,7 +16,7 @@ Enterprise AI agent framework with phase-fluid execution (VAPOR/LIQUID/SOLID), J
 | "pipeline/chain/sequence [steps]" | `/aussie-pipeline` |
 | "spawn team/full team/all agents" | `/pfaa-team` |
 | "generate/create/write code for [X]" | `/aussie-generate` |
-| "self-build/improve/enhance itself" | `/aussie-build` |
+| "self-build/improve/enhance itself" | `/aussie-self-build` |
 | "learn/consolidate/cognitive cycle" | `/aussie-learn` |
 | "evolve/cleanup memory/skill evolution" | `/aussie-evolve` |
 | "explore/optimize phases" | `/aussie-explore` |
@@ -43,7 +43,8 @@ If the request is ambiguous or doesn't match, ask the user. If it clearly matche
 ```bash
 # Claude Code slash commands (also auto-invoked by intent matching above)
 /aussie-run "goal"          # Execute any goal with full agent stack
-/aussie-build               # Self-improvement cycle
+/aussie-build               # Self-improvement cycle (manual, with --apply)
+/aussie-self-build          # Automated self-improvement (JMEM-driven, end-to-end)
 /aussie-evolve              # Memory cleanup + skill evolution
 /aussie-learn               # Full cognitive cycle (8 steps)
 /aussie-swarm "task"        # Parallel multi-agent dispatch
