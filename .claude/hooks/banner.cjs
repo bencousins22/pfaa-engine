@@ -65,7 +65,7 @@ const stats = [
   pill('tools', '44', [0, 230, 118]),
   pill('mcp',   '17', [0, 200, 200]),
   pill('memory', '5L', [140, 100, 255]),
-  pill('hooks',  '6',  [255, 100, 80]),
+  pill('hooks',  '7',  [255, 100, 80]),
   pill('agents','10', [212, 160, 23]),
 ].join(`  ${DIM}\u00b7${R}  `);
 

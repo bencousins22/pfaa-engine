@@ -781,3 +781,92 @@ def test_self_assess_noop_insufficient_data():
     old = state.interest_baseline
     self_assess(state)
     assert state.interest_baseline == old
+
+
+# ── Integration Tests ────────────────────────────────────────────────
+
+
+def test_full_agent_lifecycle(jmem_engine):
+    """Integration: start -> stop(success) -> task_completed -> pressure rises."""
+    from cortex import (
+        handle_agent_start, handle_agent_stop, handle_task_completed,
+        AgentStartEvent, AgentStopEvent, TaskCompletedEvent, CortexState
+    )
+    state = CortexState()
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            # Agent starts
+            start_event = AgentStartEvent(type="agent_start", timestamp=time(), agent="aussie-tdd", task="fix auth")
+            d1 = await handle_agent_start(jmem_engine, start_event, state)
+            assert d1.action == "observe"
+
+            # Agent succeeds
+            stop_event = AgentStopEvent(type="agent_stop", timestamp=time(), agent="aussie-tdd", success=True)
+            d2 = await handle_agent_stop(jmem_engine, stop_event, state)
+            assert d2.action == "observe"
+            assert "aussie-tdd" in (d2.system_message or "")
+            assert state.pressure > 0
+
+            # Task completed
+            task_event = TaskCompletedEvent(type="TaskCompleted", timestamp=time(), subject="Auth fixed")
+            d3 = await handle_task_completed(jmem_engine, task_event, state)
+            assert state.pressure > 0.5  # Both stop and task added pressure
+        finally:
+            await jmem_engine.shutdown()
+
+    run_async(_run())
+
+
+def test_cortex_end_to_end_cli():
+    """Cortex runs end-to-end from CLI without crashing for all 7 event types."""
+    cortex_path = os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks", "cortex.py")
+    events = [
+        ("SubagentStart", '{"agent_name":"aussie-tdd","task":"test"}'),
+        ("SubagentStop", '{"agent_name":"aussie-tdd","result":{"success":true}}'),
+        ("PostToolUseFailure", '{"tool_name":"Bash","error":"timeout"}'),
+        ("TaskCompleted", '{"subject":"Done"}'),
+        ("UserPromptSubmit", '{"prompt":"fix the auth bug in the login flow"}'),
+        ("FileChanged", '{"file_path":"/tmp/nonexistent.py"}'),
+        ("Stop", '{}'),
+    ]
+    for event_type, payload in events:
+        result = subprocess.run(
+            [sys.executable, cortex_path, event_type],
+            input=payload, capture_output=True, text=True, timeout=15,
+        )
+        assert result.returncode == 0, f"{event_type} failed: {result.stderr}"
+
+
+def test_dream_cycle_full_integration(jmem_engine):
+    """Integration: accumulate pressure -> stop triggers dream -> phase B clears pending."""
+    from cortex import (
+        handle_task_completed, handle_stop, run_dream_phase_b,
+        TaskCompletedEvent, HookEvent, CortexState
+    )
+    state = CortexState()
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            # Accumulate pressure via task completions
+            for i in range(12):
+                event = TaskCompletedEvent(type="TaskCompleted", timestamp=time(), subject=f"Task {i}")
+                await handle_task_completed(jmem_engine, event, state)
+
+            assert state.pressure >= 10.0  # Above threshold
+
+            # Stop triggers dream Phase A
+            stop_event = HookEvent(type="Stop", timestamp=time())
+            decision = await handle_stop(jmem_engine, stop_event, state)
+            assert state.pressure == 0.0
+            assert state.dream_pending is True
+
+            # Dream Phase B
+            await run_dream_phase_b(jmem_engine, state)
+            assert state.dream_pending is False
+        finally:
+            await jmem_engine.shutdown()
+
+    run_async(_run())
