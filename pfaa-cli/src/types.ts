@@ -5,6 +5,13 @@
  * Designed for Python 3.15 code capabilities with full type safety.
  */
 
+// ── Utility Types ───────────────────────────────────────────────────
+
+/** Recursively makes all properties optional. */
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 // ── Phase-Fluid Execution Model ──────────────────────────────────────
 
 export enum Phase {
@@ -86,6 +93,7 @@ export interface MemoryConfig {
   storagePath: string;
   maxEpisodes: number;
   learningRate: number;
+  serverUrl?: string;
 }
 
 export enum MemoryLayer {

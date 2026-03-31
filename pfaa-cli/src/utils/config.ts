@@ -12,6 +12,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type {
+  DeepPartial,
   EnterpriseConfig,
   MemoryConfig,
   Python315Config,
@@ -93,7 +94,7 @@ const DEFAULT_CONFIG: PFAAConfig = {
   stream: true,
 };
 
-export function loadConfig(overrides: Partial<PFAAConfig> = {}): PFAAConfig {
+export function loadConfig(overrides: DeepPartial<PFAAConfig> = {}): PFAAConfig {
   let config = { ...DEFAULT_CONFIG };
 
   // 1. User config (~/.pfaa/config.yaml)
@@ -103,7 +104,7 @@ export function loadConfig(overrides: Partial<PFAAConfig> = {}): PFAAConfig {
       const raw = readFileSync(userConfigPath, 'utf-8');
       // Simple YAML-like parsing for flat keys
       const parsed = parseSimpleYaml(raw);
-      config = deepMerge(config, parsed);
+      config = deepMerge(config as unknown as Record<string, unknown>, parsed) as unknown as PFAAConfig;
     } catch {
       // Ignore parse errors, use defaults
     }
@@ -115,7 +116,7 @@ export function loadConfig(overrides: Partial<PFAAConfig> = {}): PFAAConfig {
     try {
       const raw = readFileSync(projectConfigPath, 'utf-8');
       const parsed = parseSimpleYaml(raw);
-      config = deepMerge(config, parsed);
+      config = deepMerge(config as unknown as Record<string, unknown>, parsed) as unknown as PFAAConfig;
     } catch {
       // Ignore
     }
@@ -129,7 +130,7 @@ export function loadConfig(overrides: Partial<PFAAConfig> = {}): PFAAConfig {
     PFAA_PYTHON_PATH: (v) => { config.python.interpreterPath = v; },
     PFAA_MEMORY_PATH: (v) => { config.memory.storagePath = v; },
     PFAA_VERBOSE: (v) => { config.verbose = v === 'true' || v === '1'; },
-    PFAA_JMEM_URL: (v) => { (config.memory as any).serverUrl = v; },
+    PFAA_JMEM_URL: (v) => { config.memory.serverUrl = v; },
     ANTHROPIC_API_KEY: (v) => { config.enterprise.auth.apiKey = v; },
     PFAA_TEAM_ID: (v) => { config.enterprise.auth.teamId = v; },
     PFAA_CACHE_ENABLED: (v) => { config.enterprise.cache.enabled = v === 'true'; },
@@ -142,7 +143,10 @@ export function loadConfig(overrides: Partial<PFAAConfig> = {}): PFAAConfig {
   }
 
   // 4. CLI overrides (highest priority)
-  config = deepMerge(config, overrides);
+  config = deepMerge(
+    config as unknown as Record<string, unknown>,
+    overrides as Record<string, unknown>,
+  ) as unknown as PFAAConfig;
 
   return config;
 }
@@ -248,19 +252,24 @@ function toSimpleYaml(obj: Record<string, unknown>, indent = 0): string {
   return out;
 }
 
-function deepMerge(target: any, source: any): any {
+function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
   const result = { ...target };
   for (const key of Object.keys(source)) {
+    const srcVal = source[key];
+    const tgtVal = result[key];
     if (
-      source[key] &&
-      typeof source[key] === 'object' &&
-      !Array.isArray(source[key]) &&
-      target[key] &&
-      typeof target[key] === 'object'
+      srcVal &&
+      typeof srcVal === 'object' &&
+      !Array.isArray(srcVal) &&
+      tgtVal &&
+      typeof tgtVal === 'object'
     ) {
-      result[key] = deepMerge(target[key], source[key]);
-    } else if (source[key] !== undefined) {
-      result[key] = source[key];
+      result[key] = deepMerge(
+        tgtVal as Record<string, unknown>,
+        srcVal as Record<string, unknown>,
+      );
+    } else if (srcVal !== undefined) {
+      result[key] = srcVal;
     }
   }
   return result;

@@ -345,10 +345,10 @@ program
       timeoutMs: parseInt(opts.timeout),
       verbose: opts.verbose,
       color: opts.color !== false,
-      python: { interpreterPath: opts.python } as any,
+      python: { interpreterPath: opts.python },
       enterprise: {
-        cache: { enabled: opts.cache !== false } as any,
-      } as any,
+        cache: { enabled: opts.cache !== false },
+      },
     });
 
     // Quiet by default — only show warnings unless verbose
@@ -686,14 +686,16 @@ program
     try {
       await withBridge(async () => {
         await bridge.forceLearn();
-        const mem = await bridge.getMemory() as any;
+        const mem = await bridge.getMemory() as Awaited<ReturnType<typeof bridge.getMemory>> & {
+          status?: { l1_episodes?: number };
+        };
 
         // Handle both array and dict shapes from the Python bridge
         const status = mem.status || {};
-        const patterns = mem.patterns || {};
-        const strategies = mem.strategies || {};
-        const patternCount = Array.isArray(patterns) ? patterns.length : Object.keys(patterns).length;
-        const strategyCount = Array.isArray(strategies) ? strategies.length : Object.keys(strategies).length;
+        const patterns: unknown = mem.patterns || {};
+        const strategies: unknown = mem.strategies || {};
+        const patternCount = Array.isArray(patterns) ? patterns.length : Object.keys(patterns as Record<string, unknown>).length;
+        const strategyCount = Array.isArray(strategies) ? strategies.length : Object.keys(strategies as Record<string, unknown>).length;
         const episodeCount = status.l1_episodes || 0;
 
         console.log(AZ.success(`  Learning complete\n`));
@@ -702,26 +704,31 @@ program
         console.log(`  ${AZ.toolKey('L3 Strategies:')} ${colorize('yellow', String(strategyCount))}`);
 
         if (patternCount > 0) {
-          const patternEntries = Array.isArray(patterns) ? patterns : Object.entries(patterns).map(([tool, p]: [string, any]) => ({ tool, ...p }));
+          const patternEntries: Array<Record<string, unknown>> = Array.isArray(patterns)
+            ? (patterns as Array<Record<string, unknown>>)
+            : Object.entries(patterns as Record<string, unknown>).map(([tool, p]) => ({ tool, ...(p as Record<string, unknown>) }));
           console.log(AZ.info('\n  Top patterns:\n'));
           for (const p of patternEntries.slice(0, 8)) {
-            const name = p.tool || p.name || '?';
-            const phase = p.best_phase || '?';
-            const avg = Math.round(p.avg_us || p.avg_latency_us || 0);
-            const conf = (p.confidence || 0).toFixed(2);
+            const name = String(p.tool || p.name || '?');
+            const phase = String(p.best_phase || '?');
+            const avg = Math.round(Number(p.avg_us || p.avg_latency_us || 0));
+            const conf = Number(p.confidence || 0).toFixed(2);
             const phaseColor = phase === 'VAPOR' ? 'cyan' : phase === 'LIQUID' ? 'yellow' : 'red';
             console.log(`    ${name.padEnd(20)} ${colorize(phaseColor as Color, phase.padEnd(7))} ${String(avg).padStart(8)}μs  conf=${conf}`);
           }
         }
 
         if (strategyCount > 0) {
-          const stratEntries = Array.isArray(strategies) ? strategies : Object.entries(strategies).map(([tool, s]: [string, any]) => ({ tool, ...s }));
+          const stratEntries: Array<Record<string, unknown>> = Array.isArray(strategies)
+            ? (strategies as Array<Record<string, unknown>>)
+            : Object.entries(strategies as Record<string, unknown>).map(([tool, s]) => ({ tool, ...(s as Record<string, unknown>) }));
           console.log(AZ.info('\n  Phase optimizations:\n'));
           for (const s of stratEntries) {
-            const from = s.default || s.from_phase || '?';
-            const to = s.override || s.to_phase || '?';
-            const speedup = s.speedup_factor ? `${s.speedup_factor.toFixed(1)}x` : (s.speedup || '?');
-            console.log(`    ${s.tool}: ${colorize('red', from)} → ${colorize('green', to)} (${speedup})`);
+            const from = String(s.default || s.from_phase || '?');
+            const to = String(s.override || s.to_phase || '?');
+            const speedupFactor = s.speedup_factor as number | undefined;
+            const speedup = speedupFactor ? `${speedupFactor.toFixed(1)}x` : String(s.speedup || '?');
+            console.log(`    ${String(s.tool)}: ${colorize('red', from)} → ${colorize('green', to)} (${speedup})`);
           }
         }
         console.log();
@@ -1123,8 +1130,8 @@ program
     try {
       await bridge.start();
       const tools = await bridge.listTools();
-      const phases = { VAPOR: 0, LIQUID: 0, SOLID: 0 };
-      for (const t of tools) (phases as any)[t.phase]++;
+      const phases: Record<Phase, number> = { [Phase.VAPOR]: 0, [Phase.LIQUID]: 0, [Phase.SOLID]: 0 };
+      for (const t of tools) phases[t.phase]++;
 
       const engineLines = [
         `${AZ.toolKey('Tools:   ')} \x1b[38;2;0;255;136m\x1b[1m${tools.length}${R} registered`,
@@ -1515,7 +1522,8 @@ program
     try {
       await withBridge(async () => {
         const result = await bridge.loadSession();
-        const sessions = (result as any).sessions || [];
+        interface SessionEntry { id: string; timestamp?: number; goals?: number }
+        const sessions = (Array.isArray(result.sessions) ? result.sessions : []) as SessionEntry[];
         if (sessions.length === 0) {
           console.log(colorize('dim', '\n  No saved sessions found.\n'));
           return;
@@ -1555,9 +1563,9 @@ program
         try {
           const memStatus = await bridge.status();
           if (memStatus) {
-            state.l2_patterns_count = (memStatus as any).l2Patterns ?? 0;
-            state.l3_strategies_count = (memStatus as any).l3Strategies ?? 0;
-            state.memories_stored = (memStatus as any).l1Episodes ?? 0;
+            state.l2_patterns_count = memStatus.l2Patterns ?? 0;
+            state.l3_strategies_count = memStatus.l3Strategies ?? 0;
+            state.memories_stored = memStatus.l1Episodes ?? 0;
           }
         } catch {
           // Memory status unavailable, save with defaults
@@ -1581,8 +1589,8 @@ program
 function handleShutdown(signal: string): void {
   console.log(`\nShutting down... (${signal})`);
   try {
-    if (bridge && 'shutdown' in bridge && typeof (bridge as any).shutdown === 'function') {
-      (bridge as any).shutdown();
+    if (bridge?.isRunning) {
+      void bridge.stop();
     }
   } catch {
     // Best-effort cleanup
