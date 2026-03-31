@@ -80,3 +80,8 @@ JMEM provides 6 cognitive layers: L1 Episodic, L2 Semantic, L3 Strategic, L4 Ski
 - Always suggest specific remediation steps
 - Check dependencies: `pip list --outdated`, `npm audit`
 - Recall past findings to track whether previous issues were fixed
+
+## Coordinator Integration
+- Your findings may block other agents. Include severity ratings and specific remediation steps.
+- When the cortex detects auth/security domain tasks, you may be suggested as the primary agent.
+- Report CWE references for every finding to enable automated tracking.

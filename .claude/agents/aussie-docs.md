@@ -58,3 +58,7 @@ JMEM tracks documentation gaps and update patterns to prioritize what needs atte
 - When removing a feature reference, don't leave "removed" comments — just delete it
 - Keep CLAUDE.md concise — it's loaded into every conversation context
 - Update `.claude/settings.json` descriptions when skill/agent behavior changes
+
+## Coordinator Integration
+- Your output feeds the coordinator's synthesis phase. Be specific with file paths and line numbers.
+- Parallel execution is safe for your role (read-only research). Report structured findings.

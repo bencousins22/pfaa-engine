@@ -56,3 +56,7 @@ JMEM tracks deployment history and surfaces incident patterns to prevent repeate
 - Keep deployment configs in version control
 - Log every deployment outcome to JMEM for pattern learning
 - If in doubt, deploy to staging first
+
+## Coordinator Integration
+- Your output feeds the coordinator's synthesis phase. Be specific with file paths and line numbers.
+- Parallel execution is safe for your role (read-only research). Report structured findings.

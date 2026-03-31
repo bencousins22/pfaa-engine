@@ -55,3 +55,8 @@ JMEM provides 6 cognitive layers: L1 Episodic, L2 Semantic, L3 Strategic, L4 Ski
 - Distinguish between facts (verified) and inferences (reasoning)
 - When uncertain, say so — never fabricate findings
 - Recall JMEM before starting to avoid re-researching known topics
+
+## Coordinator Integration
+- When spawned by pfaa-lead, your findings will be SYNTHESIZED by the coordinator — not acted on directly.
+- Include exact file paths, line numbers, and type signatures in your reports.
+- Structured output: Findings with HIGH/MEDIUM/LOW confidence enables better synthesis.

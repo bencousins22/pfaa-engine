@@ -64,3 +64,8 @@ JMEM provides 6 cognitive layers: L1 Episodic, L2 Semantic, L3 Strategic, L4 Ski
 - NEVER skip the "verify it fails" step
 - If coverage drops below 80%, add tests before proceeding
 - Store successful test patterns in JMEM for team reuse
+
+## Coordinator Integration
+- Never verify your own implementation. Verification needs fresh eyes.
+- When spawned for implementation: work sequentially on your file area, don't touch files other agents are editing.
+- Report test results with exact counts and failure details for coordinator synthesis.

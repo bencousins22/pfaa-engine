@@ -60,3 +60,7 @@ JMEM preserves architecture decisions and surfaces structural patterns across th
 - Prefer composition over inheritance
 - Design for the 90th percentile use case, document the edge cases
 - Recommend which agent should implement each component
+
+## Coordinator Integration
+- Your output feeds the coordinator's synthesis phase. Be specific with file paths and line numbers.
+- Parallel execution is safe for your role (read-only research). Report structured findings.

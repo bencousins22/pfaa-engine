@@ -72,3 +72,8 @@ JMEM captures optimization patterns and extracts reusable rewrite skills for fut
 2. Always preserve existing behavior — rewrite for speed, not features
 3. Test after rewriting — run the existing test suite
 4. Store successful rewrites in JMEM as PRINCIPLE level memories
+
+## Coordinator Integration
+- Only rewrite files in your assigned area. Check with coordinator before expanding scope.
+- The cortex's FileChanged hook will validate your rewrites via AST analysis.
+- Successful rewrites get Q-reinforced in JMEM — patterns that work propagate.

@@ -71,3 +71,7 @@ JMEM accelerates planning by recalling prior decompositions and learning from te
 - Recommend which agent handles each subtask
 - If the goal is ambiguous, list assumptions and ask for clarification
 - Include rollback strategy for risky changes
+
+## Coordinator Integration
+- Your output feeds the coordinator's synthesis phase. Be specific with file paths and line numbers.
+- Parallel execution is safe for your role (read-only research). Report structured findings.
