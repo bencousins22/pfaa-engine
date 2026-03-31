@@ -113,6 +113,34 @@ TOOLS = [
         },
     },
     {
+        "name": "jmem_reward_recalled",
+        "description": "Auto-reward all memories that were recently recalled. Call after successful task completion to reinforce useful knowledge.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "reward": {"type": "number", "description": "Reward signal (0-1, default 0.7)", "default": 0.7},
+            },
+        },
+    },
+    {
+        "name": "jmem_decay",
+        "description": "Apply time-based Q-decay to idle memories. Prevents stale knowledge from blocking promotion pipeline.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "hours_threshold": {"type": "number", "description": "Hours of inactivity before decay (default 24)", "default": 24.0},
+            },
+        },
+    },
+    {
+        "name": "jmem_extract_skills",
+        "description": "Auto-extract high-Q principles (Q≥0.92, retrievals≥5) into structured SKILL memories.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
         "name": "jmem_meta_learn",
         "description": "L4 Meta-Learning: analyze the learning process itself. Examines Q-value distribution, promotion velocity, keyword diversity, and reward patterns. Auto-stores insights as META memories.",
         "inputSchema": {
@@ -191,6 +219,15 @@ async def handle_tool_call(engine: JMemEngine, name: str, args: dict[str, Any]) 
 
     elif name == "jmem_status":
         return await engine.reflect()
+
+    elif name == "jmem_reward_recalled":
+        return await engine.reward_recalled(reward_signal=args.get("reward", 0.7))
+
+    elif name == "jmem_decay":
+        return await engine.decay_idle(hours_threshold=args.get("hours_threshold", 24.0))
+
+    elif name == "jmem_extract_skills":
+        return await engine.extract_skills()
 
     elif name == "jmem_meta_learn":
         return await engine.meta_learn()

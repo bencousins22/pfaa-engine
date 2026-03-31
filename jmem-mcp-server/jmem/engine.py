@@ -124,6 +124,17 @@ class JMemEngine:
         self.namespace = namespace
         self._store = PureVectorStore(db_path)
         self._scorer = RLScorer()
+        # Auto-consolidation: trigger every N stores
+        self._store_count = 0
+        self._auto_consolidate_interval = 10
+        # Retrieval tracking: maps recall query → list of note IDs returned
+        self._recent_recalls: list[list[str]] = []
+        # Adaptive thresholds (can be adjusted by meta_learn)
+        self._promotion_thresholds: dict[int, tuple[float, int]] = {
+            MemoryLevel.EPISODE.value: (0.65, 2),   # Q, retrievals
+            MemoryLevel.CONCEPT.value: (0.75, 4),
+            MemoryLevel.PRINCIPLE.value: (0.9, 6),
+        }
 
     async def start(self) -> None:
         await self._store._ensure_initialized()
@@ -160,6 +171,13 @@ class JMemEngine:
         )
 
         logger.info("Remembered [L%d] %s: %.60s", level.value, note_id[:8], content)
+
+        # Auto-consolidation: trigger every N stores
+        self._store_count += 1
+        if self._store_count % self._auto_consolidate_interval == 0:
+            logger.info("Auto-consolidating after %d stores", self._store_count)
+            await self.consolidate()
+
         return note_id
 
     # ── Recall ───────────────────────────────────────────────────
@@ -204,6 +222,14 @@ class JMemEngine:
                         linked_note = MemoryNote.from_metadata(
                             link_id, doc["text"], doc.get("metadata", {}))
                         notes.append(linked_note)
+
+        # Track recall for auto-reward
+        recalled_ids = [n.id for n in notes]
+        if recalled_ids:
+            self._recent_recalls.append(recalled_ids)
+            # Keep only last 50 recall batches
+            if len(self._recent_recalls) > 50:
+                self._recent_recalls = self._recent_recalls[-50:]
 
         return notes
 
@@ -270,13 +296,15 @@ class JMemEngine:
         # Get all documents
         all_docs = await self._store.get_all(limit=1000) if hasattr(self._store, 'get_all') else []
 
-        # Auto-promote across all levels with scaling thresholds
-        promotion_rules: dict[int, tuple[int, float, int]] = {
-            # current_level: (target_level, min_q, min_retrievals)
-            MemoryLevel.EPISODE.value: (MemoryLevel.CONCEPT.value, 0.65, 2),
-            MemoryLevel.CONCEPT.value: (MemoryLevel.PRINCIPLE.value, 0.75, 4),
-            MemoryLevel.PRINCIPLE.value: (MemoryLevel.SKILL.value, 0.9, 6),
-        }
+        # Auto-promote using adaptive thresholds (can be tuned by meta_learn)
+        promotion_rules: dict[int, tuple[int, float, int]] = {}
+        for src_level, (min_q, min_ret) in self._promotion_thresholds.items():
+            match src_level:
+                case 1: target = MemoryLevel.CONCEPT.value
+                case 2: target = MemoryLevel.PRINCIPLE.value
+                case 3: target = MemoryLevel.SKILL.value
+                case _: continue
+            promotion_rules[src_level] = (target, min_q, min_ret)
         for doc in all_docs:
             meta = doc.get("metadata", {})
             if isinstance(meta, str):
@@ -367,6 +395,101 @@ class JMemEngine:
             "store": store_status,
         }
 
+    # ── Auto-Reward Recalled Memories ────────────────────────────
+
+    async def reward_recalled(self, reward_signal: float = 0.7) -> dict[str, Any]:
+        """Reward all recently recalled memories (batch reinforcement).
+
+        Call this after a successful task to reinforce the memories that
+        were recalled during planning/execution.
+        """
+        if not self._recent_recalls:
+            return {"rewarded": 0, "batches": 0}
+
+        rewarded = 0
+        all_ids: set[str] = set()
+        for batch in self._recent_recalls:
+            all_ids.update(batch)
+
+        for note_id in all_ids:
+            await self.reward(note_id, reward_signal, context="auto-reward from successful recall")
+            rewarded += 1
+
+        batches = len(self._recent_recalls)
+        self._recent_recalls.clear()
+        return {"rewarded": rewarded, "batches": batches}
+
+    # ── Time-based Decay ────────────────────────────────────────
+
+    async def decay_idle(self, hours_threshold: float = 24.0, decay_rate: float = 0.02) -> dict[str, Any]:
+        """Apply time-based Q-decay to memories not accessed recently.
+
+        Memories idle longer than hours_threshold lose Q-value at decay_rate per day.
+        Prevents stale memories from clogging the promotion pipeline.
+        """
+        all_docs = await self._store.get_all(limit=2000) if hasattr(self._store, 'get_all') else []
+        now = time.time()
+        decayed = 0
+
+        for doc in all_docs:
+            meta = doc.get("metadata", {})
+            if isinstance(meta, str):
+                import json
+                meta = json.loads(meta)
+
+            created_at = meta.get("created_at", now)
+            age_hours = (now - created_at) / 3600.0
+
+            if age_hours > hours_threshold:
+                current_q = meta.get("q_value", 0.5)
+                days_idle = age_hours / 24.0
+                new_q = max(0.1, current_q - (decay_rate * days_idle))
+                if new_q < current_q:
+                    meta["q_value"] = round(new_q, 4)
+                    await self._store.update_metadata(doc["id"], meta)
+                    decayed += 1
+
+        return {"decayed": decayed, "threshold_hours": hours_threshold}
+
+    # ── Skill Extraction ────────────────────────────────────────
+
+    async def extract_skills(self) -> dict[str, Any]:
+        """Auto-extract high-Q principles into structured SKILL memories.
+
+        When a PRINCIPLE has Q≥0.92 and retrieval_count≥5, synthesize it
+        into a SKILL with actionable steps.
+        """
+        all_docs = await self._store.get_all(limit=2000) if hasattr(self._store, 'get_all') else []
+        extracted = 0
+
+        for doc in all_docs:
+            meta = doc.get("metadata", {})
+            if isinstance(meta, str):
+                import json
+                meta = json.loads(meta)
+
+            level = meta.get("level", 1)
+            q = meta.get("q_value", 0.5)
+            retrievals = meta.get("retrieval_count", 0)
+
+            if level == MemoryLevel.PRINCIPLE.value and q >= 0.92 and retrievals >= 5:
+                content = doc.get("text", "")
+                skill_content = (
+                    f"SKILL (auto-extracted from principle Q={q:.2f}, retrievals={retrievals}):\n"
+                    f"{content}\n\n"
+                    f"Application: Use this pattern when the context matches the keywords below."
+                )
+                await self.remember(
+                    content=skill_content,
+                    level=MemoryLevel.SKILL,
+                    context=f"auto-extracted from principle {doc['id'][:8]}",
+                    keywords=meta.get("keywords", []) + ["auto-skill"],
+                    tags=["auto", "skill-extraction"],
+                )
+                extracted += 1
+
+        return {"skills_extracted": extracted}
+
     # ── Meta-Learn ───────────────────────────────────────────────
 
     async def meta_learn(self) -> dict[str, Any]:
@@ -420,10 +543,20 @@ class JMemEngine:
         skills = level_counts.get(4, 0)
 
         if episodes > 20 and concepts == 0:
-            insights.append({"category": "promotion_stall", "observation": f"{episodes} episodes but 0 concepts. Auto-promotion is not triggering.", "suggestion": "Run consolidate more often, or lower promotion thresholds."})
-            adjustments.append({"type": "lower_episode_threshold", "from": "Q>0.8, retrievals>3", "to": "Q>0.65, retrievals>2"})
+            insights.append({"category": "promotion_stall", "observation": f"{episodes} episodes but 0 concepts. Auto-promotion is not triggering.", "suggestion": "Lowering episode promotion threshold."})
+            # Actually adjust the threshold
+            old_q, old_ret = self._promotion_thresholds.get(1, (0.65, 2))
+            new_q = max(0.4, old_q - 0.1)
+            new_ret = max(1, old_ret - 1)
+            self._promotion_thresholds[1] = (new_q, new_ret)
+            adjustments.append({"type": "lower_episode_threshold", "from": f"Q>{old_q}, ret>{old_ret}", "to": f"Q>{new_q}, ret>{new_ret}"})
         if concepts > 10 and principles == 0:
-            insights.append({"category": "promotion_stall", "observation": f"{concepts} concepts but 0 principles. Higher-level synthesis needed.", "suggestion": "Reward validated concepts to push them toward principles."})
+            insights.append({"category": "promotion_stall", "observation": f"{concepts} concepts but 0 principles. Lowering concept threshold.", "suggestion": "Reward validated concepts to push them toward principles."})
+            old_q, old_ret = self._promotion_thresholds.get(2, (0.75, 4))
+            new_q = max(0.5, old_q - 0.1)
+            new_ret = max(2, old_ret - 1)
+            self._promotion_thresholds[2] = (new_q, new_ret)
+            adjustments.append({"type": "lower_concept_threshold", "from": f"Q>{old_q}, ret>{old_ret}", "to": f"Q>{new_q}, ret>{new_ret}"})
 
         # 3. Keyword diversity (are we learning new things?)
         all_keywords: set[str] = set()
