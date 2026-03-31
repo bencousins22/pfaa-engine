@@ -45,7 +45,7 @@ class TaskStatus(Enum):
     CANCELLED = auto()
 
 
-@dataclass
+@dataclass(slots=True)
 class TaskNode:
     """A node in the reactive task graph."""
     id: str

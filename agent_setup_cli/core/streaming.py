@@ -73,8 +73,8 @@ class Event:
         return json.dumps(self.to_dict(), default=str)
 
 
-# Type alias for event handlers
-EventHandler = Callable[[Event], Any]
+# PEP 695 type alias for event handlers
+type EventHandler = Callable[[Event], Any]
 
 
 class EventBus:

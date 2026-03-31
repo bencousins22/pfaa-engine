@@ -28,15 +28,17 @@ class Phase(Enum):
 
     @property
     def spawn_cost_us(self) -> int:
-        return {Phase.VAPOR: 1, Phase.LIQUID: 10, Phase.SOLID: 1000}[self]
+        match self:
+            case Phase.VAPOR:  return 1
+            case Phase.LIQUID: return 10
+            case Phase.SOLID:  return 1000
 
     @property
     def parallelism(self) -> str:
-        return {
-            Phase.VAPOR: "cooperative (I/O)",
-            Phase.LIQUID: "preemptive (CPU)",
-            Phase.SOLID: "isolated (process)",
-        }[self]
+        match self:
+            case Phase.VAPOR:  return "cooperative (I/O)"
+            case Phase.LIQUID: return "preemptive (CPU)"
+            case Phase.SOLID:  return "isolated (process)"
 
 
 class Transition(NamedTuple):

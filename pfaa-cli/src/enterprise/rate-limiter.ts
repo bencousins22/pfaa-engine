@@ -80,8 +80,11 @@ export class RateLimiter {
 
   /**
    * Acquire an agent slot. Waits if at capacity.
+   *
+   * Returns a Disposable so callers can use `using slot = await limiter.acquireAgent()`
+   * for automatic release, or call `slot[Symbol.dispose]()` manually.
    */
-  async acquireAgent(): Promise<() => void> {
+  async acquireAgent(): Promise<Disposable> {
     while (this.activeAgents >= this.maxAgents) {
       await new Promise<void>((resolve) => {
         this.waitQueue.push(resolve);
@@ -94,11 +97,12 @@ export class RateLimiter {
       max: this.maxAgents,
     });
 
-    // Return release function
-    return () => {
-      this.activeAgents--;
-      const next = this.waitQueue.shift();
-      if (next) next();
+    return {
+      [Symbol.dispose]: () => {
+        this.activeAgents--;
+        const next = this.waitQueue.shift();
+        if (next) next();
+      },
     };
   }
 

@@ -38,9 +38,9 @@ from agents.nurture import NURTURE_AGENTS
 from agents.content import CONTENT_AGENTS
 from agents.operations import OPERATIONS_AGENTS
 
-AgentId = str
-JsonDict = dict[str, Any]
-TierName = str
+type AgentId = str
+type JsonDict = dict[str, Any]
+type TierName = str
 
 TIER_REGISTRY: dict[TierName, list[JsonDict]] = {
     "intelligence": INTELLIGENCE_AGENTS,
@@ -55,7 +55,7 @@ TIER_REGISTRY: dict[TierName, list[JsonDict]] = {
 }
 
 
-@dataclass
+@dataclass(slots=True)
 class AgentResult:
     agent_id: AgentId
     tier: str
@@ -66,7 +66,7 @@ class AgentResult:
     error: str | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class TeamResult:
     task_id: str
     results: list[AgentResult]

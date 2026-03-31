@@ -54,7 +54,7 @@ except ImportError:
     pass
 
 
-@dataclass
+@dataclass(slots=True)
 class BenchResult:
     category: str
     score: int

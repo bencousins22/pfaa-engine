@@ -36,7 +36,7 @@ class MemoryLevel(IntEnum):
     SKILL = 4      # Executable capabilities
 
 
-@dataclass
+@dataclass(slots=True)
 class MemoryNote:
     """A single memory unit in the JMEM system."""
     id: str

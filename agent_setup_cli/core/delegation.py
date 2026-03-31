@@ -41,7 +41,7 @@ class RestartPolicy(Enum):
     TRANSIENT = auto()   # restart only if exit was abnormal
 
 
-@dataclass
+@dataclass(slots=True)
 class WorkerSpec:
     """Blueprint for a worker in the supervisor tree."""
     name: str
@@ -53,7 +53,7 @@ class WorkerSpec:
     max_restarts: int = 3
 
 
-@dataclass
+@dataclass(slots=True)
 class WorkerState:
     """Runtime state of a managed worker."""
     spec: WorkerSpec

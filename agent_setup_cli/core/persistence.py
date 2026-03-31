@@ -230,7 +230,7 @@ class PersistentMemory:
 
     # ── Save ────────────────────────────────────────────────────────
 
-    def record(self, *args, **kwargs) -> Episode:
+    def record(self, *args: Any, **kwargs: Any) -> Episode:
         """Record an episode and periodically flush to disk."""
         episode = self.memory.record(*args, **kwargs)
         self._writes_since_flush += 1
@@ -377,9 +377,11 @@ class PersistentMemory:
     # ── Convenience Proxies ─────────────────────────────────────────
 
     def recommend_phase(self, tool_name: str) -> Phase | None:
+        """Return the learned optimal phase for a tool, or None if insufficient data."""
         return self.memory.recommend_phase(tool_name)
 
     def force_learn(self) -> None:
+        """Trigger an immediate learning cycle across all memory layers and flush to disk."""
         self.memory.force_learn()
         self.flush()
 
@@ -394,6 +396,7 @@ class PersistentMemory:
         }
 
     def dump(self) -> dict[str, Any]:
+        """Export the full in-memory state of all 5 layers as a serializable dict."""
         return self.memory.dump()
 
     def close(self) -> None:

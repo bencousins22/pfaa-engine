@@ -39,11 +39,11 @@ describe('RateLimiter', () => {
     expect(limiter.consumeTokens(200_000)).toBe(false);
   });
 
-  it('acquireAgent increments active count and returns release fn', async () => {
-    const release = await limiter.acquireAgent();
+  it('acquireAgent increments active count and returns disposable', async () => {
+    const slot = await limiter.acquireAgent();
     expect(limiter.status().activeAgents).toBe(1);
 
-    release();
+    slot[Symbol.dispose]();
     expect(limiter.status().activeAgents).toBe(0);
   });
 
@@ -66,12 +66,12 @@ describe('RateLimiter', () => {
     expect(limiter.status().queueLength).toBe(1);
 
     // Release one — fourth should now acquire
-    r1();
+    r1[Symbol.dispose]();
     const r4 = await p4;
     expect(fourthAcquired).toBe(true);
     expect(limiter.status().activeAgents).toBe(3);
 
-    r2(); r3(); r4();
+    r2[Symbol.dispose](); r3[Symbol.dispose](); r4[Symbol.dispose]();
     expect(limiter.status().activeAgents).toBe(0);
   });
 });

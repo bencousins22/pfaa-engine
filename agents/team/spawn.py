@@ -220,7 +220,7 @@ class MemoryLevel(IntEnum):
     SKILL = 4
 
 
-@dataclass
+@dataclass(slots=True)
 class MemoryNote:
     id: str
     content: str
@@ -385,7 +385,7 @@ def _get_claude_client() -> ClaudeClient:
     return _claude_client
 
 
-@dataclass
+@dataclass(slots=True)
 class AgentState:
     role: TeamRole
     name: str

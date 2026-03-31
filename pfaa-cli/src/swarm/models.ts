@@ -6,7 +6,7 @@
  * High-volume / low-latency tiers (scoring, nurture, operations) use Haiku.
  */
 
-export const TIER_MODELS: Record<string, string> = {
+export const TIER_MODELS = {
   intelligence: 'claude-opus-4-6',
   acquisition: 'claude-sonnet-4-6',
   enrichment: 'claude-sonnet-4-6',
@@ -16,9 +16,15 @@ export const TIER_MODELS: Record<string, string> = {
   nurture: 'claude-haiku-4-5-20251001',
   content: 'claude-sonnet-4-6',
   operations: 'claude-haiku-4-5-20251001',
-};
+} satisfies Record<string, string>;
+
+/** Known tier names. */
+export type Tier = keyof typeof TIER_MODELS;
 
 /** Look up the model for a tier, falling back to Sonnet. */
 export function modelForTier(tier: string): string {
-  return TIER_MODELS[tier] ?? 'claude-sonnet-4-6';
+  if (tier in TIER_MODELS) {
+    return TIER_MODELS[tier as Tier];
+  }
+  return 'claude-sonnet-4-6';
 }

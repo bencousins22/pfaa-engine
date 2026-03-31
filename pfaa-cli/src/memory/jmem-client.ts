@@ -26,7 +26,7 @@ export interface JMEMConfig {
   qDiscountFactor: number;
 }
 
-const DEFAULT_JMEM_CONFIG: JMEMConfig = {
+const DEFAULT_JMEM_CONFIG = {
   serverUrl: process.env.JMEM_SERVER_URL || 'http://localhost:3100',
   serverCommand: 'python -m jmem.server',
   namespace: 'pfaa-cli',
@@ -34,7 +34,7 @@ const DEFAULT_JMEM_CONFIG: JMEMConfig = {
   promotionThreshold: 0.8,
   qLearningRate: 0.1,
   qDiscountFactor: 0.95,
-};
+} satisfies JMEMConfig;
 
 /**
  * MCP tool call interface for JMEM server communication.
@@ -300,6 +300,7 @@ export class JMEMClient extends EventEmitter {
   private async callMCP(
     toolName: string,
     args: Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<MCPToolResult> {
     if (!this.connected && toolName !== 'jmem_status') {
       // Return empty result for non-status calls when disconnected
@@ -318,7 +319,9 @@ export class JMEMClient extends EventEmitter {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: toolName, arguments: args }),
-          signal: AbortSignal.timeout(10_000),
+          signal: signal
+            ? AbortSignal.any([AbortSignal.timeout(10_000), signal])
+            : AbortSignal.timeout(10_000),
         });
 
         // Retry on server errors (5xx)
@@ -332,7 +335,9 @@ export class JMEMClient extends EventEmitter {
         }
 
         if (!response.ok) {
-          throw new Error(`JMEM MCP call failed: ${response.status}`);
+          throw new Error(`JMEM MCP call failed: ${response.status}`, {
+            cause: { status: response.status, url: `${this.config.serverUrl}/mcp/tool`, tool: toolName },
+          });
         }
 
         return await response.json() as MCPToolResult;

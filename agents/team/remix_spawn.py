@@ -259,7 +259,7 @@ def _get_claude_client() -> ClaudeClient:
         _claude_client = ClaudeClient()
     return _claude_client
 
-@dataclass
+@dataclass(slots=True)
 class Agent:
     role: Role; name: str; phase: AgentPhase = AgentPhase.SPAWNING
     ok: int = 0; fail: int = 0; consec_fail: int = 0; ms: float = 0; mems: int = 0

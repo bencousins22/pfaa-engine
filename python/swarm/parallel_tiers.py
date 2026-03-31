@@ -52,7 +52,7 @@ TIER_ORDER: list[TierName] = [
 # ---------------------------------------------------------------------------
 # Result types
 # ---------------------------------------------------------------------------
-@dataclass
+@dataclass(slots=True)
 class TierResult:
     tier: TierName
     output: JsonDict
@@ -60,7 +60,7 @@ class TierResult:
     error: str | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class PipelineResult:
     results: dict[TierName, TierResult] = field(default_factory=dict)
     total_duration_ms: int = 0

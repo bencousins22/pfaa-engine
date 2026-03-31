@@ -42,7 +42,7 @@ class TeamRole(Enum):
     DEPLOYER = "deployer"
 
 
-@dataclass
+@dataclass(slots=True)
 class AgentState:
     """Runtime state for a team agent."""
     role: TeamRole
@@ -56,7 +56,7 @@ class AgentState:
     q_avg: float = 0.5
 
 
-@dataclass
+@dataclass(slots=True)
 class TeamConfig:
     """Configuration for the agent team."""
     roles: list[TeamRole] = field(default_factory=lambda: list(TeamRole))

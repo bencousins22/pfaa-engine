@@ -47,7 +47,7 @@ SELF_ROOT = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SELF_ROOT)
 
 
-@dataclass
+@dataclass(slots=True)
 class SelfAnalysis:
     """Snapshot of the engine's own state."""
     total_files: int = 0

@@ -10,7 +10,8 @@
  */
 
 import { spawn } from 'node:child_process';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { getLogger } from '../utils/logger.js';
 import type {
   CodeAnalysis,
@@ -423,8 +424,6 @@ print(json.dumps({
   }
 
   private findPythonFiles(dir: string): string[] {
-    const { readdirSync, statSync } = require('node:fs');
-    const { join } = require('node:path');
     const files: string[] = [];
 
     try {

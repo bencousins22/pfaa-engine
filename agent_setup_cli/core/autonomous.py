@@ -46,7 +46,7 @@ class GoalStatus(Enum):
     FAILED = auto()
 
 
-@dataclass
+@dataclass(slots=True)
 class SubTask:
     id: str
     description: str
@@ -62,7 +62,7 @@ class SubTask:
     attempt: int = 0
 
 
-@dataclass
+@dataclass(slots=True)
 class GoalState:
     goal_id: str
     goal_text: str

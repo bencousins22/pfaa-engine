@@ -129,71 +129,70 @@ def create_app(framework: Framework | None = None) -> FastAPI:
                     }))
                     continue
 
-                if msg_type == "goal":
-                    text = msg.get("text", "")
-                    if not isinstance(text, str) or not text.strip():
-                        await websocket.send_text(json.dumps({
-                            "type": "error",
-                            "message": "Goal message must have a non-empty 'text' field (string)",
-                        }))
-                        continue
+                match msg_type:
+                    case "goal":
+                        text = msg.get("text", "")
+                        if not isinstance(text, str) or not text.strip():
+                            await websocket.send_text(json.dumps({
+                                "type": "error",
+                                "message": "Goal message must have a non-empty 'text' field (string)",
+                            }))
+                            continue
 
-                    # Execute goal — events stream automatically via bus
-                    state = await fw.run(text)
+                        # Execute goal — events stream automatically via bus
+                        state = await fw.run(text)
 
-                    # Send final result
-                    await websocket.send_text(json.dumps({
-                        "type": "result",
-                        "goal_id": state.goal_id,
-                        "status": state.status.name,
-                        "subtasks": [
-                            {
-                                "id": st.id,
-                                "tool": st.tool_name or "claude",
-                                "status": st.status,
-                                "elapsed_us": st.elapsed_us,
-                                "result": _safe_serialize(st.result),
-                            }
-                            for st in state.subtasks
-                        ],
-                    }))
-
-                elif msg_type == "tool":
-                    name = msg.get("name")
-                    if not isinstance(name, str) or not name:
+                        # Send final result
                         await websocket.send_text(json.dumps({
-                            "type": "error",
-                            "message": "Tool message must have a 'name' field (string)",
-                        }))
-                        continue
-                    args = tuple(msg.get("args", []))
-                    try:
-                        result = await fw.tool(name, *args)
-                        await websocket.send_text(json.dumps({
-                            "type": "tool_result",
-                            "tool": name,
-                            "result": _safe_serialize(result),
-                        }))
-                    except Exception as e:
-                        await websocket.send_text(json.dumps({
-                            "type": "error",
-                            "message": str(e),
+                            "type": "result",
+                            "goal_id": state.goal_id,
+                            "status": state.status.name,
+                            "subtasks": [
+                                {
+                                    "id": st.id,
+                                    "tool": st.tool_name or "claude",
+                                    "status": st.status,
+                                    "elapsed_us": st.elapsed_us,
+                                    "result": _safe_serialize(st.result),
+                                }
+                                for st in state.subtasks
+                            ],
                         }))
 
-                elif msg_type == "status":
-                    await websocket.send_text(json.dumps({
-                        "type": "status",
-                        "status": fw.status(),
-                    }))
+                    case "tool":
+                        name = msg.get("name")
+                        if not isinstance(name, str) or not name:
+                            await websocket.send_text(json.dumps({
+                                "type": "error",
+                                "message": "Tool message must have a 'name' field (string)",
+                            }))
+                            continue
+                        args = tuple(msg.get("args", []))
+                        try:
+                            result = await fw.tool(name, *args)
+                            await websocket.send_text(json.dumps({
+                                "type": "tool_result",
+                                "tool": name,
+                                "result": _safe_serialize(result),
+                            }))
+                        except Exception as e:
+                            await websocket.send_text(json.dumps({
+                                "type": "error",
+                                "message": str(e),
+                            }))
 
-                elif msg_type == "memory":
-                    await websocket.send_text(json.dumps({
-                        "type": "memory",
-                        "patterns": fw.learned_patterns(),
-                        "strategies": fw.learned_strategies(),
-                    }))
+                    case "status":
+                        await websocket.send_text(json.dumps({
+                            "type": "status",
+                            "status": fw.status(),
+                        }))
 
-                # Unknown types already rejected above via _VALID_MSG_TYPES check
+                    case "memory":
+                        await websocket.send_text(json.dumps({
+                            "type": "memory",
+                            "patterns": fw.learned_patterns(),
+                            "strategies": fw.learned_strategies(),
+                        }))
 
         except WebSocketDisconnect:
             logger.info("WebSocket client disconnected")
@@ -271,15 +270,17 @@ def create_app(framework: Framework | None = None) -> FastAPI:
 
 def _safe_serialize(obj: Any) -> Any:
     """Safely serialize an object for JSON, truncating large values."""
-    if obj is None:
-        return None
-    if isinstance(obj, (str, int, float, bool)):
-        return obj
-    if isinstance(obj, dict):
-        return {k: _safe_serialize(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_safe_serialize(v) for v in obj[:100]]
-    return str(obj)[:500]
+    match obj:
+        case None:
+            return None
+        case str() | int() | float() | bool():
+            return obj
+        case dict() as d:
+            return {k: _safe_serialize(v) for k, v in d.items()}
+        case list() | tuple() as seq:
+            return [_safe_serialize(v) for v in seq[:100]]
+        case _:
+            return str(obj)[:500]
 
 
 def serve(host: str | None = None, port: int | None = None):

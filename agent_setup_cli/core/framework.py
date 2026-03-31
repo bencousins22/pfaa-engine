@@ -25,7 +25,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any
+from typing import Any, Callable
 
 lazy import json
 
@@ -92,11 +92,11 @@ class Framework:
 
     # ── Event Streaming ─────────────────────────────────────────────
 
-    def on_event(self, handler) -> None:
+    def on_event(self, handler: Callable[[Any], Any]) -> None:
         """Subscribe to ALL framework events."""
         self._bus.subscribe_all(handler)
 
-    def on(self, event_type: EventType, handler) -> None:
+    def on(self, event_type: EventType, handler: Callable[[Any], Any]) -> None:
         """Subscribe to a specific event type."""
         self._bus.subscribe(event_type, handler)
 
@@ -132,7 +132,7 @@ class Framework:
 
     # ── Direct Tool Execution ───────────────────────────────────────
 
-    async def tool(self, name: str, *args: Any, **kwargs: Any) -> dict:
+    async def tool(self, name: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """Execute a single tool and return its result."""
         await self._bus.emit(EventType.TASK_STARTED, {"tool": name})
 
@@ -147,8 +147,8 @@ class Framework:
 
         return result.result
 
-    async def tools(self, calls: list[tuple[str, tuple]]) -> list[dict]:
-        """Execute multiple tools in parallel."""
+    async def tools(self, calls: list[tuple[str, tuple]]) -> list[dict[str, Any]]:
+        """Execute multiple tools in parallel and collect their results."""
         results = await self._registry.execute_many([
             (name, args, {}) for name, args in calls
         ])
@@ -229,8 +229,12 @@ class Framework:
 
     # ── Self-Improvement ────────────────────────────────────────────
 
-    async def self_build(self, auto_apply: bool = False) -> dict:
-        """Run a self-improvement cycle."""
+    async def self_build(self, auto_apply: bool = False) -> dict[str, Any]:
+        """Run a self-improvement cycle.
+
+        Analyzes the framework's own code and proposes optimizations.
+        When auto_apply is True, improvements are applied immediately.
+        """
         from agent_setup_cli.core.self_build import SelfBuilder
         builder = SelfBuilder()
         try:
@@ -241,6 +245,7 @@ class Framework:
     # ── Introspection ───────────────────────────────────────────────
 
     def status(self) -> dict[str, Any]:
+        """Return framework health snapshot including uptime, tool counts, and memory stats."""
         mem = self._memory.status()
         tools = self._registry.list_tools()
         return {
@@ -271,7 +276,7 @@ class Framework:
         """Return all L3 phase optimization strategies."""
         return self._memory.dump().get("strategies", {})
 
-    def checkpoints(self) -> list[dict]:
+    def checkpoints(self) -> list[dict[str, Any]]:
         """List saved goal checkpoints."""
         return self._agent.list_checkpoints()
 

@@ -34,7 +34,7 @@ from agent_setup_cli.core.agent import FluidAgent, AgentConfig, TaskResult
 logger = logging.getLogger("pfaa.nucleus")
 
 
-@dataclass
+@dataclass(slots=True)
 class SwarmMetrics:
     """Real-time swarm telemetry."""
     agents_spawned: int = 0

@@ -31,7 +31,7 @@ const log = getLogger('orchestrator');
 
 // ── Agent Definitions ────────────────────────────────────────────────
 
-const AGENT_PRESETS: Record<AgentRole, Omit<AgentConfig, 'name'>> = {
+const AGENT_PRESETS = {
   [AgentRole.ANALYZER]: {
     role: AgentRole.ANALYZER,
     model: 'claude-sonnet-4-6',
@@ -112,7 +112,7 @@ const AGENT_PRESETS: Record<AgentRole, Omit<AgentConfig, 'name'>> = {
     isolationRequired: true,
     memory: { layers: 5, persistence: 'sqlite', storagePath: '', maxEpisodes: 5000, learningRate: 0.01 },
   },
-};
+} satisfies Record<AgentRole, Omit<AgentConfig, 'name'>>;
 
 // ── Orchestrator ─────────────────────────────────────────────────────
 
@@ -441,7 +441,7 @@ export class AgentOrchestrator extends EventEmitter {
     role: AgentRole,
     preset: Omit<AgentConfig, 'name'>,
   ): string {
-    const roleDescriptions: Record<AgentRole, string> = {
+    const roleDescriptions = {
       [AgentRole.ANALYZER]:
         'You are a code analysis expert. Examine code for complexity, patterns, security issues, ' +
         'and Python 3.15 feature opportunities. Provide actionable findings.',
@@ -466,7 +466,7 @@ export class AgentOrchestrator extends EventEmitter {
       [AgentRole.BUILDER]:
         'You are a build and packaging specialist. Handle compilation, packaging, publishing, ' +
         'and build optimization.',
-    };
+    } satisfies Record<AgentRole, string>;
 
     return (
       `${roleDescriptions[role] || 'You are a helpful AI assistant.'}\n\n` +

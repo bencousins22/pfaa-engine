@@ -5,6 +5,7 @@
  * Supports audit mode for enterprise compliance requirements.
  */
 
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, existsSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -28,7 +29,7 @@ interface LogEntry {
   auditId?: string;
 }
 
-const LEVEL_NAMES: Record<LogLevel, string> = {
+const LEVEL_NAMES = {
   [LogLevel.TRACE]: 'TRACE',
   [LogLevel.DEBUG]: 'DEBUG',
   [LogLevel.INFO]: 'INFO',
@@ -36,9 +37,9 @@ const LEVEL_NAMES: Record<LogLevel, string> = {
   [LogLevel.ERROR]: 'ERROR',
   [LogLevel.FATAL]: 'FATAL',
   [LogLevel.SILENT]: 'SILENT',
-};
+} satisfies Record<LogLevel, string>;
 
-const LEVEL_COLORS: Record<LogLevel, string> = {
+const LEVEL_COLORS = {
   [LogLevel.TRACE]: '\x1b[90m',
   [LogLevel.DEBUG]: '\x1b[36m',
   [LogLevel.INFO]: '\x1b[32m',
@@ -46,7 +47,7 @@ const LEVEL_COLORS: Record<LogLevel, string> = {
   [LogLevel.ERROR]: '\x1b[31m',
   [LogLevel.FATAL]: '\x1b[35m',
   [LogLevel.SILENT]: '',
-};
+} satisfies Record<LogLevel, string>;
 
 const RESET = '\x1b[0m';
 const DIM = '\x1b[2m';
@@ -118,7 +119,7 @@ class Logger {
       message: `AUDIT: ${action}`,
       context: this.context,
       data: this.redactSecrets ? this.redact(data) : data,
-      auditId: crypto.randomUUID(),
+      auditId: randomUUID(),
     };
 
     if (this.auditPath) {

@@ -21,7 +21,7 @@ type Confidence = float
 type Domain = str
 
 
-@dataclass
+@dataclass(slots=True)
 class Instinct:
     trigger: str
     action: str

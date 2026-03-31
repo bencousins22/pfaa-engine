@@ -60,7 +60,7 @@ def _preload() -> dict[str, bool]:
 # ---------------------------------------------------------------------------
 # Worker dataclasses
 # ---------------------------------------------------------------------------
-@dataclass
+@dataclass(slots=True)
 class WorkerEnvelope:
     """Wraps every outbound message from the worker."""
     type: str

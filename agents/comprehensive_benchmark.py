@@ -59,7 +59,7 @@ except ImportError:
     pass
 
 
-@dataclass
+@dataclass(slots=True)
 class TestResult:
     name: str
     category: str

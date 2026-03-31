@@ -424,37 +424,38 @@ def tool_compute(expression: str) -> dict[str, Any]:
     }
 
     def _safe_eval(node: ast.AST) -> Any:
-        if isinstance(node, ast.Expression):
-            return _safe_eval(node.body)
-        if isinstance(node, ast.Constant):
-            if isinstance(node.value, (int, float, complex)):
-                return node.value
-            raise ValueError(f"Unsupported constant: {node.value!r}")
-        if isinstance(node, ast.BinOp):
-            op = _ops.get(type(node.op))
-            if op is None:
-                raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
-            return op(_safe_eval(node.left), _safe_eval(node.right))
-        if isinstance(node, ast.UnaryOp):
-            op = _ops.get(type(node.op))
-            if op is None:
-                raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
-            return op(_safe_eval(node.operand))
-        if isinstance(node, ast.Call):
-            if not isinstance(node.func, ast.Name):
+        match node:
+            case ast.Expression(body=body):
+                return _safe_eval(body)
+            case ast.Constant(value=int() | float() | complex() as v):
+                return v
+            case ast.Constant(value=v):
+                raise ValueError(f"Unsupported constant: {v!r}")
+            case ast.BinOp(op=op_node, left=left, right=right):
+                op = _ops.get(type(op_node))
+                if op is None:
+                    raise ValueError(f"Unsupported operator: {type(op_node).__name__}")
+                return op(_safe_eval(left), _safe_eval(right))
+            case ast.UnaryOp(op=op_node, operand=operand):
+                op = _ops.get(type(op_node))
+                if op is None:
+                    raise ValueError(f"Unsupported unary operator: {type(op_node).__name__}")
+                return op(_safe_eval(operand))
+            case ast.Call(func=ast.Name(id=fn_name), args=call_args):
+                func = _funcs.get(fn_name)
+                if func is None:
+                    raise ValueError(f"Unknown function: {fn_name}")
+                return func(*[_safe_eval(a) for a in call_args])
+            case ast.Call():
                 raise ValueError("Only named function calls allowed")
-            func = _funcs.get(node.func.id)
-            if func is None:
-                raise ValueError(f"Unknown function: {node.func.id}")
-            args = [_safe_eval(a) for a in node.args]
-            return func(*args)
-        if isinstance(node, ast.Name):
-            if node.id in _consts:
-                return _consts[node.id]
-            if node.id in _funcs:
-                return _funcs[node.id]
-            raise ValueError(f"Unknown name: {node.id}")
-        raise ValueError(f"Unsupported expression: {type(node).__name__}")
+            case ast.Name(id=name) if name in _consts:
+                return _consts[name]
+            case ast.Name(id=name) if name in _funcs:
+                return _funcs[name]
+            case ast.Name(id=name):
+                raise ValueError(f"Unknown name: {name}")
+            case _:
+                raise ValueError(f"Unsupported expression: {type(node).__name__}")
 
     try:
         tree = ast.parse(expression, mode="eval")

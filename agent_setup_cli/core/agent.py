@@ -36,7 +36,7 @@ lazy import json
 logger = logging.getLogger("pfaa.agent")
 
 
-@dataclass
+@dataclass(slots=True)
 class AgentConfig:
     """Immutable agent blueprint. Converted to frozendict for hashing."""
     name: str
@@ -57,7 +57,7 @@ class AgentConfig:
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class TaskResult:
     agent_id: str
     phase_used: Phase
@@ -135,13 +135,14 @@ class FluidAgent:
         # Phase-transition to target
         transitions_used = self._navigate_to_phase(target_phase)
 
-        # Execute in the appropriate mode
-        if self._phase == Phase.VAPOR:
-            result = await self._exec_vapor(task_fn, *args, **kwargs)
-        elif self._phase == Phase.LIQUID:
-            result = await self._exec_liquid(task_fn, *args, **kwargs)
-        else:
-            result = await self._exec_solid(task_fn, *args, **kwargs)
+        # Execute in the appropriate mode — match/case on phase enum
+        match self._phase:
+            case Phase.VAPOR:
+                result = await self._exec_vapor(task_fn, *args, **kwargs)
+            case Phase.LIQUID:
+                result = await self._exec_liquid(task_fn, *args, **kwargs)
+            case Phase.SOLID:
+                result = await self._exec_solid(task_fn, *args, **kwargs)
 
         elapsed_us = (time.perf_counter_ns() - start) // 1000
         self._task_count += 1
@@ -236,9 +237,11 @@ class FluidAgent:
     # ── Mailbox (inter-agent messaging) ─────────────────────────────
 
     async def send(self, message: Any) -> None:
+        """Enqueue a message to this agent's mailbox for inter-agent communication."""
         await self._mailbox.put(message)
 
     async def receive(self, timeout: float = 1.0) -> Any | None:
+        """Dequeue the next message from the mailbox, returning None on timeout."""
         try:
             return await asyncio.wait_for(self._mailbox.get(), timeout)
         except asyncio.TimeoutError:
@@ -263,17 +266,17 @@ class FluidAgent:
 
 # ── Task decorators ─────────────────────────────────────────────────
 
-def vapor_task(fn: Callable) -> Callable:
+def vapor_task(fn: Callable[..., Any]) -> Callable[..., Any]:
     """Hint: this task should run as VAPOR (I/O-bound)."""
     fn._pfaa_hints = {"cpu_bound": False, "isolated": False}
     return fn
 
-def liquid_task(fn: Callable) -> Callable:
+def liquid_task(fn: Callable[..., Any]) -> Callable[..., Any]:
     """Hint: this task should run as LIQUID (CPU-bound, parallel)."""
     fn._pfaa_hints = {"cpu_bound": True, "isolated": False}
     return fn
 
-def solid_task(fn: Callable) -> Callable:
+def solid_task(fn: Callable[..., Any]) -> Callable[..., Any]:
     """Hint: this task should run as SOLID (needs isolation)."""
     fn._pfaa_hints = {"cpu_bound": False, "isolated": True}
     return fn

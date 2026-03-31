@@ -113,7 +113,7 @@ class HyperoptConfig:
     live: bool = False
 
 
-@dataclass
+@dataclass(slots=True)
 class HyperoptResult:
     """Result from a hyperopt run."""
     epoch: int

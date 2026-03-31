@@ -50,7 +50,7 @@ class ClaudeConfig:
     working_dir: str | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class ClaudeResult:
     """Result from a Claude Code invocation."""
     success: bool

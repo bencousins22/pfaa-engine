@@ -353,7 +353,7 @@ export class PFAABridge extends EventEmitter {
       } catch (err) {
         this.pending.delete(id);
         clearTimeout(timer);
-        reject(new Error(`Bridge stdin write failed: ${err}`));
+        reject(new Error(`Bridge stdin write failed`, { cause: err }));
       }
     });
   }
@@ -413,14 +413,14 @@ export class PFAABridge extends EventEmitter {
  * Create a bridge with sensible defaults for the Aussie Agents engine.
  */
 export function createBridge(overrides: Partial<BridgeConfig> = {}): PFAABridge {
-  const defaults: BridgeConfig = {
+  const defaults = {
     pythonPath: process.env['PFAA_PYTHON_PATH'] || 'python3.15',
     enginePath: join(process.cwd(), '..'),
     workingDir: process.cwd(),
     timeoutMs: 120_000,
     maxConcurrent: 8,
     startupTimeoutMs: 30_000,
-  };
+  } satisfies BridgeConfig;
 
   return new PFAABridge({ ...defaults, ...overrides });
 }

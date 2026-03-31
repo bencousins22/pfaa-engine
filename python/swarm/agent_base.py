@@ -20,14 +20,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-# Python 3.12+ type aliases (PEP 695 syntax requires 3.12+)
-AgentId = str
-JsonDict = dict[str, Any]
-ToolName = str
-Tier = str
+# PEP 695 type aliases
+type AgentId = str
+type JsonDict = dict[str, Any]
+type ToolName = str
+type Tier = str
 
 
-@dataclass
+@dataclass(slots=True)
 class Response:
     """Mirrors Agent Zero's Response(message=str, break_loop=bool)."""
     message: str
@@ -37,7 +37,7 @@ class Response:
     error: str | None = None
 
 
-@dataclass
+@dataclass(slots=True)
 class AgentContext:
     agent_id: AgentId
     tier: Tier

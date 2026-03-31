@@ -48,7 +48,7 @@ logger = logging.getLogger("pfaa.memory")
 # L1 — EPISODIC MEMORY: Raw execution traces
 # ═══════════════════════════════════════════════════════════════════
 
-@dataclass
+@dataclass(slots=True)
 class Episode:
     """A single execution trace — the rawest form of memory."""
     timestamp_ns: int
@@ -111,7 +111,7 @@ class EpisodicMemory:
 # L2 — SEMANTIC MEMORY: Extracted patterns
 # ═══════════════════════════════════════════════════════════════════
 
-@dataclass
+@dataclass(slots=True)
 class ToolPattern:
     """Extracted pattern about a tool's behavior."""
     tool_name: str
@@ -198,7 +198,7 @@ class SemanticMemory:
 # L3 — STRATEGIC MEMORY: Phase selection optimization
 # ═══════════════════════════════════════════════════════════════════
 
-@dataclass
+@dataclass(slots=True)
 class PhaseStrategy:
     """Learned strategy for phase selection."""
     tool_name: str
@@ -298,7 +298,7 @@ class StrategicMemory:
 # L4 — META-MEMORY: Learning how to learn
 # ═══════════════════════════════════════════════════════════════════
 
-@dataclass
+@dataclass(slots=True)
 class MetaInsight:
     """An insight about the learning process itself."""
     category: str  # e.g., "learning_rate", "pattern_quality", "strategy_drift"
@@ -400,7 +400,7 @@ class MetaMemory:
 # L5 — EMERGENT MEMORY: Cross-agent collective intelligence
 # ═══════════════════════════════════════════════════════════════════
 
-@dataclass
+@dataclass(slots=True)
 class EmergentKnowledge:
     """Knowledge that emerges from observing multiple agents collectively."""
     pattern: str
