@@ -45,6 +45,18 @@ class TaskStatus(Enum):
     CANCELLED = auto()
 
 
+class WorkflowPhase(Enum):
+    """Multi-agent workflow phases (JMEM principle Q=0.828).
+
+    Research (parallel) → Synthesis (coordinator only) →
+    Implementation (sequential per file) → Verification (fresh eyes).
+    """
+    RESEARCH = auto()        # parallel exploration
+    SYNTHESIS = auto()       # coordinator consolidation (never delegated)
+    IMPLEMENTATION = auto()  # sequential per file area
+    VERIFICATION = auto()    # fresh eyes validation
+
+
 @dataclass(slots=True)
 class TaskNode:
     """A node in the reactive task graph."""
@@ -82,10 +94,22 @@ class Orchestrator:
         self._tasks: dict[str, TaskNode] = {}
         self._completed: list[TaskNode] = []
         self._birth_ns = time.perf_counter_ns()
+        self.workflow_phase: WorkflowPhase = WorkflowPhase.RESEARCH
 
     @property
     def uptime_ms(self) -> float:
         return (time.perf_counter_ns() - self._birth_ns) / 1_000_000
+
+    # ── Workflow Phase Tracking ────────────────────────────────────
+
+    def transition_workflow(self, phase: WorkflowPhase) -> None:
+        """Transition to a new workflow phase, logging the change."""
+        prev = self.workflow_phase
+        self.workflow_phase = phase
+        logger.info(
+            "Workflow phase: %s -> %s (uptime=%.1fms)",
+            prev.name, phase.name, self.uptime_ms,
+        )
 
     # ── Task Submission ─────────────────────────────────────────────
 

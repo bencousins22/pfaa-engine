@@ -15,12 +15,15 @@ Run:
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import hashlib
 import math
+import operator
 import os
 import sys
 import time
+from typing import Any
 
 # Python 3.15 lazy imports — these won't load until first use
 lazy import json
@@ -31,6 +34,82 @@ from agent_setup_cli.core.agent import (
     FluidAgent, AgentConfig, vapor_task, liquid_task, solid_task,
 )
 from agent_setup_cli.core.nucleus import Nucleus
+
+
+# ── Safe Expression Evaluator ──────────────────────────────────────
+
+_SAFE_OPS: dict[type, Any] = {
+    ast.Add: operator.add, ast.Sub: operator.sub,
+    ast.Mult: operator.mul, ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
+    ast.Pow: operator.pow, ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+_SAFE_FUNCS: dict[str, Any] = {
+    k: getattr(math, k)
+    for k in dir(math)
+    if not k.startswith("_") and callable(getattr(math, k))
+}
+_SAFE_FUNCS.update({"abs": abs, "round": round, "min": min, "max": max})
+
+_SAFE_CONSTS: dict[str, Any] = {
+    k: getattr(math, k)
+    for k in ("pi", "e", "tau", "inf", "nan")
+    if hasattr(math, k)
+}
+
+
+def safe_eval(expression: str) -> Any:
+    """Evaluate a math expression safely via AST walking (no eval)."""
+
+    def _walk(node: ast.AST) -> Any:
+        match node:
+            case ast.Expression(body=body):
+                return _walk(body)
+            case ast.Constant(value=int() | float() | complex() as v):
+                return v
+            case ast.Constant(value=v):
+                raise ValueError(f"Unsupported constant: {v!r}")
+            case ast.BinOp(op=op_node, left=left, right=right):
+                op = _SAFE_OPS.get(type(op_node))
+                if op is None:
+                    raise ValueError(f"Unsupported operator: {type(op_node).__name__}")
+                return op(_walk(left), _walk(right))
+            case ast.UnaryOp(op=op_node, operand=operand):
+                op = _SAFE_OPS.get(type(op_node))
+                if op is None:
+                    raise ValueError(f"Unsupported unary op: {type(op_node).__name__}")
+                return op(_walk(operand))
+            case ast.Call(func=ast.Attribute(value=ast.Name(id="math"), attr=attr), args=call_args):
+                func = _SAFE_FUNCS.get(attr)
+                if func is None:
+                    raise ValueError(f"Unknown math function: math.{attr}")
+                return func(*[_walk(a) for a in call_args])
+            case ast.Call(func=ast.Name(id=fn_name), args=call_args):
+                func = _SAFE_FUNCS.get(fn_name)
+                if func is None:
+                    raise ValueError(f"Unknown function: {fn_name}")
+                return func(*[_walk(a) for a in call_args])
+            case ast.Call():
+                raise ValueError("Only named function calls allowed")
+            case ast.Attribute(value=ast.Name(id="math"), attr=attr):
+                if attr in _SAFE_CONSTS:
+                    return _SAFE_CONSTS[attr]
+                if attr in _SAFE_FUNCS:
+                    return _SAFE_FUNCS[attr]
+                raise ValueError(f"Unknown math attribute: math.{attr}")
+            case ast.Name(id=name) if name in _SAFE_CONSTS:
+                return _SAFE_CONSTS[name]
+            case ast.Name(id=name) if name in _SAFE_FUNCS:
+                return _SAFE_FUNCS[name]
+            case ast.Name(id=name):
+                raise ValueError(f"Unknown name: {name}")
+            case _:
+                raise ValueError(f"Unsupported expression: {type(node).__name__}")
+
+    tree = ast.parse(expression, mode="eval")
+    return _walk(tree)
 
 
 # ── Test Tasks ──────────────────────────────────────────────────────
@@ -54,7 +133,7 @@ def cpu_task(n: int) -> dict:
 @solid_task
 def isolated_task(expression: str) -> dict:
     """Task that needs process isolation (e.g., eval untrusted code)."""
-    result = eval(expression, {"__builtins__": {"math": math}}, {})
+    result = safe_eval(expression)
     return {"expression": expression, "result": result, "pid": os.getpid()}
 
 

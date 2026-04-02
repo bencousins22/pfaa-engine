@@ -137,7 +137,7 @@ export class Orchestrator {
           } catch (err: any) {
             const errMsg = `Error: ${err.message}`
             this.context.addToolResult(chunk.id!, errMsg)
-            yield { type: 'tool_error', toolName: chunk.name, error: err.message }
+            yield { type: 'tool_error', toolName: chunk.name, error: err.message, cause: err }
           }
         }
 
@@ -180,10 +180,10 @@ export class Orchestrator {
           await new Promise(r => setTimeout(r, delay))
           continue
         }
-        throw err // Non-transient errors fail immediately
+        throw new Error(`Tool "${toolName}" failed with non-transient error`, { cause: err }) // Non-transient errors fail immediately
       }
     }
-    throw lastErr!
+    throw new Error(`Tool "${toolName}" failed after ${maxRetries + 1} attempts`, { cause: lastErr! })
   }
 
   private buildSystemPrompt(): string {
