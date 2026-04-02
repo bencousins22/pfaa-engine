@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 /**
- * Status line — pearl Aussie Agents indicator.
+ * Status line — pearl Aussie Agents indicator with live counts.
  * Adapts to light/dark terminal backgrounds.
  */
+
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
+
+const root = path.resolve(__dirname, '..', '..');
 
 const R = '\x1b[0m';
 const B = '\x1b[1m';
@@ -26,11 +32,61 @@ function isLightBg() {
 const L = isLightBg();
 
 const c = L
-  ? { diamond: [160, 120, 40], name: [60, 50, 70], tools: [30, 130, 90], jmem: [40, 90, 180], mem: [100, 70, 160], q: [160, 120, 40], dot: [160, 150, 170] }
-  : { diamond: [232, 213, 183], name: [248, 248, 255], tools: [168, 230, 207], jmem: [181, 212, 255], mem: [230, 230, 250], q: [232, 213, 183], dot: [212, 212, 216] };
+  ? { diamond: [160, 120, 40], name: [60, 50, 70], tools: [30, 130, 90], jmem: [40, 90, 180], mem: [100, 70, 160], q: [160, 120, 40], branch: [40, 110, 140], dot: [160, 150, 170] }
+  : { diamond: [232, 213, 183], name: [248, 248, 255], tools: [168, 230, 207], jmem: [181, 212, 255], mem: [230, 230, 250], q: [232, 213, 183], branch: [181, 212, 255], dot: [212, 212, 216] };
 
 const dot = rgb(...c.dot, '\u00b7');
 
-process.stdout.write(
-  `${rgb(...c.diamond, B + '\u25c6')} ${rgb(...c.name, 'Aussie')} ${dot} ${rgb(...c.tools, '44t')} ${dot} ${rgb(...c.jmem, 'JMEM')} ${rgb(...c.mem, '6L')} ${dot} ${rgb(...c.q, 'Q\u03b1')}`
-);
+// Dynamic tool count
+let toolCount = 44;
+try {
+  const skills = fs.readdirSync(path.join(root, '.claude/skills')).filter(d => {
+    try { return fs.statSync(path.join(root, '.claude/skills', d)).isDirectory(); } catch { return false; }
+  }).length;
+  toolCount = skills + 13 + 8; // skills + 13 JMEM MCP + 8 native
+} catch {}
+
+// JMEM memory count
+let memCount = '';
+try {
+  const dbPath = path.join(require('os').homedir(), '.jmem/claude-code/memory.db');
+  if (fs.existsSync(dbPath)) {
+    const out = execFileSync(
+      'sqlite3', [dbPath, "SELECT COUNT(*) FROM documents;"],
+      { timeout: 1500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+    ).trim();
+    const n = parseInt(out);
+    if (n > 0) memCount = `${n}m`;
+  }
+} catch {}
+
+// Git branch
+let branch = '';
+try {
+  branch = execFileSync(
+    'git', ['rev-parse', '--abbrev-ref', 'HEAD'],
+    { cwd: root, timeout: 1500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+  ).trim();
+} catch {}
+
+// Build statusline
+const parts = [
+  `${rgb(...c.diamond, B + '\u25c6')}`,
+  `${rgb(...c.name, 'Aussie')}`,
+  dot,
+  `${rgb(...c.tools, toolCount + 't')}`,
+  dot,
+  `${rgb(...c.jmem, 'JMEM')} ${rgb(...c.mem, '6L')}`,
+];
+
+if (memCount) {
+  parts.push(dot, `${rgb(...c.mem, memCount)}`);
+}
+
+parts.push(dot, `${rgb(...c.q, 'Q\u03b1')}`);
+
+if (branch) {
+  parts.push(dot, `${rgb(...c.branch, branch)}`);
+}
+
+process.stdout.write(parts.join(' '));
