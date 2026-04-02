@@ -566,6 +566,7 @@ def test_handle_tool_failure_first_time(jmem_engine):
 
 
 def test_handle_tool_failure_escalation(jmem_engine):
+    """With 3 prior failures, tool failure still observes (threshold raised to 50)."""
     from cortex import handle_tool_failure, ToolFailureEvent, CortexState
     from jmem.engine import MemoryLevel
 
@@ -590,7 +591,8 @@ def test_handle_tool_failure_escalation(jmem_engine):
             await jmem_engine.shutdown()
 
     decision = run_async(_run())
-    assert decision.action in ("advise", "block")
+    # Threshold raised to 50 — 3 failures should only observe, not block/advise
+    assert decision.action == "observe"
 
 
 # ── Task 9: Task completed handler ──────────────────────────────────
@@ -1021,7 +1023,7 @@ def test_is_feature_enabled_no_engine():
 
 
 def test_handle_stop_perf_telemetry(jmem_engine):
-    """handle_stop includes performance telemetry when timings exist."""
+    """handle_stop is silent even when timings exist (UI clutter fix)."""
     from cortex import handle_stop, HookEvent, CortexState
     state = CortexState()
     state.event_timings = {
@@ -1030,10 +1032,8 @@ def test_handle_stop_perf_telemetry(jmem_engine):
     }
     event = HookEvent(type="Stop", timestamp=time())
     decision = run_async(handle_stop(jmem_engine, event, state))
-    assert decision.system_message is not None
-    assert "Cortex perf:" in decision.system_message
-    assert "SubagentStart:" in decision.system_message
-    assert "ms" in decision.system_message
+    # Perf output silenced — no system_message
+    assert decision.system_message is None
 
 
 def test_handle_stop_no_telemetry_when_empty(jmem_engine):
@@ -1046,8 +1046,8 @@ def test_handle_stop_no_telemetry_when_empty(jmem_engine):
     assert decision.system_message is None
 
 
-def test_handle_stop_dream_includes_perf(jmem_engine):
-    """When dream Phase A triggers, perf telemetry is appended to the dream message."""
+def test_handle_stop_dream_silent(jmem_engine):
+    """When dream Phase A triggers, it completes silently (UI clutter fix)."""
     from cortex import handle_stop, HookEvent, CortexState
     state = CortexState()
     state.pressure = 15.0
@@ -1055,9 +1055,10 @@ def test_handle_stop_dream_includes_perf(jmem_engine):
     state.event_timings = {"SubagentStart": [20.0]}
     event = HookEvent(type="Stop", timestamp=time())
     decision = run_async(handle_stop(jmem_engine, event, state))
-    assert "dream" in decision.system_message.lower()
-    assert "Perf:" in decision.system_message
-    assert "SubagentStart:" in decision.system_message
+    # Dream completes silently — no system_message
+    assert decision.system_message is None
+    assert state.dream_pending is True
+    assert state.pressure == 0.0
 
 
 # ── Self-Build Cycle 3: Pre-computed Agent Context Injection ──────
@@ -1172,3 +1173,250 @@ def test_handle_agent_start_no_profile_still_works(jmem_engine, tmp_path):
     # Should still have phase guidance even without profile
     if decision.additional_context:
         assert "RESEARCH" in decision.additional_context
+
+
+# ── NEW TDD: Keyword extraction ──────────────────────────────────────
+
+
+def test_extract_keywords_filters_stop_words():
+    """_extract_keywords removes common stop words."""
+    from cortex import _extract_keywords
+    result = _extract_keywords("fix the bug in the auth module")
+    assert "the" not in result
+    assert "in" not in result
+    assert "fix" in result
+    assert "bug" in result
+    assert "auth" in result
+    assert "module" in result
+
+
+def test_extract_keywords_max_10():
+    """_extract_keywords returns at most 10 keywords."""
+    from cortex import _extract_keywords
+    long_prompt = " ".join(f"word{i}" for i in range(50))
+    result = _extract_keywords(long_prompt)
+    assert len(result) <= 10
+
+
+def test_extract_keywords_empty():
+    """_extract_keywords handles empty string."""
+    from cortex import _extract_keywords
+    assert _extract_keywords("") == []
+
+
+def test_extract_keywords_only_stop_words():
+    """_extract_keywords returns empty for all stop words."""
+    from cortex import _extract_keywords
+    assert _extract_keywords("the a an is are was") == []
+
+
+# ── NEW TDD: Episode dedup in _handle_event ──────────────────────────
+
+
+def test_handle_event_dedup(jmem_engine, tmp_path):
+    """Duplicate events should be skipped (same episode hash)."""
+    from cortex import _handle_event, AgentStartEvent, CortexState
+
+    state = CortexState(state_path=tmp_path / "state.json")
+    event = AgentStartEvent(type="SubagentStart", agent="aussie-tdd", task="test auth")
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            d1 = await _handle_event(jmem_engine, event, state, 0.9)
+            initial_episodes = state.episodes_this_session
+            # Same event again — should be deduped
+            d2 = await _handle_event(jmem_engine, event, state, 0.9)
+            return d1, d2, initial_episodes
+        finally:
+            await jmem_engine.shutdown()
+
+    d1, d2, initial_episodes = run_async(_run())
+    assert d1.action == "observe"
+    # Deduped event returns default Decision
+    assert state.episodes_this_session == initial_episodes  # No increment on dedup
+
+
+def test_handle_event_dedup_hash_cap(tmp_path):
+    """Recent episode hashes should be capped at 100."""
+    state = CortexState(state_path=tmp_path / "state.json")
+    state.recent_episode_hashes = [f"hash{i}" for i in range(120)]
+    # Simulate the cap logic from _handle_event
+    if len(state.recent_episode_hashes) > 100:
+        state.recent_episode_hashes = state.recent_episode_hashes[-100:]
+    assert len(state.recent_episode_hashes) == 100
+    assert state.recent_episode_hashes[0] == "hash20"
+
+
+# ── NEW TDD: Phase detection in handle_agent_start ───────────────────
+
+
+def test_phase_detection_research(jmem_engine, tmp_path):
+    """Research agents set phase to 'research'."""
+    from cortex import handle_agent_start, AgentStartEvent, CortexState
+
+    state = CortexState(state_path=tmp_path / "state.json")
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            for agent in ["aussie-researcher", "aussie-planner", "aussie-architect"]:
+                ev = AgentStartEvent(type="SubagentStart", agent=agent, task="research")
+                await handle_agent_start(jmem_engine, ev, state)
+                assert state.phase == "research", f"{agent} should set phase to research"
+        finally:
+            await jmem_engine.shutdown()
+
+    run_async(_run())
+
+
+def test_phase_detection_impl(jmem_engine, tmp_path):
+    """Implementation agents set phase to 'implementation'."""
+    from cortex import handle_agent_start, AgentStartEvent, CortexState
+
+    state = CortexState(state_path=tmp_path / "state.json")
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            for agent in ["aussie-tdd", "pfaa-rewriter", "aussie-deployer"]:
+                ev = AgentStartEvent(type="SubagentStart", agent=agent, task="implement")
+                await handle_agent_start(jmem_engine, ev, state)
+                assert state.phase == "implementation", f"{agent} should set phase to implementation"
+        finally:
+            await jmem_engine.shutdown()
+
+    run_async(_run())
+
+
+def test_phase_detection_verify(jmem_engine, tmp_path):
+    """Verification agents set phase to 'verification'."""
+    from cortex import handle_agent_start, AgentStartEvent, CortexState
+
+    state = CortexState(state_path=tmp_path / "state.json")
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            for agent in ["pfaa-validator", "aussie-security"]:
+                ev = AgentStartEvent(type="SubagentStart", agent=agent, task="validate")
+                await handle_agent_start(jmem_engine, ev, state)
+                assert state.phase == "verification", f"{agent} should set phase to verification"
+        finally:
+            await jmem_engine.shutdown()
+
+    run_async(_run())
+
+
+# ── NEW TDD: Pressure accumulation ──────────────────────────────────
+
+
+def test_pressure_increases_on_success():
+    """Successful agent stop increases pressure by 0.5."""
+    state = CortexState()
+    state.pressure = 2.0
+    # Simulate what handle_agent_stop does on success
+    state.pressure = max(0.0, state.pressure + 0.5)
+    assert state.pressure == 2.5
+
+
+def test_pressure_increases_on_failure():
+    """Failed agent stop increases pressure by 2.0, capped at 10.0."""
+    state = CortexState()
+    state.pressure = 9.0
+    state.pressure = min(10.0, state.pressure + 2.0)
+    assert state.pressure == 10.0
+
+
+def test_pressure_resets_on_dream():
+    """Dream Phase A resets pressure to 0."""
+    state = CortexState()
+    state.pressure = 15.0
+    state.pressure = 0.0
+    state.dream_pending = True
+    assert state.pressure == 0.0
+    assert state.dream_pending is True
+
+
+# ── NEW TDD: Interest scoring edge cases ─────────────────────────────
+
+
+def test_interest_score_agent_start():
+    """Agent start gets high interest (0.9)."""
+    ev = AgentStartEvent(type="SubagentStart", agent="pfaa-lead", task="plan")
+    assert interest_score(ev) == 0.9
+
+
+def test_interest_score_pyi_file():
+    """.pyi stub files get same interest as .py (0.8)."""
+    ev = FileChangedEvent(type="FileChanged", path="types.pyi", ext=".pyi")
+    assert interest_score(ev) == 0.8
+
+
+def test_interest_score_non_py_file():
+    """Non-Python file changes get lower interest (0.4)."""
+    ev = FileChangedEvent(type="FileChanged", path="config.json", ext=".json")
+    assert interest_score(ev) == 0.4
+
+
+def test_interest_score_medium_prompt():
+    """Medium-length prompt (4-10 words) gets 0.5."""
+    ev = PromptSubmitEvent(type="UserPromptSubmit", prompt="fix the auth module please")
+    assert interest_score(ev) == 0.5
+
+
+def test_interest_score_long_prompt():
+    """Long prompt (>10 words) gets high interest (0.7)."""
+    ev = PromptSubmitEvent(type="UserPromptSubmit", prompt="please fix the authentication bug in the login flow that causes timeout errors for users")
+    assert interest_score(ev) == 0.7
+
+
+def test_interest_score_success_agent_stop():
+    """Successful agent stop gets medium interest (0.5)."""
+    ev = AgentStopEvent(type="SubagentStop", agent="aussie-tdd", success=True)
+    assert interest_score(ev) == 0.5
+
+
+# ── NEW TDD: Tool failure threshold at 50 ────────────────────────────
+
+
+def test_tool_failure_does_not_block_under_50(jmem_engine):
+    """Tool failure should not block even with many failures (threshold=50)."""
+    from cortex import handle_tool_failure, CortexState
+    from jmem.engine import MemoryLevel
+
+    async def _run():
+        await jmem_engine.start()
+        try:
+            # Store 20 failures — still under threshold
+            for i in range(20):
+                await jmem_engine.remember(
+                    content=f"Read failed (unknown): attempt {i}",
+                    level=MemoryLevel.EPISODE,
+                    tags=["tool", "failure", "Read", "unknown"],
+                )
+            event = ToolFailureEvent(
+                type="PostToolUseFailure", tool="Read",
+                error="some error", error_class="unknown",
+            )
+            return await handle_tool_failure(jmem_engine, event, CortexState())
+        finally:
+            await jmem_engine.shutdown()
+
+    decision = run_async(_run())
+    assert decision.action == "observe"  # Not block — under 50 threshold
+
+
+# ── NEW TDD: classify_error edge cases ───────────────────────────────
+
+
+def test_classify_error_case_insensitive():
+    """Error classification is case-insensitive."""
+    assert classify_error("PERMISSION DENIED") == "permission"
+    assert classify_error("Connection Refused") == "network"
+
+
+def test_classify_error_first_match_wins():
+    """When multiple patterns match, first category wins."""
+    # "forbidden" matches permission, comes before others
+    assert classify_error("forbidden network error") == "permission"

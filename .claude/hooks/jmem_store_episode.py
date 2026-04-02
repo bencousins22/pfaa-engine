@@ -26,10 +26,9 @@ async def main():
 
     e = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))
     await e.remember(content=content, level=MemoryLevel.EPISODE, tags=["auto-episode", "session"])
-    print(json.dumps({"systemMessage": "JMEM: episode stored"}))
 
 
 try:
     asyncio.run(main())
-except Exception as ex:
-    print(json.dumps({"systemMessage": f"JMEM auto-store skipped ({type(ex).__name__})"}))
+except Exception:
+    pass

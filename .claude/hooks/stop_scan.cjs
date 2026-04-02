@@ -10,10 +10,19 @@ const R = '\x1b[0m';
 const B = '\x1b[1m';
 const DIM = '\x1b[2m';
 const rgb = (r, g, b, s) => `\x1b[38;2;${r};${g};${b}m${s}${R}`;
-const green = s => rgb(0, 230, 118, s);
-const gold = s => rgb(212, 160, 23, s);
-const purple = s => rgb(140, 100, 255, s);
-const dot = `${DIM}\u00b7${R}`;
+
+// Light/dark detection
+const _cfg = process.env.COLORFGBG || '';
+const _vsc = process.env.VSCODE_THEME_KIND || '';
+const _iterm = (process.env.ITERM_PROFILE || '').toLowerCase();
+const L = (_cfg && parseInt(_cfg.split(';').pop(), 10) >= 8)
+  || _vsc === 'vscode-light' || _vsc === 'vscode-high-contrast-light'
+  || _iterm.includes('light');
+
+const mint = L ? s => rgb(30, 130, 90, s) : s => rgb(168, 230, 207, s);
+const shimmer = L ? s => rgb(160, 120, 40, s) : s => rgb(232, 213, 183, s);
+const iris = L ? s => rgb(100, 70, 160, s) : s => rgb(230, 230, 250, s);
+const dot = L ? `${rgb(160, 150, 170, '\u00b7')}` : `${rgb(212, 212, 216, '\u00b7')}`;
 
 const root = '/Users/borris/Desktop/pfaa-engine';
 
@@ -65,12 +74,12 @@ try {
 
   const uniq = [...new Set(pyFeatures)];
 
-  let parts = [green(`${B}\u2713${R} `) + green('ready')];
-  if (newSkills > 0) parts.push(gold(`+${newSkills} skill${newSkills > 1 ? 's' : ''}`));
-  if (newAgents > 0) parts.push(gold(`+${newAgents} agent${newAgents > 1 ? 's' : ''}`));
-  if (uniq.length > 0) parts.push(purple(`py3.15: ${uniq.join(', ')}`));
+  let parts = [mint(`${B}\u2713${R} `) + mint('ready')];
+  if (newSkills > 0) parts.push(shimmer(`+${newSkills} skill${newSkills > 1 ? 's' : ''}`));
+  if (newAgents > 0) parts.push(shimmer(`+${newAgents} agent${newAgents > 1 ? 's' : ''}`));
+  if (uniq.length > 0) parts.push(iris(`py3.15: ${uniq.join(', ')}`));
 
-  process.stdout.write(JSON.stringify({ systemMessage: parts.join(` ${dot} `) }));
+  // Silent — work done, no output to avoid UI clutter
 } catch (e) {
-  process.stdout.write(JSON.stringify({ systemMessage: green('\u2713 done') }));
+  // Silent
 }

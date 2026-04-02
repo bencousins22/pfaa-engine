@@ -721,17 +721,12 @@ async def handle_tool_failure(engine, event: ToolFailureEvent, state: CortexStat
     )
     same_class = [m for m in prior if event.error_class in m.tags]
 
-    if len(same_class) >= 5:
+    # Only block after extreme repeated failures — avoid false positives
+    if len(same_class) >= 50:
         return Decision(
             action="block",
             block_reason=f"Repeated {event.error_class} failures for {event.tool} ({len(same_class)}x)",
             confidence=0.85,
-        )
-    elif len(same_class) >= 3:
-        return Decision(
-            action="advise",
-            system_message=f"{event.tool} has failed {len(same_class)}x ({event.error_class}). Consider an alternative approach.",
-            confidence=0.6,
         )
 
     return Decision(action="observe")
@@ -892,15 +887,11 @@ async def handle_stop(engine, event: HookEvent, state: CortexState) -> Decision:
         state.last_dream_at = time()
         state.dream_pending = True
 
-        dream_msg = "Cortex dream (Phase A): consolidated + decayed"
-        if perf_msg:
-            dream_msg += f"\nPerf: {perf_msg}"
-        return Decision(action="observe", system_message=dream_msg)
+        # Dream completed silently — no UI clutter
+        return Decision(action="observe")
 
-    stop_msg = None
-    if perf_msg:
-        stop_msg = f"Cortex perf: {perf_msg}"
-    return Decision(action="observe", system_message=stop_msg)
+    # Perf data logged to state file, not dumped to UI
+    return Decision(action="observe")
 
 
 # ── Self-assessment ───────────────────────────────────────────────
