@@ -19,6 +19,10 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from time import time
 
+sys.path.insert(0, os.path.dirname(__file__))
+from importlib import import_module as _import_module
+_jmem_client = _import_module("jmem-client")
+
 # ── Path constants ──────────────────────────────────────────────────
 
 PROJECT_ROOT = Path(
@@ -952,6 +956,102 @@ async def run_dream_phase_b(engine, state: CortexState) -> list[str]:
     return await suggest_self_improvements(engine)
 
 
+class _DaemonEngine:
+    """Wrapper that tries the JMEM daemon first, falls back to direct engine."""
+
+    def __init__(self):
+        self._direct = None
+
+    def _try_daemon(self, method, params):
+        return _jmem_client.jmem_request(method, params)
+
+    async def _get_direct(self):
+        if self._direct is None:
+            if str(JMEM_PATH) not in sys.path:
+                sys.path.append(str(JMEM_PATH))
+            from jmem.engine import JMemEngine
+            self._direct = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))
+            await self._direct.start()
+        return self._direct
+
+    async def start(self):
+        if not _jmem_client.is_daemon_running():
+            await self._get_direct()
+
+    async def shutdown(self):
+        if self._direct:
+            await self._direct.shutdown()
+            self._direct = None
+
+    async def recall(self, query="", limit=5, min_q=0.0, level=None):
+        params = {"query": query, "limit": limit, "min_q": min_q}
+        if level is not None:
+            params["level"] = int(level)
+        result = self._try_daemon("recall", params)
+        if result is not None:
+            if str(JMEM_PATH) not in sys.path:
+                sys.path.append(str(JMEM_PATH))
+            from jmem.engine import MemoryLevel, MemoryNote
+            return [MemoryNote(
+                id=n["id"], content=n["content"],
+                level=MemoryLevel[n["level"]], q_value=n["q_value"],
+                tags=n.get("tags", []), retrieval_count=n.get("retrieval_count", 0),
+            ) for n in result]
+        engine = await self._get_direct()
+        return await engine.recall(query=query, limit=limit, min_q=min_q, level=level)
+
+    async def remember(self, content="", level=None, context="", keywords=None, tags=None):
+        lvl = int(level) if level is not None else 1
+        result = self._try_daemon("remember", {
+            "content": content, "level": lvl,
+            "context": context, "keywords": keywords or [], "tags": tags or [],
+        })
+        if result is not None:
+            return result.get("id", "")
+        engine = await self._get_direct()
+        return await engine.remember(content=content, level=level, context=context, keywords=keywords, tags=tags)
+
+    async def reward_recalled(self, reward_signal=0.7):
+        result = self._try_daemon("reward_recalled", {"signal": reward_signal})
+        if result is not None:
+            return result
+        engine = await self._get_direct()
+        return await engine.reward_recalled(reward_signal=reward_signal)
+
+    async def consolidate(self):
+        result = self._try_daemon("consolidate", {})
+        if result is not None:
+            return result
+        engine = await self._get_direct()
+        return await engine.consolidate()
+
+    async def decay_idle(self, hours_threshold=24.0):
+        result = self._try_daemon("decay", {"hours": hours_threshold})
+        if result is not None:
+            return result
+        engine = await self._get_direct()
+        return await engine.decay_idle(hours_threshold=hours_threshold)
+
+    async def reflect(self):
+        result = self._try_daemon("reflect", {})
+        if result is not None:
+            return result
+        engine = await self._get_direct()
+        return await engine.reflect()
+
+    async def extract_skills(self):
+        engine = await self._get_direct()
+        return await engine.extract_skills()
+
+    async def meta_learn(self):
+        engine = await self._get_direct()
+        return await engine.meta_learn()
+
+    async def emergent_synthesis(self):
+        engine = await self._get_direct()
+        return await engine.emergent_synthesis()
+
+
 # ── Core event processor ─────────────────────────────────────────
 
 
@@ -1041,10 +1141,7 @@ async def _run(event_type: str, raw_input: str) -> Decision | None:
         # Dream Phase B: deferred from prior Stop
         if state.dream_pending:
             try:
-                if str(JMEM_PATH) not in sys.path:
-                    sys.path.append(str(JMEM_PATH))
-                from jmem.engine import JMemEngine
-                engine = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))
+                engine = _DaemonEngine()
                 await run_dream_phase_b(engine, state)
             except Exception:
                 state.dream_pending = False
@@ -1063,11 +1160,7 @@ async def _run(event_type: str, raw_input: str) -> Decision | None:
             if os.environ.get("CORTEX_NO_JMEM"):
                 raise RuntimeError("JMEM disabled via CORTEX_NO_JMEM")
 
-            if str(JMEM_PATH) not in sys.path:
-                sys.path.append(str(JMEM_PATH))
-            from jmem.engine import JMemEngine
-
-            engine = JMemEngine(db_path=os.path.expanduser("~/.jmem/claude-code/memory.db"))
+            engine = _DaemonEngine()
             await engine.start()
             try:
                 decision = await _handle_event(engine, event, state, score)
