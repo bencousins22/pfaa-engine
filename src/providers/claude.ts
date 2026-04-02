@@ -48,17 +48,17 @@ export class ClaudeProvider implements BaseProvider {
 
     for await (const event of stream) {
       if (event.type === 'content_block_start') {
-        const block = (event as any).content_block
+        const block = 'content_block' in event ? event.content_block : undefined
         if (block?.type === 'tool_use') {
           currentToolUse = { id: block.id, name: block.name, inputJson: '' }
         }
       }
       if (event.type === 'content_block_delta') {
-        const delta = (event as any).delta
-        if (delta?.type === 'text_delta') {
+        const delta = 'delta' in event ? event.delta : undefined
+        if (delta && 'type' in delta && delta.type === 'text_delta' && 'text' in delta) {
           yield { type: 'text', text: delta.text }
         }
-        if (delta?.type === 'input_json_delta' && currentToolUse) {
+        if (delta && 'type' in delta && delta.type === 'input_json_delta' && 'partial_json' in delta && currentToolUse) {
           currentToolUse.inputJson += delta.partial_json
         }
       }
@@ -72,8 +72,8 @@ export class ClaudeProvider implements BaseProvider {
         currentToolUse = null
       }
       if (event.type === 'message_delta') {
-        const delta = (event as any).delta
-        yield { type: 'stop', stopReason: delta?.stop_reason ?? 'end_turn' }
+        const delta = 'delta' in event ? event.delta : undefined
+        yield { type: 'stop', stopReason: (delta && 'stop_reason' in delta ? delta.stop_reason : undefined) ?? 'end_turn' }
       }
     }
   }

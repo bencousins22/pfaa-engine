@@ -16,6 +16,13 @@
 import { randomUUID } from 'crypto'
 import { embedder } from './embedder-process.js'
 
+/** Typed wrapper for Qdrant REST API JSON responses. */
+interface QdrantResponse {
+  result?: Record<string, unknown> | unknown[]
+  status?: string
+  time?: number
+}
+
 export type FactType = 'episodic' | 'semantic' | 'procedural' | 'foresight' | 'profile' | 'reflexion'
 export type Visibility = 'private' | 'project' | 'shared' | 'broadcast'
 
@@ -134,7 +141,7 @@ export class MemoryStore {
         filter: filter.must.length ? filter : undefined,
       })
 
-      const results = (resp as any).result ?? []
+      const results = (Array.isArray(resp.result) ? resp.result : []) as Record<string, unknown>[]
 
       // Update retrieval counts (Q-learning style)
       const ids = results.map((r: any) => String(r.id))
@@ -170,7 +177,8 @@ export class MemoryStore {
         filter: filter.must.length ? filter : undefined,
       })
 
-      const points = (resp as any).result?.points ?? []
+      const scrollResult = resp.result as Record<string, unknown> | undefined
+      const points = (Array.isArray(scrollResult?.points) ? scrollResult.points : []) as Record<string, unknown>[]
       return points.map((r: any) => ({
         id: String(r.id),
         content: String(r.payload?.content ?? ''),
@@ -255,7 +263,8 @@ export class MemoryStore {
     }
     try {
       const resp = await this.qdrantRequest('GET', `/collections/${COLLECTION}`)
-      const total = (resp as any).result?.points_count ?? 0
+      const collectionResult = resp.result as Record<string, unknown> | undefined
+      const total = (typeof collectionResult?.points_count === 'number' ? collectionResult.points_count : 0)
 
       // Get area/type breakdown from a sample
       const sample = await this.list({ limit: 1000 })
@@ -286,13 +295,13 @@ export class MemoryStore {
         ids,
         with_payload: true,
       })
-      const points = (resp as any).result ?? []
+      const points = (Array.isArray(resp.result) ? resp.result : []) as Record<string, unknown>[]
 
       for (const point of points) {
-        const p = point.payload ?? {}
-        const rc = (p.retrieval_count ?? 0) + (event === 'retrieval' ? 1 : 0)
-        const sc = (p.success_count ?? 0) + (event === 'success' ? 1 : 0)
-        const fc = (p.failure_count ?? 0) + (event === 'failure' ? 1 : 0)
+        const p = (point.payload ?? {}) as Record<string, unknown>
+        const rc = (Number(p.retrieval_count) || 0) + (event === 'retrieval' ? 1 : 0)
+        const sc = (Number(p.success_count) || 0) + (event === 'success' ? 1 : 0)
+        const fc = (Number(p.failure_count) || 0) + (event === 'failure' ? 1 : 0)
         const total = sc + fc
         const utility = total > 0 ? (sc / total) * 0.8 + 0.5 * 0.2 : 0.5
 
@@ -335,7 +344,7 @@ export class MemoryStore {
     return this.available
   }
 
-  private async qdrantRequest(method: string, path: string, body?: unknown): Promise<unknown> {
+  private async qdrantRequest(method: string, path: string, body?: unknown): Promise<QdrantResponse> {
     const resp = await fetch(`${this.qdrantUrl}${path}`, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : {},
@@ -343,6 +352,6 @@ export class MemoryStore {
       signal: AbortSignal.timeout(5000),
     })
     if (!resp.ok) throw new Error(`Qdrant ${resp.status}`)
-    return resp.json()
+    return resp.json() as Promise<QdrantResponse>
   }
 }
