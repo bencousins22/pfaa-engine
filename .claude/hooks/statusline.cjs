@@ -32,5 +32,5 @@ const c = L
 const dot = rgb(...c.dot, '\u00b7');
 
 process.stdout.write(
-  `${rgb(...c.diamond, B + '\u25c6')} ${rgb(...c.name, 'Aussie')} ${dot} ${rgb(...c.tools, '44t')} ${dot} ${rgb(...c.jmem, 'JMEM')} ${rgb(...c.mem, '5L')} ${dot} ${rgb(...c.q, 'Q\u03b1')}`
+  `${rgb(...c.diamond, B + '\u25c6')} ${rgb(...c.name, 'Aussie')} ${dot} ${rgb(...c.tools, '44t')} ${dot} ${rgb(...c.jmem, 'JMEM')} ${rgb(...c.mem, '6L')} ${dot} ${rgb(...c.q, 'Q\u03b1')}`
 );

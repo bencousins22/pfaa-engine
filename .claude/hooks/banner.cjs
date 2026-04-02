@@ -113,7 +113,7 @@ const dot = `${rgb(...colors.dot, '\u00b7')}`;
 const stats = [
   pill('tools', '44', colors.tools),
   pill('mcp',   '17', colors.mcp),
-  pill('memory', '5L', colors.memory),
+  pill('memory', '6L', colors.memory),
   pill('hooks',  '7',  colors.hooks),
   pill('agents','10', colors.agents),
 ].join(`  ${dot}  `);
