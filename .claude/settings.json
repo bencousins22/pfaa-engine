@@ -217,6 +217,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3 jmem-mcp-server/jmem/daemon.py &",
+            "timeout": 3,
+            "statusMessage": "Starting JMEM daemon..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "node .claude/hooks/banner.cjs",
             "once": false,
             "statusMessage": "Loading Aussie Agents..."
@@ -263,7 +273,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/stop_scan.cjs",
+            "command": "(node .claude/hooks/stop_scan.cjs &)",
             "statusMessage": "Scanning for new capabilities..."
           }
         ]
@@ -272,7 +282,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/jmem_store_episode.py",
+            "command": "(python3 .claude/hooks/jmem_store_episode.py &)",
             "timeout": 5,
             "statusMessage": "Storing JMEM episode..."
           }
@@ -282,7 +292,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/cortex.py Stop",
+            "command": "(python3 .claude/hooks/cortex.py Stop &)",
             "timeout": 10,
             "statusMessage": "Cortex: stop..."
           }
