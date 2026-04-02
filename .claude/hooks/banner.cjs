@@ -56,8 +56,21 @@ function getCounts() {
     const mcpServers = settings.mcpServers || {};
     mcp = Object.keys(mcpServers).length;
 
-    // Tools = skills + MCP tools (13 JMEM) + 8 native
-    tools = skills + 13 + 8;
+    // Tools = Python (62) + TS (9) + MCP (13 JMEM) + native (8)
+    // Count Python tools dynamically
+    let pyTools = 0;
+    try {
+      const coreDir = path.join(root, 'agent_setup_cli/core');
+      for (const f of fs.readdirSync(coreDir)) {
+        if (f.endsWith('.py')) {
+          const content = fs.readFileSync(path.join(coreDir, f), 'utf8');
+          const matches = content.match(/def tool_/g);
+          if (matches) pyTools += matches.length;
+        }
+      }
+    } catch { pyTools = 62; }
+    const tsTools = fs.readdirSync(path.join(root, 'src/tools')).filter(f => f.endsWith('.ts')).length;
+    tools = pyTools + tsTools + 13 + 8;
   } catch {
     tools = 44; agents = 10; skills = 27; hooks = 7; mcp = 1;
   }

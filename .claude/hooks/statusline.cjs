@@ -37,13 +37,20 @@ const c = L
 
 const dot = rgb(...c.dot, '\u00b7');
 
-// Dynamic tool count
-let toolCount = 44;
+// Dynamic tool count — Python + TS + MCP + native
+let toolCount = 92;
 try {
-  const skills = fs.readdirSync(path.join(root, '.claude/skills')).filter(d => {
-    try { return fs.statSync(path.join(root, '.claude/skills', d)).isDirectory(); } catch { return false; }
-  }).length;
-  toolCount = skills + 13 + 8; // skills + 13 JMEM MCP + 8 native
+  let pyTools = 0;
+  const coreDir = path.join(root, 'agent_setup_cli/core');
+  for (const f of fs.readdirSync(coreDir)) {
+    if (f.endsWith('.py')) {
+      const content = fs.readFileSync(path.join(coreDir, f), 'utf8');
+      const matches = content.match(/def tool_/g);
+      if (matches) pyTools += matches.length;
+    }
+  }
+  const tsTools = fs.readdirSync(path.join(root, 'src/tools')).filter(f => f.endsWith('.ts')).length;
+  toolCount = pyTools + tsTools + 13 + 8;
 } catch {}
 
 // JMEM memory count — try daemon first

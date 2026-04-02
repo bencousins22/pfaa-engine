@@ -19,7 +19,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/agents-10-E8D5B7?style=for-the-badge" alt="10 agents" />
   <img src="https://img.shields.io/badge/skills-27-B5D4FF?style=for-the-badge" alt="27 skills" />
-  <img src="https://img.shields.io/badge/tools-48-A8E6CF?style=for-the-badge" alt="48 tools" />
+  <img src="https://img.shields.io/badge/tools-92-A8E6CF?style=for-the-badge" alt="92 tools" />
   <img src="https://img.shields.io/badge/JMEM-6_layer-E6E6FA?style=for-the-badge" alt="6-layer JMEM" />
   <img src="https://img.shields.io/badge/memories-750+-D4A0D9?style=for-the-badge" alt="750+ memories" />
   <img src="https://img.shields.io/badge/tests-262-4CAF50?style=for-the-badge" alt="262 tests" />
@@ -48,7 +48,7 @@ Session 20: Principle extracted → L4 executable skill
 ```
   AUSSIE AGENTS
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  48 tools  ·  1 mcp  ·  6L memory  ·  12 hooks  ·  10 agents
+  92 tools  ·  1 mcp  ·  6L memory  ·  12 hooks  ·  10 agents
   JMEM: 750 memories  ·  Q̄=0.51  ·  P:2.5  ·  dream:7h ago  ·  ⎇ main
   /aussie-  for commands
 
