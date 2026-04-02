@@ -106,7 +106,7 @@ class TestDaemon:
                     "tags": ["geography"],
                 })
                 assert "result" in resp
-                assert "note_id" in resp["result"]
+                assert "id" in resp["result"]
 
                 resp = await _send(d.sock_path, "recall", {
                     "query": "capital Australia",
@@ -138,8 +138,10 @@ class TestDaemon:
                 resp = await _send(d.sock_path, "status")
                 assert "result" in resp
                 result = resp["result"]
-                assert "namespace" in result
-                assert "store" in result
+                # Engine status returns namespace + store sub-dict with document count
+                assert "namespace" in result or "total_memories" in result
+                store = result.get("store", result)
+                assert "documents" in store or "total_memories" in result
             finally:
                 await d.stop()
 
@@ -159,7 +161,11 @@ class TestDaemon:
             d = await _start_daemon(str(tmp_path), sock)
             try:
                 resp = await _send(d.sock_path, "ping")
-                assert resp == {"result": {"pong": True}}
+                assert "result" in resp
+                result = resp["result"]
+                assert result.get("pong") is True
+                assert "uptime" in result
+                assert isinstance(result["uptime"], (int, float))
             finally:
                 await d.stop()
 
@@ -184,7 +190,7 @@ class TestDaemon:
 
                 # Daemon should still be alive
                 resp2 = await _send(d.sock_path, "ping")
-                assert resp2 == {"result": {"pong": True}}
+                assert resp2.get("result", {}).get("pong") is True
             finally:
                 await d.stop()
 

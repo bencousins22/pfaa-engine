@@ -55,7 +55,8 @@ class JMemDaemon:
         self.idle_timeout = idle_timeout
         self.engine = JMemEngine(db_path=db_path)
         self._server: asyncio.AbstractServer | None = None
-        self._last_activity: float = time.monotonic()
+        self._start_time: float = time.monotonic()
+        self._last_activity: float = self._start_time
         self._shutdown_event = asyncio.Event()
         self._watchdog_task: asyncio.Task | None = None
 
@@ -173,7 +174,7 @@ class JMemDaemon:
         try:
             match method:
                 case "ping":
-                    return {"result": {"pong": True}}
+                    return {"result": {"pong": True, "uptime": round(time.monotonic() - self._start_time, 1)}}
 
                 case "recall":
                     notes = await self.engine.recall(
@@ -193,7 +194,7 @@ class JMemDaemon:
                         keywords=params.get("keywords"),
                         tags=params.get("tags"),
                     )
-                    return {"result": {"note_id": note_id}}
+                    return {"result": {"id": note_id}}
 
                 case "status":
                     result = await self.engine.status()
