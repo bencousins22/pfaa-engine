@@ -376,6 +376,8 @@ PFAA is built for Python 3.15, using features that don't exist in earlier versio
 
 ## Support This Project
 
+**[View full sponsor page with top supporters](https://bencousins22.github.io/pfaa-engine)**
+
 If PFAA is useful to you, consider supporting its development:
 
 <p align="center">
