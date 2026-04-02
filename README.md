@@ -18,11 +18,12 @@
   <img src="https://img.shields.io/badge/spawn-6μs_per_agent-gold?style=flat-square" alt="6μs spawn" />
   <img src="https://img.shields.io/badge/throughput-57K_tasks%2Fsec-green?style=flat-square" alt="57K tasks/sec" />
   <img src="https://img.shields.io/badge/arena-%231_Python_framework-red?style=flat-square" alt="#1 Python Framework" />
-  <img src="https://img.shields.io/badge/tests-77%2F77_(100%25)-brightgreen?style=flat-square" alt="77/77 tests" />
+  <img src="https://img.shields.io/badge/tests-103%2F103_(100%25)-brightgreen?style=flat-square" alt="103/103 tests" />
   <img src="https://img.shields.io/badge/score-998%2F1000-gold?style=flat-square" alt="998/1000" />
-  <img src="https://img.shields.io/badge/tools-27-blue?style=flat-square" alt="27 tools" />
-  <img src="https://img.shields.io/badge/memory-5_layer_meta--learning-purple?style=flat-square" alt="5-layer memory" />
+  <img src="https://img.shields.io/badge/tools-44-blue?style=flat-square" alt="44 tools" />
+  <img src="https://img.shields.io/badge/memory-6_layer_JMEM-purple?style=flat-square" alt="6-layer JMEM" />
   <img src="https://img.shields.io/badge/self--building-✓-brightgreen?style=flat-square" alt="Self-building" />
+  <img src="https://img.shields.io/badge/license-Apache_2.0-blue?style=flat-square" alt="Apache 2.0" />
 </p>
 
 ---

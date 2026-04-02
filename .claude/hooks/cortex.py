@@ -24,7 +24,7 @@ from time import time
 PROJECT_ROOT = Path(
     os.environ.get("CLAUDE_PROJECT_DIR")
     or os.environ.get("PWD")
-    or "/Users/borris/Desktop/pfaa-engine"
+    or str(Path(__file__).resolve().parent.parent.parent)
 )
 
 JMEM_PATH = PROJECT_ROOT / "jmem-mcp-server"

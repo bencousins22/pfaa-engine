@@ -17,3 +17,12 @@ dist/
 *.ndjson
 .claude/hooks/cortex_state.json
 .claude/hooks/cortex_state.tmp
+.claude/hooks/analyzers/__pycache__/
+
+# Screenshots (keep assets/ only)
+*.png
+!assets/*.png
+!assets/**/*.png
+
+# Playwright session data
+.playwright-mcp/

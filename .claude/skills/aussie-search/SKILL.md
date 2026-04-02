@@ -17,20 +17,20 @@ Search across all tool definition sources:
 
 #### Python Tools (agent_setup_cli/core/)
 ```
-Grep for tool definitions in /Users/borris/Desktop/pfaa-engine/agent_setup_cli/core/
+Grep for tool definitions in agent_setup_cli/core/
 Look for function definitions, tool registrations, and phase annotations
 ```
 
 #### TypeScript Tools (src/ and pfaa-cli/src/)
 ```
-Grep for tool definitions in /Users/borris/Desktop/pfaa-engine/src/
-Grep for tool definitions in /Users/borris/Desktop/pfaa-engine/pfaa-cli/src/
+Grep for tool definitions in src/
+Grep for tool definitions in pfaa-cli/src/
 Look for tool registrations, command definitions, and phase annotations
 ```
 
 #### MCP Tools (JMEM)
 ```
-Read /Users/borris/Desktop/pfaa-engine/.claude/settings.json for mcpServers
+Read .claude/settings.json for mcpServers
 List known MCP tools: jmem_recall, jmem_remember, jmem_consolidate, jmem_reflect,
   jmem_reward, jmem_reward_recalled, jmem_decay, jmem_evolve, jmem_meta_learn,
   jmem_emergent, jmem_extract_skills, jmem_status, jmem_recall_cross
@@ -43,7 +43,7 @@ Built-in tools: Read, Write, Edit, Glob, Grep, Bash, Agent, ToolSearch
 
 #### Skills and Agents
 ```
-Read /Users/borris/Desktop/pfaa-engine/.claude/settings.json
+Read .claude/settings.json
 List all registered skills and agents as searchable capabilities
 ```
 

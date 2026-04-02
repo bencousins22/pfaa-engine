@@ -6,7 +6,8 @@ import os
 import sys
 from datetime import datetime
 
-sys.path.insert(0, "/Users/borris/Desktop/pfaa-engine/jmem-mcp-server")
+from pathlib import Path as _Path
+sys.path.insert(0, str(_Path(__file__).resolve().parent.parent.parent / "jmem-mcp-server"))
 
 from jmem.engine import JMemEngine, MemoryLevel
 

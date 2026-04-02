@@ -24,7 +24,7 @@ const shimmer = L ? s => rgb(160, 120, 40, s) : s => rgb(232, 213, 183, s);
 const iris = L ? s => rgb(100, 70, 160, s) : s => rgb(230, 230, 250, s);
 const dot = L ? `${rgb(160, 150, 170, '\u00b7')}` : `${rgb(212, 212, 216, '\u00b7')}`;
 
-const root = '/Users/borris/Desktop/pfaa-engine';
+const root = path.resolve(__dirname, '..', '..');
 
 try {
   let newSkills = 0, newAgents = 0, pyFeatures = [];

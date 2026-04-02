@@ -183,7 +183,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/borris/Desktop/pfaa-engine/pfaa-cli && node -e \"if(process.env.ECC_HOOK_PROFILE==='off'){process.exit(0)}let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const f=(JSON.parse(d).tool_input?.file_path||'');if(f.match(/\\.(ts|tsx)$/)){const{execSync}=require('child_process');try{execSync('npx tsc --noEmit 2>&1',{timeout:15000});process.stdout.write(JSON.stringify({systemMessage:'TypeScript: OK'}))}catch(e){process.stdout.write(JSON.stringify({systemMessage:'TypeScript errors found — check with: npx tsc --noEmit'}))}}})\"",
+            "command": "cd pfaa-cli && node -e \"if(process.env.ECC_HOOK_PROFILE==='off'){process.exit(0)}let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const f=(JSON.parse(d).tool_input?.file_path||'');if(f.match(/\\.(ts|tsx)$/)){const{execSync}=require('child_process');try{execSync('npx tsc --noEmit 2>&1',{timeout:15000});process.stdout.write(JSON.stringify({systemMessage:'TypeScript: OK'}))}catch(e){process.stdout.write(JSON.stringify({systemMessage:'TypeScript errors found — check with: npx tsc --noEmit'}))}}})\"",
             "timeout": 20,
             "statusMessage": "Type-checking..."
           }
@@ -205,7 +205,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/borris/Desktop/pfaa-engine && node -e \"if(process.env.ECC_HOOK_PROFILE==='off')process.exit(0);let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const inp=JSON.parse(d);const f=inp.tool_input?.file_path||'';if(!f.endsWith('.py'))return;const fs=require('fs');const content=fs.readFileSync(f,'utf8');const suggestions=[];if(content.includes('import ')&&!content.includes('lazy import')){const lines=content.split('\\n');const heavyMods=['numpy','pandas','torch','tensorflow','requests','httpx','sqlalchemy','flask','fastapi','django','pydantic','scipy','matplotlib','boto3','celery'];for(const l of lines){const m=l.match(/^import\\s+(\\w+)/);if(m&&heavyMods.includes(m[1]))suggestions.push('PEP 810: '+l.trim()+' → lazy '+l.trim())}}if(content.match(/^[A-Z_]+\\s*=\\s*\\{/m)&&!content.includes('frozendict'))suggestions.push('PEP 814: UPPER_CASE dict could use frozendict');if(content.includes('def ')&&content.includes('TypeVar')&&!content.match(/def\\s+\\w+\\[/))suggestions.push('PEP 695: Use def func[T]() type param syntax');if(suggestions.length>0)process.stdout.write(JSON.stringify({systemMessage:'Py3.15: '+suggestions.join('; ')}))}catch{}})\"",
+            "command": "node -e \"if(process.env.ECC_HOOK_PROFILE==='off')process.exit(0);let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const inp=JSON.parse(d);const f=inp.tool_input?.file_path||'';if(!f.endsWith('.py'))return;const fs=require('fs');const content=fs.readFileSync(f,'utf8');const suggestions=[];if(content.includes('import ')&&!content.includes('lazy import')){const lines=content.split('\\n');const heavyMods=['numpy','pandas','torch','tensorflow','requests','httpx','sqlalchemy','flask','fastapi','django','pydantic','scipy','matplotlib','boto3','celery'];for(const l of lines){const m=l.match(/^import\\s+(\\w+)/);if(m&&heavyMods.includes(m[1]))suggestions.push('PEP 810: '+l.trim()+' → lazy '+l.trim())}}if(content.match(/^[A-Z_]+\\s*=\\s*\\{/m)&&!content.includes('frozendict'))suggestions.push('PEP 814: UPPER_CASE dict could use frozendict');if(content.includes('def ')&&content.includes('TypeVar')&&!content.match(/def\\s+\\w+\\[/))suggestions.push('PEP 695: Use def func[T]() type param syntax');if(suggestions.length>0)process.stdout.write(JSON.stringify({systemMessage:'Py3.15: '+suggestions.join('; ')}))}catch{}})\"",
             "timeout": 5,
             "statusMessage": "Py3.15 check..."
           }
@@ -217,7 +217,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /Users/borris/Desktop/pfaa-engine/.claude/hooks/banner.cjs",
+            "command": "node .claude/hooks/banner.cjs",
             "once": false,
             "statusMessage": "Loading Aussie Agents..."
           }
@@ -227,7 +227,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/jmem_recall.py",
+            "command": "python3 .claude/hooks/jmem_recall.py",
             "timeout": 5,
             "statusMessage": "Recalling JMEM context..."
           }
@@ -263,7 +263,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /Users/borris/Desktop/pfaa-engine/.claude/hooks/stop_scan.cjs",
+            "command": "node .claude/hooks/stop_scan.cjs",
             "statusMessage": "Scanning for new capabilities..."
           }
         ]
@@ -272,7 +272,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/jmem_store_episode.py",
+            "command": "python3 .claude/hooks/jmem_store_episode.py",
             "timeout": 5,
             "statusMessage": "Storing JMEM episode..."
           }
@@ -282,7 +282,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py Stop",
+            "command": "python3 .claude/hooks/cortex.py Stop",
             "timeout": 10,
             "statusMessage": "Cortex: stop..."
           }
@@ -320,7 +320,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py SubagentStart",
+            "command": "python3 .claude/hooks/cortex.py SubagentStart",
             "timeout": 5,
             "statusMessage": "Cortex: agent start..."
           }
@@ -332,7 +332,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py SubagentStop",
+            "command": "python3 .claude/hooks/cortex.py SubagentStop",
             "timeout": 10,
             "statusMessage": "Cortex: agent stop..."
           }
@@ -344,7 +344,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py PostToolUseFailure",
+            "command": "python3 .claude/hooks/cortex.py PostToolUseFailure",
             "timeout": 5,
             "statusMessage": "Cortex: tool failure..."
           }
@@ -356,7 +356,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py TaskCompleted",
+            "command": "python3 .claude/hooks/cortex.py TaskCompleted",
             "timeout": 5,
             "statusMessage": "Cortex: task done..."
           }
@@ -368,7 +368,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py UserPromptSubmit",
+            "command": "python3 .claude/hooks/cortex.py UserPromptSubmit",
             "timeout": 3,
             "statusMessage": "Cortex: recall..."
           }
@@ -381,7 +381,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /Users/borris/Desktop/pfaa-engine/.claude/hooks/cortex.py FileChanged",
+            "command": "python3 .claude/hooks/cortex.py FileChanged",
             "timeout": 10,
             "statusMessage": "Cortex: file scan..."
           }
@@ -391,7 +391,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "node /Users/borris/Desktop/pfaa-engine/.claude/hooks/statusline.cjs",
+    "command": "node .claude/hooks/statusline.cjs",
     "padding": 0
   },
   "enableAllProjectMcpServers": true,
@@ -402,9 +402,9 @@
         "-m",
         "jmem"
       ],
-      "cwd": "/Users/borris/Desktop/pfaa-engine",
+      "cwd": ".",
       "env": {
-        "PYTHONPATH": "/Users/borris/Desktop/pfaa-engine/python",
+        "PYTHONPATH": "python",
         "PFAA_AGENT_NAME": "claude-code"
       }
     }
