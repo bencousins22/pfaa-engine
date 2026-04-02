@@ -208,6 +208,46 @@ export class MemoryStore {
     }
   }
 
+  // ── Consolidate (promote high-Q memories) ──────────────────────
+  async consolidate(opts: { minQ?: number; minRetrievals?: number } = {}): Promise<{
+    promoted: number
+    pruned: number
+  }> {
+    if (!await this.checkAvailable()) return { promoted: 0, pruned: 0 }
+
+    const minQ = opts.minQ ?? 0.8
+    const minRetrievals = opts.minRetrievals ?? 3
+    let promoted = 0
+    let pruned = 0
+
+    try {
+      const all = await this.list({ limit: 500 })
+
+      for (const m of all) {
+        const utility = (m.metadata.utility_score as number) ?? 0.5
+        const retrievals = (m.metadata.retrieval_count as number) ?? 0
+        const factType = (m.metadata.fact_type as string) ?? 'episodic'
+
+        // Promote high-Q episodic memories to semantic
+        if (factType === 'episodic' && utility >= minQ && retrievals >= minRetrievals) {
+          await this.qdrantRequest('POST', `/collections/${COLLECTION}/points/payload`, {
+            payload: { fact_type: 'semantic', confidence: utility },
+            points: [m.id],
+          })
+          promoted++
+        }
+
+        // Soft-delete very low utility memories
+        if (utility < 0.2 && retrievals > 5) {
+          await this.forget(m.id)
+          pruned++
+        }
+      }
+    } catch { /* silent */ }
+
+    return { promoted, pruned }
+  }
+
   // ── Stats ──────────────────────────────────────────────────────
   async stats(): Promise<MemoryStats> {
     if (!await this.checkAvailable()) {

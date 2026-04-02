@@ -74,6 +74,25 @@ export class MemoryTool implements Tool {
           required: ['memory_id', 'useful'],
         },
       },
+      {
+        name: 'memory_stats',
+        description: 'Get statistics about the memory store — total count, breakdown by area and fact type, availability status.',
+        input_schema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'memory_consolidate',
+        description: 'Promote high-quality episodic memories to semantic knowledge and prune low-value memories. Uses Q-learning scores to determine promotion eligibility.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            min_q: { type: 'number', description: 'Minimum utility score for promotion (default 0.8)', default: 0.8 },
+            min_retrievals: { type: 'number', description: 'Minimum retrieval count for promotion (default 3)', default: 3 },
+          },
+        },
+      },
     ]
   }
 
@@ -81,7 +100,9 @@ export class MemoryTool implements Tool {
     // Route by which fields are present
     if ('query' in input) return this.recall(input)
     if ('memory_id' in input && 'useful' in input) return this.feedback(input)
+    if ('min_q' in input || 'min_retrievals' in input) return this.consolidate(input)
     if ('content' in input) return this.store_(input)
+    if (Object.keys(input).length === 0) return this.stats()
     return 'Unknown memory operation'
   }
 
@@ -129,5 +150,23 @@ export class MemoryTool implements Tool {
     const event = input.useful ? 'success' : 'failure'
     await this.store.updateUtility([input.memory_id], event)
     return `Memory ${input.memory_id.slice(0, 8)} marked as ${event}. Utility score updated.`
+  }
+
+  private async stats(): Promise<string> {
+    const s = await this.store.stats()
+    if (!s.available) return 'Memory store unavailable (Qdrant not reachable)'
+
+    const areas = Object.entries(s.byArea).map(([k, v]) => `  ${k}: ${v}`).join('\n') || '  (none)'
+    const types = Object.entries(s.byType).map(([k, v]) => `  ${k}: ${v}`).join('\n') || '  (none)'
+
+    return `Memory Stats:\n  Total: ${s.total}\n  Available: ${s.available}\n\nBy Area:\n${areas}\n\nBy Type:\n${types}`
+  }
+
+  private async consolidate(input: Record<string, any>): Promise<string> {
+    const result = await this.store.consolidate({
+      minQ: input.min_q,
+      minRetrievals: input.min_retrievals,
+    })
+    return `Consolidation complete: ${result.promoted} memories promoted (episodic → semantic), ${result.pruned} low-value memories pruned.`
   }
 }
