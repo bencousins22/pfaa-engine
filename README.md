@@ -374,6 +374,24 @@ PFAA is built for Python 3.15, using features that don't exist in earlier versio
 
 ---
 
+## Support This Project
+
+If PFAA is useful to you, consider supporting its development:
+
+<p align="center">
+  <a href="https://github.com/sponsors/bencousins22"><img src="https://img.shields.io/badge/GitHub_Sponsors-♥_Sponsor-ea4aaa?style=for-the-badge&logo=github" alt="GitHub Sponsors" /></a>
+  <a href="https://buymeacoffee.com/bencousins22"><img src="https://img.shields.io/badge/Buy_Me_A_Coffee-☕_Support-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee" /></a>
+  <a href="https://paypal.me/sumdeelumdee88"><img src="https://img.shields.io/badge/PayPal-💙_Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal" /></a>
+</p>
+
+Your support helps fund:
+- Continued development of JMEM semantic memory
+- New agent capabilities and skills
+- FreqTrade strategy research and optimization
+- Infrastructure and compute costs
+
+---
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. PRs welcome.
