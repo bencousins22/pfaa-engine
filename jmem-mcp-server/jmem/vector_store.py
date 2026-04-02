@@ -9,7 +9,7 @@ Features:
     - Q-value boosting for reinforcement learning
     - Incremental vocabulary building
     - SQLite WAL persistence
-    - Async-safe via asyncio.to_thread()
+    - Async-safe via dedicated single-thread DB executor
 """
 
 from __future__ import annotations
@@ -187,7 +187,7 @@ class PureVectorStore:
         self._vectorizer = TFIDFVectorizer()
         self._embedding_cache: dict[str, Embedding] = {}
         self._lock = asyncio.Lock()
-        self._thread_lock = threading.Lock()
+        self._db_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pfaa-vectordb")
         self._initialized = False
 
     async def __aenter__(self) -> Self:
@@ -197,10 +197,15 @@ class PureVectorStore:
     async def __aexit__(self, *exc: Any) -> None:
         await self.close()
 
+    async def _run_in_db_thread(self, fn, *args):
+        """Run a sync function on the dedicated DB thread."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._db_executor, fn, *args)
+
     async def _ensure_initialized(self) -> None:
         if self._initialized:
             return
-        await asyncio.to_thread(self._init_sync)
+        await self._run_in_db_thread(self._init_sync)
         self._initialized = True
 
     def _init_sync(self) -> None:
@@ -274,7 +279,7 @@ class PureVectorStore:
                     self._save_vectorizer_state()
                 return doc_id
 
-            return await asyncio.to_thread(_upsert_sync)
+            return await self._run_in_db_thread(_upsert_sync)
 
     async def search(self, query: str, top_k: int = 5, where: dict[str, Any] | None = None, q_boost: bool = True) -> SearchResults:
         await self._ensure_initialized()
@@ -348,7 +353,7 @@ class PureVectorStore:
                 results.append((doc_id, round(score, 4), meta))
             return results
 
-        return await asyncio.to_thread(_search_sync)
+        return await self._run_in_db_thread(_search_sync)
 
     async def get(self, doc_id: str) -> dict[str, Any] | None:
         await self._ensure_initialized()
@@ -359,7 +364,7 @@ class PureVectorStore:
             if not row:
                 return None
             return {"id": row[0], "text": row[1], "metadata": json.loads(row[2]) if row[2] else {}, "created_at": row[3]}
-        return await asyncio.to_thread(_get_sync)
+        return await self._run_in_db_thread(_get_sync)
 
     async def update_metadata(self, doc_id: str, metadata: dict[str, Any]) -> None:
         async with self._lock:
@@ -367,7 +372,7 @@ class PureVectorStore:
             def _update_sync() -> None:
                 self._conn.execute("UPDATE documents SET metadata = ? WHERE id = ?", (json.dumps(metadata), doc_id))
                 self._conn.commit()
-            await asyncio.to_thread(_update_sync)
+            await self._run_in_db_thread(_update_sync)
 
     async def delete(self, doc_id: str) -> None:
         async with self._lock:
@@ -376,7 +381,7 @@ class PureVectorStore:
                 self._conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
                 self._conn.commit()
                 self._embedding_cache.pop(doc_id, None)
-            await asyncio.to_thread(_delete_sync)
+            await self._run_in_db_thread(_delete_sync)
 
     async def get_all(self, limit: int = 1000) -> list[dict[str, Any]]:
         """Return all documents up to limit."""
@@ -389,11 +394,11 @@ class PureVectorStore:
                 {"id": r[0], "text": r[1], "metadata": json.loads(r[2]) if r[2] else {}, "created_at": r[3]}
                 for r in rows
             ]
-        return await asyncio.to_thread(_get_all_sync)
+        return await self._run_in_db_thread(_get_all_sync)
 
     async def count(self) -> int:
         await self._ensure_initialized()
-        row = await asyncio.to_thread(lambda: self._conn.execute("SELECT COUNT(*) FROM documents").fetchone())
+        row = await self._run_in_db_thread(lambda: self._conn.execute("SELECT COUNT(*) FROM documents").fetchone())
         return row[0] if row else 0
 
     @staticmethod
@@ -430,16 +435,17 @@ class PureVectorStore:
     async def flush(self) -> None:
         async with self._lock:
             if self._conn:
-                await asyncio.to_thread(self._save_vectorizer_state)
+                await self._run_in_db_thread(self._save_vectorizer_state)
 
     async def close(self) -> None:
         if self._conn:
             def _close_sync() -> None:
                 self._save_vectorizer_state()
                 self._conn.close()
-            await asyncio.to_thread(_close_sync)
+            await self._run_in_db_thread(_close_sync)
             self._conn = None
             self._initialized = False
+            self._db_executor.shutdown(wait=False)
 
     async def status(self) -> dict[str, Any]:
         await self._ensure_initialized()

@@ -849,10 +849,12 @@ def test_cortex_end_to_end_cli():
         ("FileChanged", '{"file_path":"/tmp/nonexistent.py"}'),
         ("Stop", '{}'),
     ]
+    env = {**os.environ, "CORTEX_NO_JMEM": "1"}
     for event_type, payload in events:
         result = subprocess.run(
             [sys.executable, cortex_path, event_type],
-            input=payload, capture_output=True, text=True, timeout=30,
+            input=payload, capture_output=True, text=True, timeout=15,
+            env=env,
         )
         assert result.returncode == 0, f"{event_type} failed: {result.stderr}"
 

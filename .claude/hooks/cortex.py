@@ -1059,6 +1059,10 @@ async def _run(event_type: str, raw_input: str) -> Decision | None:
         handler_start = _time.monotonic()
 
         try:
+            # Allow tests to skip slow JMEM init
+            if os.environ.get("CORTEX_NO_JMEM"):
+                raise RuntimeError("JMEM disabled via CORTEX_NO_JMEM")
+
             if str(JMEM_PATH) not in sys.path:
                 sys.path.append(str(JMEM_PATH))
             from jmem.engine import JMemEngine

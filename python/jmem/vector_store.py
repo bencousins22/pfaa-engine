@@ -25,6 +25,7 @@ import re
 import sqlite3
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 logger = logging.getLogger("jmem.vector_store")
@@ -39,7 +40,7 @@ class PureVectorStore:
     """
 
     __slots__ = ("_db_path", "_conn", "_initialized", "_idf_cache",
-                 "_doc_count_cache", "_cache_ts")
+                 "_doc_count_cache", "_cache_ts", "_db_executor")
 
     def __init__(self, db_path: str | None = None):
         self._db_path = db_path or os.path.join(
@@ -50,20 +51,26 @@ class PureVectorStore:
         self._idf_cache: dict[str, float] = {}
         self._doc_count_cache = 0
         self._cache_ts = 0.0
+        self._db_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="jmem-vectordb")
 
     @property
     def is_available(self) -> bool:
         return self._initialized
 
+    async def _run_in_db_thread(self, fn, *args):
+        """Run a sync function on the dedicated DB thread."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._db_executor, fn, *args)
+
     async def _ensure_initialized(self) -> None:
         if self._initialized:
             return
-        await asyncio.to_thread(self._init_sync)
+        await self._run_in_db_thread(self._init_sync)
         self._initialized = True
 
     def _init_sync(self) -> None:
         os.makedirs(os.path.dirname(self._db_path), exist_ok=True)
-        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)  # async: init in thread, use in main
+        self._conn = sqlite3.connect(self._db_path)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.executescript("""
@@ -185,7 +192,7 @@ class PureVectorStore:
             # Invalidate cache since doc count changed
             self._cache_ts = 0
 
-        await asyncio.to_thread(_do)
+        await self._run_in_db_thread(_do)
 
     async def get(self, doc_id: str) -> dict[str, Any] | None:
         """Get a single document by ID."""
@@ -204,7 +211,7 @@ class PureVectorStore:
                 "metadata": json.loads(row[2]),
             }
 
-        return await asyncio.to_thread(_do)
+        return await self._run_in_db_thread(_do)
 
     async def get_all(self) -> list[dict[str, Any]]:
         """Get all documents."""
@@ -218,7 +225,7 @@ class PureVectorStore:
                 for r in rows
             ]
 
-        return await asyncio.to_thread(_do)
+        return await self._run_in_db_thread(_do)
 
     async def delete(self, doc_id: str) -> bool:
         """Delete a document."""
@@ -231,7 +238,7 @@ class PureVectorStore:
             self._cache_ts = 0
             return True
 
-        return await asyncio.to_thread(_do)
+        return await self._run_in_db_thread(_do)
 
     async def update_metadata(self, doc_id: str, metadata: dict[str, Any]) -> None:
         """Update just the metadata of a document."""
@@ -245,7 +252,7 @@ class PureVectorStore:
             )
             conn.commit()
 
-        await asyncio.to_thread(_do)
+        await self._run_in_db_thread(_do)
 
     # ── Search ───────────────────────────────────────────────────
 
@@ -340,7 +347,7 @@ class PureVectorStore:
             scored.sort(key=lambda x: x[1], reverse=True)
             return scored[:top_k]
 
-        return await asyncio.to_thread(_do)
+        return await self._run_in_db_thread(_do)
 
     # ── Status ───────────────────────────────────────────────────
 
@@ -360,11 +367,12 @@ class PureVectorStore:
                 "backend": "SQLite FTS5 + TF-IDF",
             }
 
-        return await asyncio.to_thread(_do)
+        return await self._run_in_db_thread(_do)
 
     async def close(self) -> None:
         """Close the database connection."""
         if self._conn:
-            self._conn.close()
+            await self._run_in_db_thread(self._conn.close)
             self._conn = None
             self._initialized = False
+            self._db_executor.shutdown(wait=False)
