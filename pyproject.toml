@@ -31,3 +31,14 @@ pfaa-py = "agent_setup_cli.cli.__main__:app"
 
 [tool.setuptools.packages.find]
 include = ["agent_setup_cli*", "agents*", "python*"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["jmem", "agent_setup_cli"]
