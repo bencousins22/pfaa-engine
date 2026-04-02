@@ -14,6 +14,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/bencousins22/pfaa-engine/actions/workflows/ci.yml"><img src="https://github.com/bencousins22/pfaa-engine/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/badge/python-3.15-green?style=flat-square" alt="Python 3.15" />
   <img src="https://img.shields.io/badge/spawn-6μs_per_agent-gold?style=flat-square" alt="6μs spawn" />
   <img src="https://img.shields.io/badge/throughput-57K_tasks%2Fsec-green?style=flat-square" alt="57K tasks/sec" />
