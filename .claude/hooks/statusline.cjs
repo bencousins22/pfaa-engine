@@ -1,21 +1,36 @@
 #!/usr/bin/env node
 /**
- * Status line — compact, modern Aussie Agents indicator.
- * Dynamically reads actual counts from settings + JMEM.
+ * Status line — pearl Aussie Agents indicator.
+ * Adapts to light/dark terminal backgrounds.
  */
 
 const R = '\x1b[0m';
 const B = '\x1b[1m';
-const DIM = '\x1b[2m';
 
 const rgb = (r, g, b, s) => `\x1b[38;2;${r};${g};${b}m${s}${R}`;
 
-const gold = s => rgb(212, 160, 23, s);
-const green = s => rgb(0, 230, 118, s);
-const teal = s => rgb(0, 200, 200, s);
-const purple = s => rgb(140, 100, 255, s);
-const dot = `${DIM}\u00b7${R}`;
+// Light/dark detection
+function isLightBg() {
+  const cfg = process.env.COLORFGBG;
+  if (cfg) {
+    const parts = cfg.split(';');
+    const bg = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(bg) && bg >= 8) return true;
+  }
+  const vsc = process.env.VSCODE_THEME_KIND;
+  if (vsc === 'vscode-light' || vsc === 'vscode-high-contrast-light') return true;
+  if ((process.env.ITERM_PROFILE || '').toLowerCase().includes('light')) return true;
+  return false;
+}
+
+const L = isLightBg();
+
+const c = L
+  ? { diamond: [160, 120, 40], name: [60, 50, 70], tools: [30, 130, 90], jmem: [40, 90, 180], mem: [100, 70, 160], q: [160, 120, 40], dot: [160, 150, 170] }
+  : { diamond: [232, 213, 183], name: [248, 248, 255], tools: [168, 230, 207], jmem: [181, 212, 255], mem: [230, 230, 250], q: [232, 213, 183], dot: [212, 212, 216] };
+
+const dot = rgb(...c.dot, '\u00b7');
 
 process.stdout.write(
-  `${gold(B + '\u25c6')} ${gold('Aussie')} ${dot} ${green('44t')} ${dot} ${teal('JMEM')} ${purple('5L')} ${dot} ${gold('Q\u03b1')}`
+  `${rgb(...c.diamond, B + '\u25c6')} ${rgb(...c.name, 'Aussie')} ${dot} ${rgb(...c.tools, '44t')} ${dot} ${rgb(...c.jmem, 'JMEM')} ${rgb(...c.mem, '5L')} ${dot} ${rgb(...c.q, 'Q\u03b1')}`
 );

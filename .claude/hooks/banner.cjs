@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * SessionStart banner — modern, minimal Aussie Agents startup display.
- * Uses 24-bit ANSI color with smooth gradients.
+ * SessionStart banner — pearl Aussie Agents startup display.
+ * Adapts to light/dark terminal backgrounds via COLORFGBG detection.
  */
 
 const R = '\x1b[0m';
@@ -10,7 +10,22 @@ const DIM = '\x1b[2m';
 const ITALIC = '\x1b[3m';
 
 const rgb = (r, g, b, s) => `\x1b[38;2;${r};${g};${b}m${s}${R}`;
-const bg = (r, g, b, s) => `\x1b[48;2;${r};${g};${b}m${s}${R}`;
+
+// ── Light/dark detection ──────────────────────────────────
+function isLightBg() {
+  const cfg = process.env.COLORFGBG;
+  if (cfg) {
+    const parts = cfg.split(';');
+    const bg = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(bg) && bg >= 8) return true;
+  }
+  const vsc = process.env.VSCODE_THEME_KIND;
+  if (vsc === 'vscode-light' || vsc === 'vscode-high-contrast-light') return true;
+  if ((process.env.ITERM_PROFILE || '').toLowerCase().includes('light')) return true;
+  return false;
+}
+
+const light = isLightBg();
 
 // ── Gradient text ──────────────────────────────────────────
 function gradient(text, stops) {
@@ -43,33 +58,67 @@ function gradientLine(char, len, from, to) {
   return out + R;
 }
 
-// ── Build banner ───────────────────────────────────────────
-const title = gradient('AUSSIE AGENTS', [
-  [255, 180, 40],   // warm gold
-  [255, 120, 50],   // orange
-  [0, 220, 120],    // green
-  [0, 200, 220],    // teal
-  [80, 140, 255],   // blue
-  [0, 230, 118],    // accent green
-]);
+// ── Build banner — adaptive pearl ─────────────────────────
+const title = light
+  ? gradient('AUSSIE AGENTS', [
+      [100, 60, 120],    // deep plum
+      [160, 50, 80],     // rose
+      [90, 80, 160],     // purple
+      [40, 110, 140],    // teal
+      [140, 100, 40],    // amber
+      [80, 70, 130],     // indigo
+    ])
+  : gradient('AUSSIE AGENTS', [
+      [255, 255, 255],   // pure white
+      [255, 228, 225],   // misty rose
+      [230, 230, 250],   // lavender
+      [224, 247, 250],   // light cyan
+      [255, 248, 225],   // lemon chiffon
+      [248, 248, 255],   // ghost white
+    ]);
 
-const line = gradientLine('─', 52, [60, 60, 80], [40, 40, 55]);
+const line = light
+  ? gradientLine('━', 52, [180, 170, 190], [140, 130, 160])
+  : gradientLine('━', 52, [212, 212, 216], [192, 192, 192]);
 
-// Stats with pill-style badges
+// Stats — pill badges with adaptive colors
 const pill = (label, value, color) => {
   const [r, g, b] = color;
-  return `${DIM}${rgb(r, g, b, B + value)}${DIM} ${rgb(r, g, b, label)}${R}`;
+  return `${rgb(r, g, b, B + value)} ${rgb(r, g, b, label)}`;
 };
 
-const stats = [
-  pill('tools', '44', [0, 230, 118]),
-  pill('mcp',   '17', [0, 200, 200]),
-  pill('memory', '5L', [140, 100, 255]),
-  pill('hooks',  '7',  [255, 100, 80]),
-  pill('agents','10', [212, 160, 23]),
-].join(`  ${DIM}\u00b7${R}  `);
+// Light mode: deeper, saturated versions; dark mode: soft pastels
+const colors = light
+  ? {
+      tools:  [30, 130, 90],     // deep mint
+      mcp:    [40, 90, 180],     // rich blue
+      memory: [100, 70, 160],    // deep lavender
+      hooks:  [180, 60, 70],     // deep rose
+      agents: [160, 120, 40],    // deep amber
+      dot:    [160, 150, 170],   // warm gray
+      hint:   [120, 110, 130],   // muted plum
+    }
+  : {
+      tools:  [168, 230, 207],   // soft mint
+      mcp:    [181, 212, 255],   // soft sky
+      memory: [230, 230, 250],   // soft lavender
+      hooks:  [255, 228, 225],   // soft rose
+      agents: [232, 213, 183],   // soft shimmer
+      dot:    [212, 212, 216],   // silver
+      hint:   [142, 142, 147],   // muted
+    };
 
-const hint = `${DIM}${ITALIC}${rgb(80, 80, 100, '/aussie-  for commands')}${R}`;
+const dot = `${rgb(...colors.dot, '\u00b7')}`;
+
+const stats = [
+  pill('tools', '44', colors.tools),
+  pill('mcp',   '17', colors.mcp),
+  pill('memory', '5L', colors.memory),
+  pill('hooks',  '7',  colors.hooks),
+  pill('agents','10', colors.agents),
+].join(`  ${dot}  `);
+
+const hint = `${DIM}${ITALIC}${rgb(...colors.hint, '/aussie-  for commands')}${R}`;
 
 const banner = [
   '',
