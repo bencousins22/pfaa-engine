@@ -70,7 +70,7 @@ function getJmemStats() {
     const dbPath = path.join(require('os').homedir(), '.jmem/claude-code/memory.db');
     if (!fs.existsSync(dbPath)) return { memories: 0, avgQ: 0 };
     const out = execFileSync(
-      'sqlite3', [dbPath, 'SELECT COUNT(*), ROUND(AVG(q_value),2) FROM memories;'],
+      'sqlite3', [dbPath, "SELECT COUNT(*), ROUND(AVG(json_extract(metadata, '$.q_value')),2) FROM documents;"],
       { timeout: 2000, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
     ).trim();
     const [count, avgQ] = out.split('|');
