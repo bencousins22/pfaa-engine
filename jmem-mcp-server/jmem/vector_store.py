@@ -23,6 +23,7 @@ import re
 import sqlite3
 import time
 from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Self
 
@@ -175,7 +176,7 @@ class PureVectorStore:
 
     __slots__ = (
         "_db_path", "_conn", "_vectorizer", "_embedding_cache",
-        "_lock", "_initialized",
+        "_lock", "_db_executor", "_initialized",
     )
 
     def __init__(self, db_path: str | None = None):
@@ -186,6 +187,7 @@ class PureVectorStore:
         self._vectorizer = TFIDFVectorizer()
         self._embedding_cache: dict[str, Embedding] = {}
         self._lock = asyncio.Lock()
+        self._thread_lock = threading.Lock()
         self._initialized = False
 
     async def __aenter__(self) -> Self:
@@ -203,7 +205,7 @@ class PureVectorStore:
 
     def _init_sync(self) -> None:
         os.makedirs(os.path.dirname(self._db_path) or ".", exist_ok=True)
-        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)  # async: init in thread, use in main
+        self._conn = sqlite3.connect(self._db_path)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA cache_size=-8000")
