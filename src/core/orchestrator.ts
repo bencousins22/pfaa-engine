@@ -123,7 +123,9 @@ export class Orchestrator {
           }
 
           try {
-            const result = await tool.execute(chunk.input as Record<string, any>)
+            const result = await this.executeWithRetry(
+              tool, chunk.input as Record<string, any>, chunk.name!
+            )
             this.context.addToolResult(chunk.id!, result)
             yield { type: 'tool_result', toolName: chunk.name, result }
             this.opts.audit?.logToolCall(chunk.name!, chunk.input as Record<string, any>, result)
@@ -158,6 +160,30 @@ export class Orchestrator {
     }
 
     yield { type: 'error', message: `Max iterations (${maxIterations}) reached` }
+  }
+
+  private async executeWithRetry(
+    tool: { execute(input: Record<string, any>): Promise<string> },
+    input: Record<string, any>,
+    toolName: string,
+    maxRetries = 2,
+  ): Promise<string> {
+    let lastErr: Error | null = null
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await tool.execute(input)
+      } catch (err: any) {
+        lastErr = err
+        // Only retry on transient errors (timeouts, network)
+        if (err.message?.includes('timeout') || err.message?.includes('ECONNREFUSED') || err.message?.includes('fetch failed')) {
+          const delay = Math.min(100 * Math.pow(2, attempt), 2000)
+          await new Promise(r => setTimeout(r, delay))
+          continue
+        }
+        throw err // Non-transient errors fail immediately
+      }
+    }
+    throw lastErr!
   }
 
   private buildSystemPrompt(): string {

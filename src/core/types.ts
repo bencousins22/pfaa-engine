@@ -35,7 +35,8 @@ export interface AgentEvent {
   type:
     | 'start' | 'text' | 'tool_call' | 'tool_result'
     | 'tool_blocked' | 'tool_error' | 'compacting'
-    | 'compacted' | 'complete' | 'error'
+    | 'compacted' | 'complete' | 'error' | 'memory_recall'
+    | 'retry'
   [key: string]: unknown
 }
 
