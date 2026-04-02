@@ -66,6 +66,18 @@ function getCounts() {
 
 // ── JMEM stats ────────────────────────────────────────────
 function getJmemStats() {
+  // Try daemon first (fast — no subprocess)
+  try {
+    const { jmemRequest } = require('./jmem-client.cjs');
+    const daemonResult = jmemRequest('status', {});
+    if (daemonResult && daemonResult.total_memories != null) {
+      return {
+        memories: daemonResult.total_memories,
+        avgQ: daemonResult.average_q || 0,
+      };
+    }
+  } catch {}
+  // Fallback to sqlite3 CLI
   try {
     const dbPath = path.join(require('os').homedir(), '.jmem/claude-code/memory.db');
     if (!fs.existsSync(dbPath)) return { memories: 0, avgQ: 0 };

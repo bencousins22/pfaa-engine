@@ -46,17 +46,24 @@ try {
   toolCount = skills + 13 + 8; // skills + 13 JMEM MCP + 8 native
 } catch {}
 
-// JMEM memory count
+// JMEM memory count — try daemon first
 let memCount = '';
 try {
-  const dbPath = path.join(require('os').homedir(), '.jmem/claude-code/memory.db');
-  if (fs.existsSync(dbPath)) {
-    const out = execFileSync(
-      'sqlite3', [dbPath, "SELECT COUNT(*) FROM documents;"],
-      { timeout: 1500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-    ).trim();
-    const n = parseInt(out);
-    if (n > 0) memCount = `${n}m`;
+  const { jmemRequest } = require('./jmem-client.cjs');
+  const daemonResult = jmemRequest('status', {});
+  if (daemonResult && daemonResult.total_memories != null) {
+    memCount = `${daemonResult.total_memories}m`;
+  } else {
+    // Fallback to sqlite3
+    const dbPath = path.join(require('os').homedir(), '.jmem/claude-code/memory.db');
+    if (fs.existsSync(dbPath)) {
+      const out = execFileSync(
+        'sqlite3', [dbPath, "SELECT COUNT(*) FROM documents;"],
+        { timeout: 1500, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+      ).trim();
+      const n = parseInt(out);
+      if (n > 0) memCount = `${n}m`;
+    }
   }
 } catch {}
 
