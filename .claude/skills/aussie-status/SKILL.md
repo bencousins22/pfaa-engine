@@ -37,7 +37,7 @@ Count and list:
 
 Count tools by phase using the tool registry:
 ```bash
-cd /Users/borris/Desktop/pfaa-engine/pfaa-cli && npx tsx src/cli.ts tools 2>/dev/null || echo "CLI unavailable"
+cd pfaa-cli && npx tsx src/cli.ts tools 2>/dev/null || echo "CLI unavailable"
 ```
 
 If the CLI is unavailable, read the tool definitions directly:

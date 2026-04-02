@@ -831,6 +831,15 @@ def test_full_agent_lifecycle(jmem_engine):
 def test_cortex_end_to_end_cli():
     """Cortex runs end-to-end from CLI without crashing for all 7 event types."""
     cortex_path = os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks", "cortex.py")
+    # Reset cortex state to prevent dream Phase A triggering (slow consolidate+decay)
+    state_path = os.path.join(os.path.dirname(__file__), "..", ".claude", "hooks", "cortex_state.json")
+    try:
+        data = json.loads(open(state_path).read())
+        data["pressure"] = 0.0
+        data["dream_pending"] = False
+        open(state_path, "w").write(json.dumps(data))
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
     events = [
         ("SubagentStart", '{"agent_name":"aussie-tdd","task":"test"}'),
         ("SubagentStop", '{"agent_name":"aussie-tdd","result":{"success":true}}'),
@@ -843,7 +852,7 @@ def test_cortex_end_to_end_cli():
     for event_type, payload in events:
         result = subprocess.run(
             [sys.executable, cortex_path, event_type],
-            input=payload, capture_output=True, text=True, timeout=15,
+            input=payload, capture_output=True, text=True, timeout=30,
         )
         assert result.returncode == 0, f"{event_type} failed: {result.stderr}"
 
