@@ -41,15 +41,28 @@
   "devDependencies": {
     "@types/node": "^22.13.0",
     "@types/uuid": "^10.0.0",
-    "typescript": "^5.8.2"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=22.0.0"
   },
-  "os": ["darwin", "linux"],
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "keywords": [
-    "ai", "agents", "cli", "claude", "gemini", "autonomous",
-    "pfaa", "mcp", "enterprise", "swarm", "memory", "q-learning"
+    "ai",
+    "agents",
+    "cli",
+    "claude",
+    "gemini",
+    "autonomous",
+    "pfaa",
+    "mcp",
+    "enterprise",
+    "swarm",
+    "memory",
+    "q-learning"
   ],
   "repository": {
     "type": "git",

@@ -320,6 +320,13 @@ async function withBridge<T>(fn: () => Promise<T>): Promise<T> {
 // ── CLI Setup ────────────────────────────────────────────────────────
 
 const program = new Command();
+program.exitOverride(); // Throw instead of process.exit — needed for REPL mode
+program.configureOutput({
+  writeErr: (str) => { if (!replMode) process.stderr.write(str); else console.log(AZ.error(str.trim())); },
+  writeOut: (str) => process.stdout.write(str),
+});
+
+let replMode = false;
 
 program
   .name('pfaa')
@@ -1763,9 +1770,40 @@ function handleShutdown(signal: string): void {
 process.on('SIGINT', () => handleShutdown('SIGINT'));
 process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 
-if (process.argv.length <= 2) {
-  console.log(renderBanner());
-  program.outputHelp();
+// Detect if a subcommand was provided (vs just global flags like --live, --model, etc.)
+const subcommands = program.commands.map(c => c.name());
+const userArgs = process.argv.slice(2);
+const hasSubcommand = userArgs.some(a => subcommands.includes(a));
+
+if (!hasSubcommand) {
+  // Interactive TUI mode — Ink-based React terminal UI
+  // Parse global flags from argv
+  const opts: { model: string; live: boolean; python: string; verbose: boolean; apiKey?: string } = {
+    model: 'claude-sonnet-4-6',
+    live: false,
+    python: 'python3.15',
+    verbose: false,
+  };
+
+  for (let i = 0; i < userArgs.length; i++) {
+    if (userArgs[i] === '--live') opts.live = true;
+    if (userArgs[i] === '--verbose' || userArgs[i] === '-v') opts.verbose = true;
+    if (userArgs[i] === '--model' && userArgs[i + 1]) opts.model = userArgs[++i];
+    if (userArgs[i] === '--python' && userArgs[i + 1]) opts.python = userArgs[++i];
+    if (userArgs[i] === '--api-key' && userArgs[i + 1]) opts.apiKey = userArgs[++i];
+  }
+
+  // Fallback to ANTHROPIC_API_KEY env var if --api-key not provided
+  if (!opts.apiKey && process.env.ANTHROPIC_API_KEY) {
+    opts.apiKey = process.env.ANTHROPIC_API_KEY;
+  }
+
+  import('./tui/index.js').then(({ launchTUI }) => {
+    return launchTUI(opts);
+  }).catch(err => {
+    console.error('Failed to launch TUI:', err);
+    process.exit(1);
+  });
 } else {
   program.parse(process.argv);
 }
