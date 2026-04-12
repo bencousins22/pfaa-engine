@@ -45,10 +45,10 @@ Created by **Jamie** ([@bencousins22](https://github.com/bencousins22))
 │                    PHASE ENGINE                                 │
 │  VAPOR ↔ LIQUID ↔ SOLID · 6 named transitions                  │
 ├──────────────┬──────────────────────────────────────────────────┤
-│  EVENT BUS   │            5-LAYER MEMORY                        │
+│  EVENT BUS   │            6-LAYER MEMORY                        │
 │              │  L1 Episodic → L2 Semantic → L3 Strategic        │
-│  typed events│  → L4 Meta-Learning → L5 Emergent Intelligence   │
-│  WebSocket   │                                                  │
+│  typed events│  → L4 Skill → L5 Meta-Learning                   │
+│  WebSocket   │  → L6 Emergent Intelligence                      │
 │  streaming   │  SQLite WAL persistence (~/.pfaa/memory.db)      │
 ├──────────────┴──────────────────────────────────────────────────┤
 │                    CLAUDE BRIDGE                                │
@@ -73,7 +73,7 @@ agent_setup_cli/
 │   ├── tools_extended.py  501L    16 extended tools (git, docker, system, text)
 │   ├── tools_generated.py  50L    Self-generated tools (codebase_search)
 │   ├── orchestrator.py    233L    Reactive task DAG with dependencies
-│   ├── memory.py          620L    5-layer meta-learning memory
+│   ├── memory.py          620L    6-layer meta-learning memory
 │   ├── persistence.py     402L    SQLite WAL disk-backed memory
 │   ├── claude_bridge.py   371L    Claude Code subprocess integration
 │   ├── autonomous.py      319L    Goal-driven agent with decomposition
@@ -216,30 +216,39 @@ Restart policies: `ALWAYS`, `NEVER`, `ON_ERROR`, `TRANSIENT`
 ### Layer Diagram
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   MEMORY SYSTEM                          │
-│                                                          │
-│  ┌──────────┐  extract   ┌──────────┐  learn  ┌───────┐│
-│  │ L1       │ ─────────► │ L2       │ ──────► │ L3    ││
-│  │ EPISODIC │            │ SEMANTIC │         │STRAT. ││
-│  │          │            │          │         │       ││
-│  │ Raw      │            │ Patterns │         │Phase  ││
-│  │ traces   │            │ per tool │         │optim. ││
-│  └──────────┘            └──────────┘         └───┬───┘│
-│       ▲                                          │     │
-│       │                                  observe │     │
-│       │                                          ▼     │
-│       │                  ┌──────────┐    ┌───────────┐ │
-│       │                  │ L5       │    │ L4        │ │
-│       │                  │ EMERGENT │    │ META      │ │
-│       │                  │          │    │           │ │
-│       └──────────────────│ Cross-   │    │ Learning  │ │
-│         influences       │ agent    │    │ rate      │ │
-│         future           │ knowledge│    │ tuning    │ │
-│         episodes         └──────────┘    └───────────┘ │
-│                                                          │
-│  Persistence: SQLite WAL at ~/.pfaa/memory.db            │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      MEMORY SYSTEM                            │
+│                                                               │
+│  ┌──────────┐  extract   ┌──────────┐  learn   ┌───────────┐│
+│  │ L1       │ ─────────► │ L2       │ ───────► │ L3        ││
+│  │ EPISODIC │            │ SEMANTIC │          │ STRATEGIC ││
+│  │          │            │          │          │           ││
+│  │ Raw      │            │ Patterns │          │ Phase     ││
+│  │ traces   │            │ per tool │          │ optim.    ││
+│  └──────────┘            └──────────┘          └─────┬─────┘│
+│       ▲                                              │      │
+│       │                                     extract  │      │
+│       │                                              ▼      │
+│       │                                      ┌───────────┐  │
+│       │                                      │ L4        │  │
+│       │                                      │ SKILL     │  │
+│       │                                      │           │  │
+│       │                                      │ Executable│  │
+│       │                                      │ capabil.  │  │
+│       │                                      └─────┬─────┘  │
+│       │                                    observe │        │
+│       │                                            ▼        │
+│       │                  ┌──────────┐       ┌───────────┐   │
+│       │                  │ L6       │       │ L5        │   │
+│       │                  │ EMERGENT │       │ META      │   │
+│       │                  │          │       │           │   │
+│       └──────────────────│ Cross-   │       │ Learning  │   │
+│         influences       │ agent    │       │ rate      │   │
+│         future           │ knowledge│       │ tuning    │   │
+│         episodes         └──────────┘       └───────────┘   │
+│                                                               │
+│  Persistence: SQLite WAL at ~/.pfaa/memory.db                 │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### L1 — Episodic Memory
