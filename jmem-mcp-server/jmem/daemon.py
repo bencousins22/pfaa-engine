@@ -59,6 +59,10 @@ class JMemDaemon:
         self._last_activity: float = self._start_time
         self._shutdown_event = asyncio.Event()
         self._watchdog_task: asyncio.Task | None = None
+        # Token-based auth: read from JMEM_AUTH_TOKEN env var.
+        # When set, clients must send {"auth": "<token>"} as their first message.
+        # When unset (None), auth is disabled for backward compatibility.
+        self._auth_token: str | None = os.environ.get("JMEM_AUTH_TOKEN")
 
     # ── Lifecycle ────────────────────────────────────────────────
 
@@ -82,7 +86,8 @@ class JMemDaemon:
         self._last_activity = time.monotonic()
         self._watchdog_task = asyncio.create_task(self._idle_watchdog())
 
-        logger.info("Daemon listening on %s (PID %d)", self.sock_path, os.getpid())
+        auth_status = "enabled" if self._auth_token else "disabled (set JMEM_AUTH_TOKEN to enable)"
+        logger.info("Daemon listening on %s (PID %d, auth=%s)", self.sock_path, os.getpid(), auth_status)
 
     async def stop(self) -> None:
         """Graceful shutdown: close server, engine, clean up files."""
@@ -135,8 +140,40 @@ class JMemDaemon:
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
-        """Handle a single client connection (newline-delimited JSON-RPC)."""
+        """Handle a single client connection (newline-delimited JSON-RPC).
+
+        If JMEM_AUTH_TOKEN is set, the first message from the client must be
+        ``{"auth": "<token>"}``.  On mismatch the connection is closed with an
+        error response.  When JMEM_AUTH_TOKEN is unset, no auth handshake is
+        required (backward compatible).
+        """
         try:
+            # ── Auth handshake (when token is configured) ────────────
+            if self._auth_token is not None:
+                auth_line = await reader.readline()
+                if not auth_line:
+                    return  # client disconnected before auth
+                try:
+                    auth_msg = json.loads(auth_line.decode())
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    auth_msg = {}
+
+                import hmac
+                if not hmac.compare_digest(
+                    auth_msg.get("auth", ""),
+                    self._auth_token,
+                ):
+                    response = {"error": "Authentication failed"}
+                    writer.write(json.dumps(response).encode() + b"\n")
+                    await writer.drain()
+                    logger.warning("Auth rejected from client")
+                    return  # close connection
+
+                # Confirm auth success so the client knows it can proceed
+                writer.write(json.dumps({"result": "authenticated"}).encode() + b"\n")
+                await writer.drain()
+
+            # ── Normal request loop ──────────────────────────────────
             while True:
                 line = await reader.readline()
                 if not line:
