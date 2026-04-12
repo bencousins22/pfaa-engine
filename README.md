@@ -22,7 +22,7 @@
   <img src="https://img.shields.io/badge/tools-92-A8E6CF?style=for-the-badge" alt="92 tools" />
   <img src="https://img.shields.io/badge/JMEM-6_layer-E6E6FA?style=for-the-badge" alt="6-layer JMEM" />
   <img src="https://img.shields.io/badge/memories-750+-D4A0D9?style=for-the-badge" alt="750+ memories" />
-  <img src="https://img.shields.io/badge/tests-262-4CAF50?style=for-the-badge" alt="262 tests" />
+  <img src="https://img.shields.io/badge/tests-362-4CAF50?style=for-the-badge" alt="362 tests" />
 </p>
 
 <br/>
@@ -66,7 +66,7 @@ git clone https://github.com/bencousins22/pfaa-engine.git
 cd pfaa-engine
 npm install && pip install -e .
 
-# Run the test suite (262 tests)
+# Run the test suite (362 tests)
 python3 -m pytest tests/ -v
 
 # In Claude Code — just describe what you want:

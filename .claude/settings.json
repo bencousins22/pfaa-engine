@@ -187,7 +187,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd pfaa-cli && node -e \"if(process.env.ECC_HOOK_PROFILE==='off'){process.exit(0)}let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const f=(JSON.parse(d).tool_input?.file_path||'');if(f.match(/\\.(ts|tsx)$/)){const{execSync}=require('child_process');try{execSync('npx tsc --noEmit 2>&1',{timeout:15000});process.stdout.write(JSON.stringify({systemMessage:'TypeScript: OK'}))}catch(e){process.stdout.write(JSON.stringify({systemMessage:'TypeScript errors found — check with: npx tsc --noEmit'}))}}})\"",
+            "command": "cd pfaa-cli && node ../.claude/hooks/typecheck.cjs",
             "timeout": 20,
             "statusMessage": "Type-checking..."
           }
@@ -198,7 +198,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"if(process.env.ECC_HOOK_PROFILE==='off'){process.exit(0)}let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const inp=JSON.parse(d);const f=inp.tool_input?.file_path||'';if(f.match(/\\.(ts|tsx)\\$/)&&!f.match(/\\.(test|spec)\\./)){const content=inp.tool_result?.content||inp.tool_input?.new_string||inp.tool_input?.content||'';const lines=content.split('\\n');const hits=lines.filter(l=>{const t=l.trim();return/console\\.log/.test(t)&&!t.startsWith('//')&&!t.startsWith('*')}).length;if(hits>0){process.stdout.write(JSON.stringify({systemMessage:'Warning: '+hits+' console.log statement(s) in '+f+' (not in test file)'}))}}})\"",
+            "command": "node .claude/hooks/console-log-check.cjs",
             "timeout": 5,
             "statusMessage": "Checking for console.log..."
           }
@@ -209,7 +209,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"if(process.env.ECC_HOOK_PROFILE==='off')process.exit(0);let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const inp=JSON.parse(d);const f=inp.tool_input?.file_path||'';if(!f.endsWith('.py'))return;const fs=require('fs');const content=fs.readFileSync(f,'utf8');const suggestions=[];if(content.includes('import ')&&!content.includes('lazy import')){const lines=content.split('\\n');const heavyMods=['numpy','pandas','torch','tensorflow','requests','httpx','sqlalchemy','flask','fastapi','django','pydantic','scipy','matplotlib','boto3','celery'];for(const l of lines){const m=l.match(/^import\\s+(\\w+)/);if(m&&heavyMods.includes(m[1]))suggestions.push('PEP 810: '+l.trim()+' → lazy '+l.trim())}}if(content.match(/^[A-Z_]+\\s*=\\s*\\{/m)&&!content.includes('frozendict'))suggestions.push('PEP 814: UPPER_CASE dict could use frozendict');if(content.includes('def ')&&content.includes('TypeVar')&&!content.match(/def\\s+\\w+\\[/))suggestions.push('PEP 695: Use def func[T]() type param syntax');if(suggestions.length>0)process.stdout.write(JSON.stringify({systemMessage:'Py3.15: '+suggestions.join('; ')}))}catch{}})\"",
+            "command": "node .claude/hooks/py315-check.cjs",
             "timeout": 5,
             "statusMessage": "Py3.15 check..."
           }

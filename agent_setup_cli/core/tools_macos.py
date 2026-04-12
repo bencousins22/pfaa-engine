@@ -26,6 +26,15 @@ from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolSpec, registry
 
 
+def _osa_escape(s: str) -> str:
+    """Escape a string for safe embedding in AppleScript double-quoted literals.
+
+    Prevents injection by escaping backslashes and double quotes, which are the
+    only characters with special meaning inside AppleScript "..." strings.
+    """
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
 # ═══════════════════════════════════════════════════════════════════
 # APP & WINDOW MANAGEMENT
 # ═══════════════════════════════════════════════════════════════════
@@ -125,7 +134,7 @@ def tool_clipboard_write(text: str) -> dict[str, Any]:
     isolated=True,
 ))
 def tool_notify(title: str, message: str = "") -> dict[str, Any]:
-    script = f'display notification "{message}" with title "{title}"'
+    script = f'display notification "{_osa_escape(message)}" with title "{_osa_escape(title)}"'
     r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=10)
     return {"success": r.returncode == 0, "title": title}
 
@@ -138,7 +147,10 @@ def tool_notify(title: str, message: str = "") -> dict[str, Any]:
     isolated=True,
 ))
 def tool_say(text: str, voice: str = "Samantha") -> dict[str, Any]:
-    r = subprocess.run(["say", "-v", voice, text], capture_output=True, text=True, timeout=30)
+    # Validate voice name to prevent argument injection (e.g. "-e malicious")
+    if not all(c.isalnum() or c in " -_." for c in voice):
+        return {"success": False, "error": f"Invalid voice name: {voice}"}
+    r = subprocess.run(["say", "-v", voice, "--", text], capture_output=True, text=True, timeout=30)
     return {"success": r.returncode == 0, "text": text[:100], "voice": voice}
 
 
@@ -172,7 +184,7 @@ def tool_finder_selection() -> dict[str, Any]:
 def tool_trash_file(path: str) -> dict[str, Any]:
     if not os.path.exists(path):
         return {"success": False, "error": f"Not found: {path}"}
-    script = f'tell application "Finder" to delete POSIX file "{os.path.abspath(path)}"'
+    script = f'tell application "Finder" to delete POSIX file "{_osa_escape(os.path.abspath(path))}"'
     r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=10)
     return {"success": r.returncode == 0, "path": path}
 
@@ -338,7 +350,7 @@ def tool_calendar_today() -> dict[str, Any]:
     isolated=True,
 ))
 def tool_reminder_add(text: str, list_name: str = "Reminders") -> dict[str, Any]:
-    script = f'tell application "Reminders" to make new reminder in list "{list_name}" with properties {{name:"{text}"}}'
+    script = f'tell application "Reminders" to make new reminder in list "{_osa_escape(list_name)}" with properties {{name:"{_osa_escape(text)}"}}'
     r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=10)
     return {"success": r.returncode == 0, "reminder": text, "list": list_name}
 
