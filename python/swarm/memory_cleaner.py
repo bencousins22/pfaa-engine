@@ -11,9 +11,11 @@ lazy import os
 lazy import sqlite3
 lazy import time
 
+from typing import TypeAlias
+
 # PEP 695
-type MemoryId = str
-type QValue = float
+MemoryId: TypeAlias = str
+QValue: TypeAlias = float
 
 
 def clean_memory(

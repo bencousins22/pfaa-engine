@@ -14,11 +14,12 @@ lazy import yaml
 
 from collections import Counter
 from dataclasses import dataclass, field, asdict
+from typing import TypeAlias
 
 # PEP 695
-type InstinctId = str
-type Confidence = float
-type Domain = str
+InstinctId: TypeAlias = str
+Confidence: TypeAlias = float
+Domain: TypeAlias = str
 
 
 @dataclass(slots=True)

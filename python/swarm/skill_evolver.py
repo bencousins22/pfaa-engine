@@ -13,10 +13,11 @@ lazy import glob
 lazy import yaml
 
 from collections import defaultdict
+from typing import TypeAlias
 
 # PEP 695
-type SkillName = str
-type ClusterId = str
+SkillName: TypeAlias = str
+ClusterId: TypeAlias = str
 
 
 def load_instincts(path: str | None = None) -> list[dict]:

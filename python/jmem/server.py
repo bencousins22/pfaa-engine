@@ -23,12 +23,12 @@ import json
 import logging
 import os
 import sys
-from typing import Any
+from typing import Any, TypeAlias
 
 logger = logging.getLogger("jmem.mcp")
 
-type JsonRpcRequest = dict[str, Any]
-type JsonRpcResponse = dict[str, Any]
+JsonRpcRequest: TypeAlias = dict[str, Any]
+JsonRpcResponse: TypeAlias = dict[str, Any]
 
 AGENT_NAME = os.environ.get("JMEM_AGENT", os.environ.get("PFAA_AGENT_NAME", "default"))
 

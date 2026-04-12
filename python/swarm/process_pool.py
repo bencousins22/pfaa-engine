@@ -20,13 +20,13 @@ import signal
 import sys
 import time
 from dataclasses import dataclass, asdict
-from typing import Any
+from typing import Any, TypeAlias
 
 # ---------------------------------------------------------------------------
 # PEP 695 type aliases
 # ---------------------------------------------------------------------------
-type JsonDict = dict[str, Any]
-type WorkerStatus = str  # "ready" | "busy" | "error"
+JsonDict: TypeAlias = dict[str, Any]
+WorkerStatus: TypeAlias = str  # "ready" | "busy" | "error"
 
 # ---------------------------------------------------------------------------
 # Pre-load expensive modules

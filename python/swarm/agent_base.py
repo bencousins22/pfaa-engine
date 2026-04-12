@@ -17,14 +17,14 @@ import sys
 import time
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeAlias
 
 
 # PEP 695 type aliases
-type AgentId = str
-type JsonDict = dict[str, Any]
-type ToolName = str
-type Tier = str
+AgentId: TypeAlias = str
+JsonDict: TypeAlias = dict[str, Any]
+ToolName: TypeAlias = str
+Tier: TypeAlias = str
 
 
 @dataclass(slots=True)

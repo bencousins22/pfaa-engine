@@ -19,7 +19,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import Any, Callable, TypeAlias
 
 lazy import json
 
@@ -73,8 +73,8 @@ class Event:
         return json.dumps(self.to_dict(), default=str)
 
 
-# PEP 695 type alias for event handlers
-type EventHandler = Callable[[Event], Any]
+# Type alias for event handlers (Python 3.11 compatible)
+EventHandler: TypeAlias = Callable[[Event], Any]
 
 
 class EventBus:

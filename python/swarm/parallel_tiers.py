@@ -17,15 +17,15 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, asdict, field
-from typing import Any, Callable, Awaitable
+from typing import Any, Callable, Awaitable, TypeAlias
 
 # ---------------------------------------------------------------------------
 # PEP 695 type aliases
 # ---------------------------------------------------------------------------
-type TierName = str
-type JsonDict = dict[str, Any]
-type TierRunner = Callable[[TierName, JsonDict], Awaitable[JsonDict]]
-type OnTierDone = Callable[[TierName, JsonDict], None]
+TierName: TypeAlias = str
+JsonDict: TypeAlias = dict[str, Any]
+TierRunner: TypeAlias = Callable[[TierName, JsonDict], Awaitable[JsonDict]]
+OnTierDone: TypeAlias = Callable[[TierName, JsonDict], None]
 
 # ---------------------------------------------------------------------------
 # Dependency graph — defines execution order constraints

@@ -11,9 +11,11 @@ lazy import os
 lazy import time
 lazy import glob
 
+from typing import TypeAlias
+
 # PEP 695
-type SessionId = str
-type SessionState = dict
+SessionId: TypeAlias = str
+SessionState: TypeAlias = dict
 
 
 def save_session(session_id: SessionId, state: SessionState) -> str:

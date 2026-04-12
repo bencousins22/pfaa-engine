@@ -25,16 +25,16 @@ import time
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Self
+from typing import Any, Self, TypeAlias
 
 logger = logging.getLogger("pfaa.vector_store")
 
-# ── PEP 695 Type Aliases ──────────────────────────────────────────
-type Embedding = list[float]
-type TokenFreqs = dict[str, float]
-type DocumentID = str
-type SearchResult = tuple[str, float, dict[str, Any]]
-type SearchResults = list[SearchResult]
+# ── Type Aliases (Python 3.11 compatible) ────────────────────────
+Embedding: TypeAlias = list[float]
+TokenFreqs: TypeAlias = dict[str, float]
+DocumentID: TypeAlias = str
+SearchResult: TypeAlias = tuple[str, float, dict[str, Any]]
+SearchResults: TypeAlias = list[SearchResult]
 
 
 # ═══════════════════════════════════════════════════════════════════

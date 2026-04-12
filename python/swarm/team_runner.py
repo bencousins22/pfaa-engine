@@ -20,7 +20,7 @@ import sys
 import os
 import time
 from dataclasses import dataclass, asdict, field
-from typing import Any
+from typing import Any, TypeAlias
 
 # Add parent to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -38,9 +38,9 @@ from agents.nurture import NURTURE_AGENTS
 from agents.content import CONTENT_AGENTS
 from agents.operations import OPERATIONS_AGENTS
 
-type AgentId = str
-type JsonDict = dict[str, Any]
-type TierName = str
+AgentId: TypeAlias = str
+JsonDict: TypeAlias = dict[str, Any]
+TierName: TypeAlias = str
 
 TIER_REGISTRY: dict[TierName, list[JsonDict]] = {
     "intelligence": INTELLIGENCE_AGENTS,
