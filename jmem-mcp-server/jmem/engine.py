@@ -143,6 +143,13 @@ class JMemEngine:
         await self._store._ensure_initialized()
         await self._restore_adaptive_thresholds()
 
+    async def __aenter__(self) -> "JMemEngine":
+        await self.start()
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        pass
+
     async def _restore_adaptive_thresholds(self) -> None:
         """Restore persisted adaptive thresholds from a META memory (if any)."""
         try:
