@@ -19,7 +19,7 @@ import os
 import sys
 import time
 
-lazy import json
+import json
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolRegistry

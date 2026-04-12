@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-lazy import json
+import json
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolRegistry

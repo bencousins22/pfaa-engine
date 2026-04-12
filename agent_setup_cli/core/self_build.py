@@ -28,7 +28,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-lazy import json
+import json
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolRegistry
@@ -413,7 +413,7 @@ Python 3.15: Uses lazy imports throughout.
 
 from __future__ import annotations
 
-lazy import json
+import json
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolSpec, registry

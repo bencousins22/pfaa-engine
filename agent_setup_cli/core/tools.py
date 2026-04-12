@@ -22,12 +22,12 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-lazy import subprocess
-lazy import json
-lazy import hashlib
-lazy import shlex
-lazy import urllib.request
-lazy import tempfile
+import subprocess
+import json
+import hashlib
+import shlex
+import urllib.request
+import tempfile
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.agent import AgentConfig, FluidAgent, TaskResult

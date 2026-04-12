@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable, TypeAlias
 
-lazy import json
+import json
 
 logger = logging.getLogger("pfaa.streaming")
 

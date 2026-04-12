@@ -21,8 +21,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-lazy import sqlite3
-lazy import json
+import sqlite3
+import json
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.memory import (

@@ -26,8 +26,8 @@ import time
 from typing import Any
 
 # Python 3.15 lazy imports — these won't load until first use
-lazy import json
-lazy import urllib.request
+import json
+import urllib.request
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.agent import (

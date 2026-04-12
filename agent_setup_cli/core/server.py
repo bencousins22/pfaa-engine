@@ -24,8 +24,8 @@ import os
 import time
 from typing import Any
 
-lazy import json
-lazy import uvicorn
+import json
+import uvicorn
 
 from agent_setup_cli.core.framework import Framework
 from agent_setup_cli.core.streaming import EventBus, EventType, Event
@@ -33,9 +33,9 @@ from agent_setup_cli.core.streaming import EventBus, EventType, Event
 logger = logging.getLogger("pfaa.server")
 
 # Lazy import FastAPI — only loads when server actually starts
-lazy from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-lazy from fastapi.responses import JSONResponse
-lazy from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 
 def create_app(framework: Framework | None = None) -> FastAPI:
