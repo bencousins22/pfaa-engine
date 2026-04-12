@@ -2,15 +2,15 @@
 Aussie Agents Instinct Learner — Python 3.15
 Extracts recurring patterns from PFAA memory into instincts.
 
-Features: lazy import, match/case, PEP 695 type aliases, frozendict
+Features: import, match/case, PEP 695 type aliases, frozendict
 """
 from __future__ import annotations
 
-lazy import json
-lazy import os
-lazy import time
-lazy import sqlite3
-lazy import yaml
+import json
+import os
+import time
+import sqlite3
+import yaml
 
 from collections import Counter
 from dataclasses import dataclass, field, asdict

@@ -2,15 +2,15 @@
 Aussie Agents Skill Evolver — Python 3.15
 Clusters high-confidence instincts into auto-generated skills.
 
-Features: lazy import, match/case, PEP 695 type aliases, frozendict
+Features: import, match/case, PEP 695 type aliases, frozendict
 """
 from __future__ import annotations
 
-lazy import json
-lazy import os
-lazy import time
-lazy import glob
-lazy import yaml
+import json
+import os
+import time
+import glob
+import yaml
 
 from collections import defaultdict
 from typing import TypeAlias

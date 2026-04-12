@@ -2,14 +2,14 @@
 Aussie Agents Session Persistence — Python 3.15
 Save and restore session state across Claude Code sessions.
 
-Features: lazy import, match/case, PEP 695 type aliases
+Features: import, match/case, PEP 695 type aliases
 """
 from __future__ import annotations
 
-lazy import json
-lazy import os
-lazy import time
-lazy import glob
+import json
+import os
+import time
+import glob
 
 from typing import TypeAlias
 

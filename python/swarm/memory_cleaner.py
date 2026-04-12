@@ -2,14 +2,14 @@
 Aussie Agents Memory Cleaner — Python 3.15
 Prunes dead memories, merges duplicates, compacts SQLite.
 
-Features: lazy import, match/case, PEP 695 type aliases
+Features: import, match/case, PEP 695 type aliases
 """
 from __future__ import annotations
 
-lazy import json
-lazy import os
-lazy import sqlite3
-lazy import time
+import json
+import os
+import sqlite3
+import time
 
 from typing import TypeAlias
 
