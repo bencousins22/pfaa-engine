@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.13"  # TODO: upgrade to 3.15 when available in actions/setup-python
       - run: pip install ruff
       - name: Ruff check
         run: ruff check agent_setup_cli/ jmem-mcp-server/jmem/ .claude/hooks/*.py --select E,F
@@ -30,11 +30,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.13"  # TODO: upgrade to 3.15 when available in actions/setup-python
       - name: Install dependencies
         run: |
           pip install pytest
-          pip install -e . 2>/dev/null || true
+          pip install -e . || echo "Warning: editable install failed, running with direct imports"
           pip install -r requirements.txt 2>/dev/null || true
       - name: Run tests
         run: pytest tests/ -v --tb=short -x
@@ -69,4 +69,18 @@ jobs:
         run: npm ci
       - name: Run tests
         working-directory: pfaa-cli
-        run: npx vitest run 2>/dev/null || echo "No vitest tests yet"
+        run: npx vitest run --passWithNoTests
+
+  python-typecheck:
+    name: Python Type Check
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"  # TODO: upgrade to 3.15 when available in actions/setup-python
+      - name: Install mypy
+        run: pip install mypy
+      - name: Run mypy
+        run: mypy agent_setup_cli/core/ --ignore-missing-imports --no-error-summary
