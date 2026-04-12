@@ -126,6 +126,7 @@ class JMemEngine:
         self.namespace = namespace
         self._store = PureVectorStore(db_path)
         self._scorer = RLScorer()
+        self._lock = asyncio.Lock()
         # Auto-consolidation: trigger every N stores
         self._store_count = 0
         self._auto_consolidate_interval = 10
@@ -187,32 +188,33 @@ class JMemEngine:
         tags: list[str] | None = None,
     ) -> str:
         """Store a memory at the given cognitive level."""
-        note_id = self._generate_id(content, level)
+        async with self._lock:
+            note_id = self._generate_id(content, level)
 
-        note = MemoryNote(
-            id=note_id,
-            content=content,
-            context=context,
-            level=level,
-            keywords=keywords or self._extract_keywords(content),
-            tags=tags or [],
-        )
+            note = MemoryNote(
+                id=note_id,
+                content=content,
+                context=context,
+                level=level,
+                keywords=keywords or self._extract_keywords(content),
+                tags=tags or [],
+            )
 
-        await self._store.upsert(
-            doc_id=note_id,
-            text=note.composite_text(),
-            metadata=note.to_metadata(),
-        )
+            await self._store.upsert(
+                doc_id=note_id,
+                text=note.composite_text(),
+                metadata=note.to_metadata(),
+            )
 
-        logger.info("Remembered [L%d] %s: %.60s", level.value, note_id[:8], content)
+            logger.info("Remembered [L%d] %s: %.60s", level.value, note_id[:8], content)
 
-        # Auto-consolidation: trigger every N stores
-        self._store_count += 1
-        if self._store_count % self._auto_consolidate_interval == 0:
-            logger.info("Auto-consolidating after %d stores", self._store_count)
-            await self.consolidate()
+            # Auto-consolidation: trigger every N stores
+            self._store_count += 1
+            if self._store_count % self._auto_consolidate_interval == 0:
+                logger.info("Auto-consolidating after %d stores", self._store_count)
+                await self._consolidate_unlocked()
 
-        return note_id
+            return note_id
 
     # ── Recall ───────────────────────────────────────────────────
 
@@ -292,30 +294,31 @@ class JMemEngine:
 
     async def evolve(self, note_id: str, new_content: str) -> str:
         """Mutate a memory's content while preserving metadata."""
-        doc = await self._store.get(note_id)
-        if not doc:
-            raise ValueError(f"Memory not found: {note_id}")
+        async with self._lock:
+            doc = await self._store.get(note_id)
+            if not doc:
+                raise ValueError(f"Memory not found: {note_id}")
 
-        meta = doc.get("metadata", {})
-        if isinstance(meta, str):
-            import json
-            meta = json.loads(meta)
+            meta = doc.get("metadata", {})
+            if isinstance(meta, str):
+                import json
+                meta = json.loads(meta)
 
-        meta["evolved_from"] = note_id
+            meta["evolved_from"] = note_id
 
-        # Create evolved version
-        new_id = self._generate_id(new_content, MemoryLevel(meta.get("level", 1)))
-        note = MemoryNote(
-            id=new_id,
-            content=new_content,
-            level=MemoryLevel(meta.get("level", 1)),
-            keywords=meta.get("keywords", []),
-            q_value=meta.get("q_value", 0.5),
-            evolved_from=note_id,
-        )
+            # Create evolved version
+            new_id = self._generate_id(new_content, MemoryLevel(meta.get("level", 1)))
+            note = MemoryNote(
+                id=new_id,
+                content=new_content,
+                level=MemoryLevel(meta.get("level", 1)),
+                keywords=meta.get("keywords", []),
+                q_value=meta.get("q_value", 0.5),
+                evolved_from=note_id,
+            )
 
-        await self._store.upsert(new_id, note.composite_text(), note.to_metadata())
-        return new_id
+            await self._store.upsert(new_id, note.composite_text(), note.to_metadata())
+            return new_id
 
     # ── Consolidate ──────────────────────────────────────────────
 
@@ -325,6 +328,11 @@ class JMemEngine:
 
         Returns counts of operations performed.
         """
+        async with self._lock:
+            return await self._consolidate_unlocked()
+
+    async def _consolidate_unlocked(self) -> dict[str, int]:
+        """Internal consolidation logic — caller must already hold self._lock."""
         stats = {"linked": 0, "promoted": 0, "synthesized": 0}
 
         # Get all documents
@@ -461,29 +469,30 @@ class JMemEngine:
         Memories idle longer than hours_threshold lose Q-value at decay_rate per day.
         Prevents stale memories from clogging the promotion pipeline.
         """
-        all_docs = await self._store.get_all(limit=2000) if hasattr(self._store, 'get_all') else []
-        now = time.time()
-        decayed = 0
+        async with self._lock:
+            all_docs = await self._store.get_all(limit=2000) if hasattr(self._store, 'get_all') else []
+            now = time.time()
+            decayed = 0
 
-        for doc in all_docs:
-            meta = doc.get("metadata", {})
-            if isinstance(meta, str):
-                import json
-                meta = json.loads(meta)
+            for doc in all_docs:
+                meta = doc.get("metadata", {})
+                if isinstance(meta, str):
+                    import json
+                    meta = json.loads(meta)
 
-            created_at = meta.get("created_at", now)
-            age_hours = (now - created_at) / 3600.0
+                created_at = meta.get("created_at", now)
+                age_hours = (now - created_at) / 3600.0
 
-            if age_hours > hours_threshold:
-                current_q = meta.get("q_value", 0.5)
-                days_idle = age_hours / 24.0
-                new_q = max(0.1, current_q - (decay_rate * days_idle))
-                if new_q < current_q:
-                    meta["q_value"] = round(new_q, 4)
-                    await self._store.update_metadata(doc["id"], meta)
-                    decayed += 1
+                if age_hours > hours_threshold:
+                    current_q = meta.get("q_value", 0.5)
+                    days_idle = age_hours / 24.0
+                    new_q = max(0.1, current_q - (decay_rate * days_idle))
+                    if new_q < current_q:
+                        meta["q_value"] = round(new_q, 4)
+                        await self._store.update_metadata(doc["id"], meta)
+                        decayed += 1
 
-        return {"decayed": decayed, "threshold_hours": hours_threshold}
+            return {"decayed": decayed, "threshold_hours": hours_threshold}
 
     # ── Skill Extraction ────────────────────────────────────────
 
