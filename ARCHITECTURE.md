@@ -284,14 +284,24 @@ hash_data:  SOLID → VAPOR  (1065x faster — same reason)
 line_count: SOLID → VAPOR  (1.4x faster — I/O-bound, subprocess adds overhead)
 ```
 
-### L4 — Meta-Learning
+### L4 — Skill
+
+Executable capabilities auto-extracted from high-Q principles:
+- When a PRINCIPLE has **Q ≥ 0.92** and **retrieval_count ≥ 5**, it is synthesized into a SKILL memory
+- Skills contain actionable steps derived from validated principles
+- Represents the highest form of applied knowledge before meta-cognition
+- Promotion path: L1 Episode → L2 Concept → L3 Principle → **L4 Skill**
+
+### L5 — Meta-Learning
 
 Observes L3's prediction accuracy and adjusts the learning rate:
 - If L3 predictions are **< 30% accurate**: increase learning rate (adapt faster)
 - If L3 predictions are **> 80% accurate**: decrease learning rate (stabilize)
 - Detects strategy drift when effectiveness drops below 30%
+- Analyzes Q-value distribution, promotion velocity, and keyword diversity
+- Adjusts promotion thresholds adaptively (persisted across restarts)
 
-### L5 — Emergent Intelligence
+### L6 — Emergent Intelligence
 
 Cross-agent knowledge synthesis from L1 episodes:
 - **Tool co-occurrence**: which tools frequently run together (window analysis)
@@ -351,7 +361,7 @@ The AutonomousAgent accepts natural language goals and decomposes them using key
 2. CHECKPOINT   save state to ~/.pfaa/checkpoints/{goal_id}.json
 3. EXECUTE DAG  find ready tasks (deps met) → parallel asyncio.gather
 4. RETRY        failed tasks get retried (max 2 replans)
-5. LEARN        force_learn() → update L2/L3/L4/L5
+5. LEARN        force_learn() → update L2/L3/L4/L5/L6
 6. CHECKPOINT   save final state
 ```
 
@@ -500,7 +510,7 @@ Server → Client:
 | Concurrency | `nest_asyncio` + `DeferredTask` threads | Native `asyncio.gather` + `ThreadPoolExecutor` + `ProcessPoolExecutor` |
 | Isolation | All-or-nothing Docker container | 3 phases — choose per-task |
 | Delegation | Flat `call_subordinate` (sequential) | Supervisor tree with restart policies |
-| Memory | Vector DB embeddings only | 5-layer meta-learning (L1→L5) |
+| Memory | Vector DB embeddings only | 6-layer meta-learning (L1→L6) |
 | Learning | None — static behavior | Epsilon-greedy exploration + L3 strategy discovery |
 | Persistence | RAM only | SQLite WAL — survives restarts |
 | Self-improvement | Manual tool development | Self-build loop (generate → test → apply) |
@@ -516,7 +526,7 @@ Server → Client:
 
 ```
 ~/.pfaa/
-├── memory.db              SQLite WAL — persistent 5-layer memory
+├── memory.db              SQLite WAL — persistent 6-layer memory
 └── checkpoints/
     ├── goal-abc123.json   Checkpoint for each goal execution
     ├── goal-def456.json
