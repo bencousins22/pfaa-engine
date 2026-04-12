@@ -19,8 +19,11 @@ class ClaudeCodeClient:
         """Run CLI command and analyze output with Claude"""
         if not self.is_available():
              return {"success": False, "error": "Claude API key not set"}
+        # Reject commands with path traversal or empty commands
+        if not command or "/" in command and ".." in command:
+            return {"success": False, "error": "Invalid command"}
         try:
-            result = subprocess.run([command] + args, 
+            result = subprocess.run([command] + [str(a) for a in args],
                                    capture_output=True,
                                    text=True,
                                    timeout=30)
