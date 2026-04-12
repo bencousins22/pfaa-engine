@@ -1,0 +1,23 @@
+# Asian Racing Prediction — Dependencies
+# Core
+pandas>=2.0
+numpy>=1.24
+pyarrow>=14.0          # Parquet support
+
+# Model
+lightgbm>=4.0
+optuna>=3.5            # Hyperparameter search
+scikit-learn>=1.3      # Calibration utilities
+
+# Statistics
+scipy>=1.11            # KS-test for feature drift
+
+# API
+anthropic>=0.40        # Claude Opus 4.6 agent dispatch
+
+# Testing
+pytest>=7.4
+
+# Optional — data acquisition
+# requests>=2.31
+# beautifulsoup4>=4.12

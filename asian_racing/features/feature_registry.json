@@ -1,0 +1,62 @@
+{
+  "draw": {
+    "dtype": "int64",
+    "description": "Barrier position (1-indexed)",
+    "missing_sentinel": -1.0
+  },
+  "field_size": {
+    "dtype": "int64",
+    "description": "Number of runners in the race",
+    "missing_sentinel": -1.0
+  },
+  "handicap_weight": {
+    "dtype": "float64",
+    "description": "Weight carried in pounds (-1 if missing)",
+    "missing_sentinel": -1.0
+  },
+  "days_since_last_run": {
+    "dtype": "float64",
+    "description": "Calendar days since horse's previous start",
+    "missing_sentinel": -1.0
+  },
+  "horse_win_rate_last_5": {
+    "dtype": "float64",
+    "description": "Win rate in horse's last 5 starts",
+    "missing_sentinel": -1.0
+  },
+  "horse_place_rate_last_5": {
+    "dtype": "float64",
+    "description": "Top-3 rate in horse's last 5 starts",
+    "missing_sentinel": -1.0
+  },
+  "jockey_win_rate_last_30d": {
+    "dtype": "float64",
+    "description": "Jockey win rate in last 30 calendar days",
+    "missing_sentinel": -1.0
+  },
+  "trainer_win_rate_last_30d": {
+    "dtype": "float64",
+    "description": "Trainer win rate in last 30 calendar days",
+    "missing_sentinel": -1.0
+  },
+  "class_change": {
+    "dtype": "float64",
+    "description": "Today's class minus last-start class (positive = dropped in class)",
+    "missing_sentinel": -1.0
+  },
+  "distance_suit": {
+    "dtype": "float64",
+    "description": "Horse win rate at this distance ±100m",
+    "missing_sentinel": -1.0
+  },
+  "going_suit": {
+    "dtype": "float64",
+    "description": "Horse win rate on this going category",
+    "missing_sentinel": -1.0
+  },
+  "speed_figure_last": {
+    "dtype": "float64",
+    "description": "Sectional-derived speed figure from last start (distance/time)",
+    "missing_sentinel": -1.0
+  }
+}
