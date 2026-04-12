@@ -1,4 +1,8 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "MCP_CONNECTION_NONBLOCKING": "true"
+  },
   "agents": {
     "pfaa-lead": {
       "path": ".claude/agents/pfaa-lead.md",
@@ -394,6 +398,18 @@
             "command": "python3 .claude/hooks/cortex.py FileChanged",
             "timeout": 10,
             "statusMessage": "Cortex: file scan..."
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const inp=JSON.parse(d);const tool=inp.tool_name||'';const retryable=['Bash','Read','Glob','Grep'];if(retryable.includes(tool)){process.stdout.write(JSON.stringify({retry:true}))}else{process.stdout.write(JSON.stringify({retry:false}))}}catch{process.stdout.write(JSON.stringify({retry:false}))}})\"",
+            "timeout": 5,
+            "statusMessage": "Evaluating permission denial..."
           }
         ]
       }
