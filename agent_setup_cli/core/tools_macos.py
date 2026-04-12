@@ -47,6 +47,9 @@ def _osa_escape(s: str) -> str:
     isolated=True,
 ))
 def tool_open_app(app_name: str) -> dict[str, Any]:
+    # Validate app name to prevent argument injection
+    if not all(c.isalnum() or c in " -_." for c in app_name):
+        return {"success": False, "app": app_name, "error": "Invalid app name characters"}
     r = subprocess.run(["open", "-a", app_name], capture_output=True, text=True, timeout=10)
     return {"success": r.returncode == 0, "app": app_name, "error": r.stderr.strip() if r.returncode != 0 else None}
 
@@ -59,6 +62,9 @@ def tool_open_app(app_name: str) -> dict[str, Any]:
     isolated=True,
 ))
 def tool_open_url(url: str) -> dict[str, Any]:
+    # Validate URL scheme to prevent opening arbitrary file paths or protocols
+    if not url.startswith(("http://", "https://", "mailto:")):
+        return {"success": False, "error": "Only http://, https://, and mailto: URLs allowed"}
     r = subprocess.run(["open", url], capture_output=True, text=True, timeout=10)
     return {"success": r.returncode == 0, "url": url}
 
@@ -371,7 +377,7 @@ def tool_timer(seconds: int = 60, message: str = "Timer done!") -> dict[str, Any
     import time as t
     t.sleep(seconds)
     # Notify when done
-    script = f'display notification "{message}" with title "Aussie Agents Timer" sound name "Glass"'
+    script = f'display notification "{_osa_escape(message)}" with title "Aussie Agents Timer" sound name "Glass"'
     subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=5)
     return {"success": True, "seconds": seconds, "message": message}
 
