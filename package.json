@@ -68,6 +68,6 @@
     "type": "git",
     "url": "https://github.com/bencousins22/pfaa-engine"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "Aussie Agents <team@aussieagents.dev>"
 }
