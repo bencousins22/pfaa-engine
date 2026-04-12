@@ -26,10 +26,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-lazy import subprocess
-lazy import shlex
-lazy import json
-lazy import tempfile
+import subprocess
+import shlex
+import json
+import tempfile
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.agent import AgentConfig, TaskResult

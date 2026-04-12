@@ -19,9 +19,9 @@ import asyncio
 import os
 from typing import Any
 
-lazy import subprocess
-lazy import json
-lazy import time as time_mod
+import subprocess
+import json
+import time as time_mod
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolSpec, registry

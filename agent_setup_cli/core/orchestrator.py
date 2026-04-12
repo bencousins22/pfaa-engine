@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-lazy import json
+import json
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolRegistry, ToolSpec
@@ -130,7 +130,51 @@ class Orchestrator:
             depends_on=depends_on or [],
         )
         self._tasks[task_id] = node
+
+        # Check for circular dependencies after insertion
+        cycle_path = self._detect_cycle(task_id)
+        if cycle_path:
+            del self._tasks[task_id]
+            raise ValueError(
+                f"Circular dependency detected: {' -> '.join(cycle_path)}"
+            )
+
         return task_id
+
+    def _detect_cycle(self, start_id: str) -> list[str] | None:
+        """DFS from start_id through depends_on chains to detect cycles.
+
+        Returns the cycle path if found, or None if no cycle exists.
+        """
+        visited: set[str] = set()
+        path: list[str] = []
+
+        def _dfs(node_id: str) -> bool:
+            if node_id in visited:
+                # Found a cycle — trim path to just the cycle portion
+                try:
+                    cycle_start = path.index(node_id)
+                    path.append(node_id)
+                    del path[:cycle_start]
+                except ValueError:
+                    path.append(node_id)
+                return True
+
+            if node_id not in self._tasks:
+                return False
+
+            visited.add(node_id)
+            path.append(node_id)
+
+            for dep_id in self._tasks[node_id].depends_on:
+                if _dfs(dep_id):
+                    return True
+
+            path.pop()
+            visited.discard(node_id)
+            return False
+
+        return path if _dfs(start_id) else None
 
     # ── Execution ───────────────────────────────────────────────────
 

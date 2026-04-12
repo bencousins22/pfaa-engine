@@ -34,9 +34,9 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Any
 
-lazy import json
-lazy import hashlib
-lazy import statistics
+import json
+import hashlib
+import statistics
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.agent import TaskResult

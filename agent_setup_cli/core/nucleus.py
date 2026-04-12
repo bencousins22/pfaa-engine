@@ -26,7 +26,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-lazy import json
+import json
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.agent import FluidAgent, AgentConfig, TaskResult

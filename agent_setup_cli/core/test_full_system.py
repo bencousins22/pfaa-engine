@@ -22,7 +22,7 @@ import sys
 import tempfile
 import time
 
-lazy import json
+import json
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolRegistry

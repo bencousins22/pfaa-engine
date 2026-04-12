@@ -28,10 +28,10 @@ from agent_setup_cli.core.phase import Phase, Transition, TRANSITIONS
 
 # Lazy imports — these modules only load when the agent actually
 # transitions to a phase that needs them
-lazy import multiprocessing
-lazy import subprocess
-lazy import threading
-lazy import json
+import multiprocessing
+import subprocess
+import threading
+import json
 
 logger = logging.getLogger("pfaa.agent")
 

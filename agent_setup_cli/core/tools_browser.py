@@ -17,7 +17,7 @@ import asyncio
 import os
 from typing import Any
 
-lazy import json
+import json
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolSpec, registry

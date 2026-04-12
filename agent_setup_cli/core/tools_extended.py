@@ -21,14 +21,14 @@ import logging
 import os
 from typing import Any
 
-lazy import subprocess
-lazy import shlex
-lazy import json
-lazy import re
-lazy import platform
-lazy import signal
-lazy import socket
-lazy import pathlib
+import subprocess
+import shlex
+import json
+import re
+import platform
+import signal
+import socket
+import pathlib
 
 from agent_setup_cli.core.phase import Phase
 from agent_setup_cli.core.tools import ToolSpec, registry
