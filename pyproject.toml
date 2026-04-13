@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Phase-Fluid Agent Architecture — enterprise agent framework"
 requires-python = ">=3.11"
 dependencies = [
-    "typer>=0.9.0",
+    "typer>=0.24.1",
     "sqlalchemy>=2.0.0",
     "pydantic>=2.0.0",
     "alembic>=1.12.0",
